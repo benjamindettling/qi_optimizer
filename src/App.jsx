@@ -1,0 +1,223 @@
+import "./index.css";
+import { Board } from "./components/Board";
+import { TopBar } from "./components/TopBar";
+import { ShopSidebar } from "./components/ShopSidebar";
+import { ActionToolbar } from "./components/ActionToolbar";
+import { REGION_MASK, REGION_COLS } from "./config/boardConfig";
+import { UnlockRegionModal } from "./components/modals/UnlockRegionModal";
+import { ChooseGoodModal } from "./components/modals/ChooseGoodModal";
+import { GoodsPurchaseModal } from "./components/modals/GoodsPurchaseModal";
+import { FastBuyModal } from "./components/modals/FastBuyModal";
+import { HarvestModal } from "./components/modals/HarvestModal";
+import { useGameController } from "./hooks/useGameController";
+
+function App() {
+  const {
+    resources,
+    layout,
+    libraryMap,
+    categoryColors,
+    selectedCategory,
+    setSelectedCategory,
+    setSelectedBuildingId,
+    unlockedRegions,
+    goodsModal,
+    setGoodsModal,
+    fastBuyModal,
+    setFastBuyModal,
+    setFastBuyTarget,
+    unlockChoice,
+    setUnlockChoice,
+    unlockGoodSelect,
+    setUnlockGoodSelect,
+    viewMode,
+    setViewMode,
+    status,
+    carried,
+    readyMap,
+    setHoverCell,
+    moveMode,
+    sellMode,
+    refundMode,
+    saves,
+    loadName,
+    setLoadName,
+    harvestModal,
+    stats,
+    happyInfo,
+    previewOrigin,
+    viewRotation,
+    boardTransform,
+    regionTransform,
+    toolbarOffsetPx,
+    boardTransformClass,
+    viewWidth,
+    viewHeight,
+    viewColStart,
+    viewRowStart,
+    currentGoodsCost,
+    currentShardCost,
+    neighborUnlocked,
+    canAnyUnlock,
+    debugRegions,
+    handleCellClick,
+    handleUnlockRegion,
+    toggleDebugRegions,
+    handleDebugUnlockRegion,
+    handleDebugLockRegion,
+    toggleMove,
+    toggleSell,
+    toggleRefund,
+    undoWithCleanup,
+    redoWithCleanup,
+    finishProductions,
+    harvestAll,
+    confirmHarvest,
+    cancelHarvest,
+    handleSaveState,
+    handleLoadState,
+    deleteSave,
+    handleGoodsPurchase,
+    handleFastBuy,
+    resetModes,
+    handleEditResource,
+    handleEditGood,
+    isCellUnlocked,
+    undoStack,
+    redoStack,
+  } = useGameController();
+
+  return (
+    <div className="page layout-row">
+      <ShopSidebar
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        setSelectedBuildingId={setSelectedBuildingId}
+        resources={resources}
+        stats={stats}
+        viewMode={viewMode}
+        regionTransform={regionTransform}
+        unlockedRegions={unlockedRegions}
+        regionMask={REGION_MASK}
+        neighborUnlocked={neighborUnlocked}
+        currentGoodsCost={currentGoodsCost}
+        currentShardCost={currentShardCost}
+        canAnyUnlock={canAnyUnlock}
+        handleUnlockRegion={handleUnlockRegion}
+        REGION_COLS={REGION_COLS}
+        onResetModes={resetModes}
+        debugRegions={debugRegions}
+        onToggleDebugRegions={toggleDebugRegions}
+        onDebugUnlockRegion={handleDebugUnlockRegion}
+        onDebugLockRegion={handleDebugLockRegion}
+      />
+
+      <div className="content-column">
+        <TopBar
+          resources={resources}
+          stats={stats}
+          happyInfo={happyInfo}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          onEditResource={handleEditResource}
+          onEditGood={handleEditGood}
+        />
+        <div className="workspace">
+          <div className="board-area">
+            <Board
+              viewRotation={viewRotation}
+              boardTransform={boardTransform}
+              viewWidth={viewWidth}
+              viewHeight={viewHeight}
+              viewColStart={viewColStart}
+              viewRowStart={viewRowStart}
+              previewOrigin={previewOrigin}
+              isCellUnlocked={isCellUnlocked}
+              handleCellClick={handleCellClick}
+              setHoverCell={setHoverCell}
+              layout={layout}
+              libraryMap={libraryMap}
+              categoryColors={categoryColors}
+              boardTransformClass={boardTransformClass}
+              readyMap={readyMap}
+            />
+            {status && <div className="status">{status}</div>}
+            {carried && (
+              <div className="carry-banner">
+                Carrying {carried.def.name} - place, swap, or trash. Press Esc
+                to cancel.
+              </div>
+            )}
+          </div>
+          <ActionToolbar
+            moveMode={moveMode}
+            onToggleMove={toggleMove}
+            sellMode={sellMode}
+            refundMode={refundMode}
+            onToggleSell={toggleSell}
+            onToggleRefund={toggleRefund}
+            onUndo={undoWithCleanup}
+            onRedo={redoWithCleanup}
+            finishProductions={finishProductions}
+            harvestAll={harvestAll}
+            canUndo={!!undoStack.length}
+            canRedo={!!redoStack.length}
+            onSave={handleSaveState}
+            onLoad={handleLoadState}
+            saves={saves}
+            loadName={loadName}
+            setLoadName={setLoadName}
+            toolbarOffset={toolbarOffsetPx}
+            onDeleteSave={(name) => {
+              deleteSave(name);
+              setLoadName((prev) => (prev === name ? "" : prev));
+            }}
+          />
+        </div>
+      </div>
+      <UnlockRegionModal
+        unlockChoice={unlockChoice}
+        onChooseGoods={(idx, goodsCost) => {
+          setUnlockGoodSelect({ idx, goodsCost });
+          setUnlockChoice(null);
+        }}
+        onUnlockWithShards={(idx) => handleUnlockRegion(idx, "shards")}
+        onCancel={() => setUnlockChoice(null)}
+      />
+
+      <ChooseGoodModal
+        unlockGoodSelect={unlockGoodSelect}
+        goods={resources.goods}
+        layout={layout}
+        libraryMap={libraryMap}
+        onUnlockWithGood={(idx, goodKey) =>
+          handleUnlockRegion(idx, "goods", goodKey)
+        }
+        onCancel={() => setUnlockGoodSelect(null)}
+      />
+
+      <HarvestModal
+        harvestModal={harvestModal}
+        onConfirm={confirmHarvest}
+        onCancel={cancelHarvest}
+      />
+
+      <GoodsPurchaseModal
+        goodsModal={goodsModal}
+        onPurchase={handleGoodsPurchase}
+        onClose={() => setGoodsModal(null)}
+      />
+
+      <FastBuyModal
+        fastBuyModal={fastBuyModal}
+        onFastBuy={handleFastBuy}
+        onCancel={() => {
+          setFastBuyModal(null);
+          setFastBuyTarget(null);
+        }}
+      />
+    </div>
+  );
+}
+
+export default App;

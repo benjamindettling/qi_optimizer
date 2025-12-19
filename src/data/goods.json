@@ -1,0 +1,77 @@
+[
+  {
+    "id": "kupfergiesserei",
+    "name": "Kupfergiesserei",
+    "size": [4, 3],
+    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": { "coins": 10000, "supplies": 8000 },
+      "6": { "coins": 27000, "supplies": 21600 },
+      "12": { "coins": 48000, "supplies": 38400 },
+      "20": { "coins": 70000, "supplies": 56000 }
+    },
+    "produces": "Kupfer"
+  },
+  {
+    "id": "imkerei",
+    "name": "Imkerei",
+    "size": [3, 3],
+    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": { "coins": 10000, "supplies": 8000 },
+      "6": { "coins": 27000, "supplies": 21600 },
+      "12": { "coins": 48000, "supplies": 38400 },
+      "20": { "coins": 70000, "supplies": 56000 }
+    },
+    "produces": "Honig"
+  },
+  {
+    "id": "ziegelei",
+    "name": "Ziegelei",
+    "size": [4, 3],
+    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": { "coins": 10000, "supplies": 8000 },
+      "6": { "coins": 27000, "supplies": 21600 },
+      "12": { "coins": 48000, "supplies": 38400 },
+      "20": { "coins": 70000, "supplies": 56000 }
+    },
+    "produces": "Stein"
+  },
+  {
+    "id": "seilerei",
+    "name": "Seilerei",
+    "size": [3, 2],
+    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": { "coins": 10000, "supplies": 8000 },
+      "6": { "coins": 27000, "supplies": 21600 },
+      "12": { "coins": 48000, "supplies": 38400 },
+      "20": { "coins": 70000, "supplies": 56000 }
+    },
+    "produces": "Seil"
+  },
+  {
+    "id": "schiesspulvermanufaktur",
+    "name": "Schiesspulver-Manufaktur",
+    "size": [3, 3],
+    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": { "coins": 10000, "supplies": 8000 },
+      "6": { "coins": 27000, "supplies": 21600 },
+      "12": { "coins": 48000, "supplies": 38400 },
+      "20": { "coins": 70000, "supplies": 56000 }
+    },
+    "produces": "Schiesspulver"
+  }
+]

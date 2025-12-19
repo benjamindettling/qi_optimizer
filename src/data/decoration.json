@@ -1,0 +1,83 @@
+[
+  {
+    "id": "heckemitblumen",
+    "name": "Hecke mit Blumen",
+    "size": [1, 1],
+    "cost": { "coins": 50000, "supplies": 50000, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.0, "blue": 0.1 }
+  },
+  {
+    "id": "zypresse",
+    "name": "Zypresse",
+    "size": [1, 1],
+    "cost": { "coins": 50000, "supplies": 50000, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.1, "blue": 0.0 }
+  },
+  {
+    "id": "teich",
+    "name": "Teich",
+    "size": [2, 2],
+    "cost": { "coins": 200000, "supplies": 200000, "chronos": 750 },
+    "buildTime": 10,
+    "happinessCost": 75,
+    "armyBoost": { "red": 0.25, "blue": 0.25 }
+  },
+  {
+    "id": "wasserspeier",
+    "name": "Wasserspeier",
+    "size": [1, 1],
+    "cost": { "coins": 75000, "supplies": 62500, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.0, "blue": 0.15 }
+  },
+  {
+    "id": "wegweiser",
+    "name": "Wegweiser",
+    "size": [1, 1],
+    "cost": { "coins": 75000, "supplies": 62500, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.15, "blue": 0.0 }
+  },
+  {
+    "id": "fahne",
+    "name": "Fahne",
+    "size": [1, 1],
+    "cost": { "coins": 300000, "supplies": 250000, "chronos": 750 },
+    "buildTime": 10,
+    "happinessCost": 75,
+    "armyBoost": { "red": 0.2, "blue": 0.2 }
+  },
+  {
+    "id": "baumgruppe",
+    "name": "Baumgruppe",
+    "size": [2, 2],
+    "cost": { "coins": 100000, "supplies": 75000, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.0, "blue": 0.45 }
+  },
+  {
+    "id": "turmruine",
+    "name": "Turmruine",
+    "size": [2, 2],
+    "cost": { "coins": 100000, "supplies": 75000, "chronos": 200 },
+    "buildTime": 1,
+    "happinessCost": 25,
+    "armyBoost": { "red": 0.45, "blue": 0.0 }
+  },
+  {
+    "id": "seefahrerstatue",
+    "name": "Seefahrer-Statue",
+    "size": [1, 1],
+    "cost": { "coins": 400000, "supplies": 300000, "chronos": 750 },
+    "buildTime": 10,
+    "happinessCost": 75,
+    "armyBoost": { "red": 0.3, "blue": 0.3 }
+  }
+]

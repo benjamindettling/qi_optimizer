@@ -1,0 +1,83 @@
+[
+  {
+    "id": "marktplatz",
+    "name": "Marktplatz",
+    "size": [3, 3],
+    "cost": { "coins": 12000, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "happiness": 125,
+    "qunatumActions": 50
+  },
+  {
+    "id": "galgen",
+    "name": "Galgen",
+    "size": [2, 2],
+    "cost": { "coins": 36000, "supplies": 36000, "chronos": 100 },
+    "buildTime": 1,
+    "happiness": 250,
+    "qunatumActions": 100
+  },
+  {
+    "id": "pranger",
+    "name": "Pranger",
+    "size": [2, 2],
+    "cost": { "coins": 120000, "supplies": 120000, "chronos": 500 },
+    "buildTime": 10,
+    "happiness": 750,
+    "qunatumActions": 200
+  },
+  {
+    "id": "kirche",
+    "name": "Kirche",
+    "size": [3, 3],
+    "cost": { "coins": 16800, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "happiness": 160,
+    "qunatumActions": 60
+  },
+  {
+    "id": "druckerei",
+    "name": "Druckerei",
+    "size": [3, 3],
+    "cost": { "coins": 50400, "supplies": 43200, "chronos": 100 },
+    "buildTime": 1,
+    "happiness": 375,
+    "qunatumActions": 150
+  },
+  {
+    "id": "doktor",
+    "name": "Doktor",
+    "size": [3, 3],
+    "cost": { "coins": 168000, "supplies": 144000, "chronos": 500 },
+    "buildTime": 10,
+    "happiness": 1125,
+    "qunatumActions": 300
+  },
+  {
+    "id": "palast",
+    "name": "Palast",
+    "size": [4, 4],
+    "cost": { "coins": 19200, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "happiness": 225,
+    "qunatumActions": 90
+  },
+  {
+    "id": "buecherei",
+    "name": "Bücherei",
+    "size": [4, 4],
+    "cost": { "coins": 57600, "supplies": 50400, "chronos": 100 },
+    "buildTime": 1,
+    "happiness": 500,
+    "qunatumActions": 200
+  },
+  {
+    "id": "kartograph",
+    "name": "Kartograph",
+    "size": [3, 2],
+    "cost": { "coins": 192000, "supplies": 168000, "chronos": 500 },
+    "buildTime": 10,
+    "happiness": 900,
+    "qunatumActions": 240
+  }
+]

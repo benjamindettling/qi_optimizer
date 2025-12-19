@@ -1,0 +1,92 @@
+[
+  {
+    "id": "gerberei",
+    "name": "Gerberei",
+    "size": [3, 3],
+    "cost": { "coins": 12000, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "requiresPeople": 30,
+    "supplyBoost": 0.0,
+    "production": { "coins": 0, "supplies": 12000, "chronos": 10 }
+  },
+  {
+    "id": "schusterwerkstatt",
+    "name": "Schusterwerkstatt",
+    "size": [3, 3],
+    "cost": { "coins": 36000, "supplies": 50000, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 60,
+    "supplyBoost": 0.0,
+    "production": { "coins": 0, "supplies": 24000, "chronos": 75 }
+  },
+  {
+    "id": "baeckerei",
+    "name": "Bäckerei",
+    "size": [4, 3],
+    "cost": { "coins": 84000, "supplies": 100000, "chronos": 1000 },
+    "buildTime": 10,
+    "requiresPeople": 120,
+    "supplyBoost": 0.0,
+    "production": { "coins": 0, "supplies": 60000, "chronos": 250 }
+  },
+  {
+    "id": "bauernhof",
+    "name": "Bauernhof",
+    "size": [4, 5],
+    "cost": { "coins": 16800, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "requiresPeople": 30,
+    "supplyBoost": 0.1,
+    "production": { "coins": 0, "supplies": 7200, "chronos": 10 }
+  },
+  {
+    "id": "alchemistenlabor",
+    "name": "Alchemistenlabor",
+    "size": [3, 2],
+    "cost": { "coins": 50400, "supplies": 60000, "chronos": 200 },
+    "buildTime": 1,
+    "requiresPeople": 60,
+    "supplyBoost": 0.1,
+    "production": { "coins": 0, "supplies": 14000, "chronos": 75 }
+  },
+  {
+    "id": "windmuehle",
+    "name": "Windmühle",
+    "size": [4, 3],
+    "cost": { "coins": 117600, "supplies": 120000, "chronos": 1000 },
+    "buildTime": 10,
+    "requiresPeople": 120,
+    "supplyBoost": 0.1,
+    "production": { "coins": 0, "supplies": 36000, "chronos": 250 }
+  },
+  {
+    "id": "brauerei",
+    "name": "Brauerei",
+    "size": [3, 3],
+    "cost": { "coins": 19200, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "requiresPeople": 30,
+    "supplyBoost": 0.2,
+    "production": { "coins": 0, "supplies": 4800, "chronos": 10 }
+  },
+  {
+    "id": "gewuerzhandlung",
+    "name": "Gewürzhandlung",
+    "size": [3, 3],
+    "cost": { "coins": 57600, "supplies": 70000, "chronos": 200 },
+    "buildTime": 10,
+    "requiresPeople": 60,
+    "supplyBoost": 0.2,
+    "production": { "coins": 0, "supplies": 9600, "chronos": 75 }
+  },
+  {
+    "id": "kueferei",
+    "name": "Küferei",
+    "size": [3, 4],
+    "cost": { "coins": 134400, "supplies": 140000, "chronos": 1000 },
+    "buildTime": 10,
+    "requiresPeople": 120,
+    "supplyBoost": 0.2,
+    "production": { "coins": 0, "supplies": 24000, "chronos": 250 }
+  }
+]

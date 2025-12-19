@@ -1,0 +1,92 @@
+[
+  {
+    "id": "mehrgeschossiges_haus",
+    "name": "Mehrgeschossiges Haus",
+    "size": [2, 2],
+    "cost": { "coins": 10000, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "people": 70,
+    "coinBoost": 0.0,
+    "production": { "coins": 12500, "supplies": 0, "chronos": 10 }
+  },
+  {
+    "id": "fachwerkhaus",
+    "name": "Fachwerkhaus",
+    "size": [2, 2],
+    "cost": { "coins": 30000, "supplies": 50000, "chronos": 200 },
+    "buildTime": 1,
+    "people": 110,
+    "coinBoost": 0.0,
+    "production": { "coins": 25000, "supplies": 0, "chronos": 75 }
+  },
+  {
+    "id": "schindelhaus",
+    "name": "Schindelhaus",
+    "size": [2, 2],
+    "cost": { "coins": 210000, "supplies": 200000, "chronos": 1000 },
+    "buildTime": 10,
+    "people": 150,
+    "coinBoost": 0.0,
+    "production": { "coins": 130000, "supplies": 0, "chronos": 250 }
+  },
+  {
+    "id": "herrenhaus",
+    "name": "Herrenhaus",
+    "size": [2, 2],
+    "cost": { "coins": 14000, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "people": 60,
+    "coinBoost": 0.1,
+    "production": { "coins": 7500, "supplies": 0, "chronos": 10 }
+  },
+  {
+    "id": "sandsteinhaus",
+    "name": "Sandsteinhaus",
+    "size": [2, 2],
+    "cost": { "coins": 42000, "supplies": 60000, "chronos": 200 },
+    "buildTime": 1,
+    "people": 90,
+    "coinBoost": 0.1,
+    "production": { "coins": 15000, "supplies": 0, "chronos": 75 }
+  },
+  {
+    "id": "stadthaus",
+    "name": "Stadthaus",
+    "size": [2, 2],
+    "cost": { "coins": 294125, "supplies": 240000, "chronos": 1000 },
+    "buildTime": 10,
+    "people": 130,
+    "coinBoost": 0.1,
+    "production": { "coins": 78000, "supplies": 0, "chronos": 250 }
+  },
+  {
+    "id": "gutshaus",
+    "name": "Gutshaus",
+    "size": [2, 2],
+    "cost": { "coins": 16000, "supplies": 0, "chronos": 0 },
+    "buildTime": 0,
+    "people": 50,
+    "coinBoost": 0.2,
+    "production": { "coins": 3750, "supplies": 0, "chronos": 10 }
+  },
+  {
+    "id": "mietshaus",
+    "name": "Mietshaus",
+    "size": [2, 2],
+    "cost": { "coins": 48000, "supplies": 70000, "chronos": 200 },
+    "buildTime": 1,
+    "people": 80,
+    "coinBoost": 0.2,
+    "production": { "coins": 7500, "supplies": 0, "chronos": 75 }
+  },
+  {
+    "id": "landgut",
+    "name": "Landgut",
+    "size": [2, 2],
+    "cost": { "coins": 336000, "supplies": 280000, "chronos": 1000 },
+    "buildTime": 10,
+    "people": 110,
+    "coinBoost": 0.2,
+    "production": { "coins": 39000, "supplies": 0, "chronos": 250 }
+  }
+]
