@@ -1,4 +1,4 @@
-import { categories } from "../config/categories";
+ï»¿import { categories } from "../config/categories";
 import { RegionsPanel } from "./RegionsPanel";
 
 export function ShopSidebar({
@@ -14,6 +14,10 @@ export function ShopSidebar({
   neighborUnlocked,
   currentGoodsCost,
   currentShardCost,
+  goodsUnlocks,
+  shardUnlocks,
+  onSetGoodsUnlocks,
+  onSetShardUnlocks,
   canAnyUnlock,
   handleUnlockRegion,
   REGION_COLS,
@@ -75,7 +79,7 @@ export function ShopSidebar({
                     : null,
                 ]
                   .filter(Boolean)
-                  .join(" lú ")
+                  .join(" | ")
               : "";
           return (
             <button
@@ -107,7 +111,7 @@ export function ShopSidebar({
               )}
               <div className="card-cost">
                 {item.cost.coins ?? 0} c / {item.cost.supplies ?? 0} s / {" "}
-                {item.cost.chronos ?? 0} I~IZ
+                {item.cost.chronos ?? 0} t
               </div>
             </button>
           );
@@ -122,6 +126,10 @@ export function ShopSidebar({
         neighborUnlocked={neighborUnlocked}
         currentGoodsCost={currentGoodsCost}
         currentShardCost={currentShardCost}
+        goodsUnlocks={goodsUnlocks}
+        shardUnlocks={shardUnlocks}
+        onSetGoodsUnlocks={onSetGoodsUnlocks}
+        onSetShardUnlocks={onSetShardUnlocks}
         canAnyUnlock={canAnyUnlock}
         handleUnlockRegion={handleUnlockRegion}
         REGION_COLS={REGION_COLS}

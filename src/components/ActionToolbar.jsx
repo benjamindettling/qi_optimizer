@@ -1,3 +1,5 @@
+import { useDropdownMenu } from "../hooks/useDropdownMenu";
+
 export function ActionToolbar({
   moveMode,
   sellMode,
@@ -18,8 +20,16 @@ export function ActionToolbar({
   setLoadName,
   toolbarOffset = 0,
   onDeleteSave,
+  notes,
+  onChangeNotes,
 }) {
   const saveKeys = Object.keys(saves);
+  const {
+    ref: saveMenuRef,
+    isOpen: isSaveMenuOpen,
+    setIsOpen: setIsSaveMenuOpen,
+  } = useDropdownMenu(false);
+
   return (
     <div
       className="actions-column"
@@ -36,7 +46,7 @@ export function ActionToolbar({
         <button
           onClick={onToggleSell}
           className={`mode-button sell ${sellMode ? "active-mode" : ""}`}
-          title="Sell"
+          title="Verkauf Gebäude. Erhalte 1/4 des gezahlten Werts zurück"
         >
           🗑
         </button>
@@ -44,15 +54,17 @@ export function ActionToolbar({
 
       <div className="actions-row">
         <button
-          className="action-button undo"
           onClick={onUndo}
+          className="action-button undo"
+          title="Undo"
           disabled={!canUndo}
         >
           Undo
         </button>
         <button
-          className="action-button redo"
           onClick={onRedo}
+          className="action-button redo"
+          title="Redo"
           disabled={!canRedo}
         >
           Redo
@@ -62,52 +74,114 @@ export function ActionToolbar({
       <button
         onClick={onToggleRefund}
         className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
+        title="DEBUG: Erhalte den VOLLEN Wert des Gebäudes zurück"
       >
-        Refund
+        Full Refund
       </button>
 
-      <button onClick={finishProductions} className="action-button finish">
+      <button
+        onClick={finishProductions}
+        className="action-button finish"
+        title="Beendet alle Produktion. Gebäude können dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
+      >
         Finish Productions
       </button>
-      <button onClick={harvestAll}>Harvest All</button>
-      <button onClick={onSave}>Save</button>
-      <div>
-        <select
-          value={loadName}
-          onChange={(e) => setLoadName(e.target.value)}
-          style={{ width: "100%" }}
+      <button
+        onClick={harvestAll}
+        title="Sammle alle noch nicht eingesammelten Produktionen ein, oder, falls keine Produktionen offen, erntet es die ganze Stadt"
+      >
+        Harvest All
+      </button>
+
+      <button
+        onClick={onSave}
+        title="Speicher aktuellen Stand in deinem Browser. (Hinweis, undo/redo Verlauf wird nicht mitgespeichert)"
+      >
+        Save
+      </button>
+      <div className="save-control" ref={saveMenuRef}>
+        <button
+          type="button"
+          className="save-trigger"
+          onClick={() => setIsSaveMenuOpen((v) => !v)}
+          aria-haspopup="listbox"
+          aria-expanded={isSaveMenuOpen}
         >
-          <option value="">Load state...</option>
-          {saveKeys.map((k) => (
-            <option key={k} value={k}>
-              {k}
-            </option>
-          ))}
-        </select>
+          <span
+            className={`save-trigger-label ${loadName ? "" : "placeholder"}`}
+            title={`${loadName}`}
+          >
+            {loadName || "Load state..."}
+          </span>
+          <span className="save-trigger-caret" aria-hidden="true">
+            ▾
+          </span>
+        </button>
+
+        {isSaveMenuOpen && (
+          <div className="save-menu" role="listbox" aria-label="Saved states">
+            {saveKeys.length === 0 ? (
+              <div className="save-empty">No saves yet</div>
+            ) : (
+              saveKeys.map((k) => (
+                <div
+                  key={k}
+                  className={`save-item ${k === loadName ? "selected" : ""}`}
+                  role="option"
+                  aria-selected={k === loadName}
+                  onClick={() => {
+                    setLoadName(k);
+                    setIsSaveMenuOpen(false);
+                  }}
+                  title={`${k}`}
+                >
+                  <span className="save-item-label">{k}</span>
+
+                  <button
+                    type="button"
+                    className="save-delete"
+                    title={`Delete save ${k}`}
+                    onClick={(e) => {
+                      e.stopPropagation(); // do not select when deleting
+                      if (onDeleteSave) onDeleteSave(k);
+
+                      // If you deleted the currently selected save, clear selection
+                      if (loadName === k) setLoadName("");
+
+                      // Keep menu open so user can delete multiple quickly (optional)
+                      // setIsSaveMenuOpen(false);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         <button
           onClick={() => {
             if (loadName) onLoad(loadName);
           }}
           disabled={!loadName}
-          style={{ marginTop: 4 }}
+          style={{ marginTop: 4, width: "100%" }}
         >
           Load
         </button>
-        {saveKeys.map((k) => (
-          <div
-            key={`del-${k}`}
-            style={{ marginTop: 4, display: "flex", gap: 6 }}
-          >
-            <span style={{ flex: 1 }}>{k}</span>
-            <button
-              className="action-button danger"
-              onClick={() => onDeleteSave && onDeleteSave(k)}
-              title={`Delete save ${k}`}
-            >
-              Delete
-            </button>
-          </div>
-        ))}
+      </div>
+      <div className="notes-card">
+        <label className="notes-label" htmlFor="city-notes">
+          Notes
+        </label>
+        <textarea
+          id="city-notes"
+          className="notes-input"
+          placeholder="Add notes about this setup..."
+          value={notes}
+          onChange={(e) => onChangeNotes?.(e.target.value)}
+          rows={6}
+        />
       </div>
     </div>
   );

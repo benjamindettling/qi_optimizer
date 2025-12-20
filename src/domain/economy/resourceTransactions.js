@@ -9,7 +9,12 @@ export const canAffordPlacement = (resources, def) =>
 
 export const computeSaleOrRefund = (target, libraryMap, refundMode) => {
   if (!target) return { coins: 0, supplies: 0, chronos: 0 };
-  if (refundMode && target.cost) return target.cost;
+  // Full refund is intended as a debug/tooling action: return the original
+  // build cost of the definition (instances don't store cost).
+  if (refundMode)
+    return (
+      libraryMap[target.defId]?.cost ?? { coins: 0, supplies: 0, chronos: 0 }
+    );
   return computeRefund(libraryMap[target.defId]);
 };
 

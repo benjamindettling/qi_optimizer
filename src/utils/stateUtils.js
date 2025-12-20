@@ -22,6 +22,7 @@ export const serializeState = (state) => ({
   sellMode: state.sellMode,
   refundMode: state.refundMode,
   selectedCategory: state.selectedCategory,
+  notes: state.notes ?? "",
 });
 
 /**

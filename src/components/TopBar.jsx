@@ -3,7 +3,11 @@ import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
 import populationIcon from "/population.webp";
 import shardsIcon from "/shards.webp";
-import { GOODS_TYPES } from "../config/boardConfig";
+import {
+  GOODS_TYPES,
+  BOARD_SCALE_MIN,
+  BOARD_SCALE_MAX,
+} from "../config/boardConfig";
 
 export function TopBar({
   resources,
@@ -11,6 +15,8 @@ export function TopBar({
   happyInfo,
   viewMode,
   setViewMode,
+  boardScale,
+  setBoardScale,
   onEditResource,
   onEditGood,
 }) {
@@ -115,28 +121,45 @@ export function TopBar({
       </div>
       <div className="actions">
         <div className="view-switch">
-          <button
-            className={viewMode === "down" ? "active" : ""}
-            onClick={() => setViewMode("down")}
-            title="Down view"
-          >
-            &#8595;
-          </button>
-          <button
-            className={viewMode === "diagonal" ? "active" : ""}
-            onClick={() => setViewMode("diagonal")}
-            title="Diagonal view"
-          >
-            &#8600;
-          </button>
-          <button
-            className={viewMode === "right" ? "active" : ""}
-            onClick={() => setViewMode("right")}
-            title="Right view"
-          >
-            &#8594;
-          </button>
+          <div className="view-buttons">
+            <button
+              className={viewMode === "down" ? "active" : ""}
+              onClick={() => setViewMode("down")}
+              title="Down view"
+            >
+              &#8595;
+            </button>
+            <button
+              className={viewMode === "diagonal" ? "active" : ""}
+              onClick={() => setViewMode("diagonal")}
+              title="Diagonal view"
+            >
+              &#8600;
+            </button>
+            <button
+              className={viewMode === "right" ? "active" : ""}
+              onClick={() => setViewMode("right")}
+              title="Right view"
+            >
+              &#8594;
+            </button>
+          </div>
+
+          <div className="board-scale">
+            <input
+              type="range"
+              min={BOARD_SCALE_MIN}
+              max={BOARD_SCALE_MAX}
+              step={0.05}
+              value={boardScale}
+              onChange={(e) => setBoardScale?.(Number(e.target.value))}
+              title="Board size"
+            />
+          </div>
         </div>
+        <span className="tips-text" title="">
+          Doppelklick auf Ressource, um Wert anzupassen
+        </span>
       </div>
     </header>
   );

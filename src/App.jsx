@@ -1,3 +1,5 @@
+// Top-level app composition: assembles board, sidebar, toolbars, and modals.
+
 import "./index.css";
 import { Board } from "./components/Board";
 import { TopBar } from "./components/TopBar";
@@ -11,6 +13,7 @@ import { FastBuyModal } from "./components/modals/FastBuyModal";
 import { HarvestModal } from "./components/modals/HarvestModal";
 import { useGameController } from "./hooks/useGameController";
 
+// Entry component that wires controller state into all UI pieces.
 function App() {
   const {
     resources,
@@ -21,6 +24,8 @@ function App() {
     setSelectedCategory,
     setSelectedBuildingId,
     unlockedRegions,
+    goodsUnlocks,
+    shardUnlocks,
     goodsModal,
     setGoodsModal,
     fastBuyModal,
@@ -32,6 +37,8 @@ function App() {
     setUnlockGoodSelect,
     viewMode,
     setViewMode,
+    boardScale,
+    setBoardScale,
     status,
     carried,
     readyMap,
@@ -50,6 +57,7 @@ function App() {
     boardTransform,
     regionTransform,
     toolbarOffsetPx,
+    statusOffsetPx,
     boardTransformClass,
     viewWidth,
     viewHeight,
@@ -59,6 +67,8 @@ function App() {
     currentShardCost,
     neighborUnlocked,
     canAnyUnlock,
+    setGoodsUnlocks,
+    setShardUnlocks,
     debugRegions,
     handleCellClick,
     handleUnlockRegion,
@@ -85,6 +95,8 @@ function App() {
     isCellUnlocked,
     undoStack,
     redoStack,
+    notes,
+    handleChangeNotes,
   } = useGameController();
 
   return (
@@ -102,6 +114,10 @@ function App() {
         neighborUnlocked={neighborUnlocked}
         currentGoodsCost={currentGoodsCost}
         currentShardCost={currentShardCost}
+        goodsUnlocks={goodsUnlocks}
+        shardUnlocks={shardUnlocks}
+        onSetGoodsUnlocks={setGoodsUnlocks}
+        onSetShardUnlocks={setShardUnlocks}
         canAnyUnlock={canAnyUnlock}
         handleUnlockRegion={handleUnlockRegion}
         REGION_COLS={REGION_COLS}
@@ -119,6 +135,8 @@ function App() {
           happyInfo={happyInfo}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          boardScale={boardScale}
+          setBoardScale={setBoardScale}
           onEditResource={handleEditResource}
           onEditGood={handleEditGood}
         />
@@ -141,9 +159,19 @@ function App() {
               boardTransformClass={boardTransformClass}
               readyMap={readyMap}
             />
-            {status && <div className="status">{status}</div>}
+            {status && (
+              <div
+                className="status"
+                style={{ marginTop: `${statusOffsetPx || 0}px` }}
+              >
+                {status}
+              </div>
+            )}
             {carried && (
-              <div className="carry-banner">
+              <div
+                className="carry-banner"
+                style={{ marginTop: `${statusOffsetPx || 0}px` }}
+              >
                 Carrying {carried.def.name} - place, swap, or trash. Press Esc
                 to cancel.
               </div>
@@ -168,6 +196,8 @@ function App() {
             loadName={loadName}
             setLoadName={setLoadName}
             toolbarOffset={toolbarOffsetPx}
+            notes={notes}
+            onChangeNotes={handleChangeNotes}
             onDeleteSave={(name) => {
               deleteSave(name);
               setLoadName((prev) => (prev === name ? "" : prev));

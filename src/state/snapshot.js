@@ -13,6 +13,7 @@ export const buildSnapshot = (state) =>
     sellMode: state.sellMode,
     refundMode: state.refundMode,
     selectedCategory: state.selectedCategory,
+    notes: state.notes,
   });
 
 export const applySnapshot = (snapshot, setters) => {
@@ -27,6 +28,7 @@ export const applySnapshot = (snapshot, setters) => {
     setSellMode,
     setRefundMode,
     setSelectedCategory,
+    setNotes,
     nextIdRef,
     townhallDef,
   } = setters;
@@ -42,6 +44,7 @@ export const applySnapshot = (snapshot, setters) => {
   if (snapshot.sellMode !== undefined) setSellMode(snapshot.sellMode);
   if (snapshot.refundMode !== undefined) setRefundMode(snapshot.refundMode);
   if (snapshot.selectedCategory) setSelectedCategory(snapshot.selectedCategory);
+  if (setNotes && snapshot.notes !== undefined) setNotes(snapshot.notes ?? "");
   if (
     townhallDef &&
     !snapshot.layout?.some((l) => l.defId === townhallDef.defId)

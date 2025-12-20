@@ -1,3 +1,5 @@
+// Provides a reusable undo/redo stack hook backed by external snapshot helpers.
+
 import { useCallback, useState } from "react";
 
 /**
@@ -9,11 +11,13 @@ export function useUndoRedo(buildSnapshot, applySnapshot) {
   const [undoStack, setUndoStack] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
 
+  // Push a snapshot onto undo history and clear redo.
   const pushHistory = useCallback((snapshot) => {
     setUndoStack((prev) => [snapshot, ...prev].slice(0, 50));
     setRedoStack([]);
   }, []);
 
+  // Restore the latest undo snapshot and stash current into redo.
   const handleUndo = useCallback(() => {
     setUndoStack((prevUndo) => {
       if (!prevUndo.length) return prevUndo;
@@ -25,6 +29,7 @@ export function useUndoRedo(buildSnapshot, applySnapshot) {
     });
   }, [applySnapshot, buildSnapshot]);
 
+  // Restore the latest redo snapshot and stash current into undo.
   const handleRedo = useCallback(() => {
     setRedoStack((prevRedo) => {
       if (!prevRedo.length) return prevRedo;

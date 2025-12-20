@@ -1,5 +1,9 @@
 import { BOARD_WIDTH, BOARD_HEIGHT } from "../../config/boardConfig";
-import { findInstanceAt, findOverlap, isAreaFree } from "../../utils/layoutUtils";
+import {
+  findInstanceAt,
+  findOverlap,
+  isAreaFree,
+} from "../../utils/layoutUtils";
 import { computeRefund } from "../../utils/gameMath";
 import { hasPopulationForDef } from "../../utils/stateUtils";
 
@@ -93,7 +97,7 @@ export const dropCarried = ({
     pushHistory(snapshot);
     setCarried(null);
     setMoveSnapshot(null);
-    setMoveMode(false);
+    // Stay in Move mode until user toggles it off or selects another mode.
   }
 };
 

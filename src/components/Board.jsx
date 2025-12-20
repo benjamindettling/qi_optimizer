@@ -13,13 +13,18 @@ export function Board({
   libraryMap,
   categoryColors,
   boardTransformClass,
+  cellSizePx,
   readyMap = {},
 }) {
   return (
     <div className="board-wrapper">
       <div
         className={`board-frame ${boardTransformClass}`}
-        style={{ "--view-rotation": viewRotation, transform: boardTransform }}
+        style={{
+          "--view-rotation": viewRotation,
+          "--cell-size": cellSizePx ? `${cellSizePx}px` : undefined,
+          transform: boardTransform,
+        }}
       >
         <div className="board" style={{ "--board-cols": viewWidth }}>
           {Array.from({ length: viewHeight }).map((_, row) => (

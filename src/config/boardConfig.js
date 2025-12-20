@@ -3,6 +3,13 @@ export const REGION_COLS = 7;
 export const REGION_ROWS = 7;
 export const BOARD_WIDTH = REGION_COLS * REGION_SIZE;
 export const BOARD_HEIGHT = REGION_ROWS * REGION_SIZE;
+
+// UI: Board scaling slider (main board only).
+// - BOARD_SCALE_MIN/MAX define the slider range
+// - BOARD_SCALE_DEFAULT defines the initial value
+export const BOARD_SCALE_MIN = 0.6;
+export const BOARD_SCALE_MAX = 1.4;
+export const BOARD_SCALE_DEFAULT = 1.0;
 export const REGION_GOODS_COSTS = [
   30, 60, 90, 130, 180, 240, 310, 390, 480, 580, 700,
 ];

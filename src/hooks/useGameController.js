@@ -1,3 +1,5 @@
+// Central game-state hook: orchestrates layout, placement, economy, regions, undo/redo, and modals.
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BOARD_HEIGHT,
@@ -6,6 +8,7 @@ import {
   REGION_COLS,
   REGION_MASK,
   GOODS_TYPES,
+  BOARD_SCALE_DEFAULT,
 } from "../config/boardConfig";
 import { buildInitialGameState, buildLibrary } from "../state/initialState";
 import {
@@ -49,6 +52,7 @@ import {
   totalFastBuyCost,
 } from "../domain/economy/resourceTransactions";
 
+// Primary controller that exposes all state and actions for the app.
 export const useGameController = () => {
   const { library, libraryMap, categories, categoryColors, townhallDef } =
     useMemo(() => buildLibrary(), []);
@@ -83,6 +87,7 @@ export const useGameController = () => {
   const [moveMode, setMoveMode] = useState(initialState.moveMode);
   const [sellMode, setSellMode] = useState(initialState.sellMode);
   const [refundMode, setRefundMode] = useState(initialState.refundMode);
+  const [notes, setNotes] = useState(initialState.notes);
   const [carried, setCarried] = useState(initialState.carried);
   const [moveSnapshot, setMoveSnapshot] = useState(initialState.moveSnapshot);
   const [harvestModal, setHarvestModal] = useState(initialState.harvestModal);
@@ -96,6 +101,8 @@ export const useGameController = () => {
     initialState.unlockGoodSelect
   );
   const [viewMode, setViewMode] = useState(initialState.viewMode);
+  // UI only: scaling of the main board (does not affect regions panel).
+  const [boardScale, setBoardScale] = useState(BOARD_SCALE_DEFAULT);
   const [status, setStatus] = useState(initialState.status);
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
@@ -118,7 +125,8 @@ export const useGameController = () => {
     if (carryingTownhall) return;
     if (layout.some((l) => l.defId === townhallDef.defId)) return;
 
-    const isUnlocked = (cx, cy) => regionIsCellUnlocked(cx, cy, unlockedRegions);
+    const isUnlocked = (cx, cy) =>
+      regionIsCellUnlocked(cx, cy, unlockedRegions);
     const fitsAt = (x, y, layoutSnapshot) =>
       isAreaFree(
         layoutSnapshot,
@@ -134,9 +142,7 @@ export const useGameController = () => {
       if (prevLayout.some((l) => l.defId === townhallDef.defId))
         return prevLayout;
 
-      let placement = fitsAt(17, 4, prevLayout)
-        ? { x: 17, y: 4 }
-        : null;
+      let placement = fitsAt(17, 4, prevLayout) ? { x: 17, y: 4 } : null;
       if (!placement) {
         for (
           let y = 0;
@@ -188,23 +194,26 @@ export const useGameController = () => {
 
   const updateStatus = useCallback((msg) => {
     setStatus(msg);
-    setTimeout(() => setStatus(""), 2500);
   }, []);
 
+  // Capture a serializable snapshot for undo/redo.
   const buildSnapshot = useCallback(
     () =>
       buildSnapshotState({
         resources,
         layout,
         unlockedRegions,
-        goodsUnlocks,
-        shardUnlocks,
+    goodsUnlocks,
+    setGoodsUnlocks,
+    shardUnlocks,
+    setShardUnlocks,
         nextId: nextId.current,
         readyMap,
         moveMode,
         sellMode,
         refundMode,
         selectedCategory,
+        notes,
       }),
     [
       resources,
@@ -217,9 +226,11 @@ export const useGameController = () => {
       sellMode,
       refundMode,
       selectedCategory,
+      notes,
     ]
   );
 
+  // Restore a serialized snapshot into state.
   const applySnapshot = useCallback(
     (snapshot) =>
       applySnapshotState(snapshot, {
@@ -233,6 +244,7 @@ export const useGameController = () => {
         setSellMode,
         setRefundMode,
         setSelectedCategory,
+        setNotes,
         nextIdRef: nextId,
         townhallDef,
       }),
@@ -247,6 +259,7 @@ export const useGameController = () => {
       setSellMode,
       setRefundMode,
       setSelectedCategory,
+      setNotes,
       townhallDef,
     ]
   );
@@ -254,6 +267,7 @@ export const useGameController = () => {
   const { undoStack, redoStack, pushHistory, handleUndo, handleRedo } =
     useUndoRedo(buildSnapshot, applySnapshot);
 
+  // Clears interaction modes and deselects building.
   const resetModes = useCallback(() => {
     setMoveMode(false);
     setSellMode(false);
@@ -261,6 +275,7 @@ export const useGameController = () => {
     setSelectedBuildingId(null);
   }, []);
 
+  // Debug editor: set numeric resource.
   const handleEditResource = useCallback(
     (key) => {
       if (!key) return;
@@ -276,6 +291,7 @@ export const useGameController = () => {
     [resources, pushHistory, buildSnapshot, setResources, updateStatus]
   );
 
+  // Debug editor: set goods amount.
   const handleEditGood = useCallback(
     (goodKey) => {
       if (!goodKey) return;
@@ -297,23 +313,36 @@ export const useGameController = () => {
     [resources, pushHistory, buildSnapshot, setResources, updateStatus]
   );
 
+  // Undo while clearing any carried building context.
   const undoWithCleanup = useCallback(() => {
+    if (!undoStack.length) {
+      updateStatus("Nothing to undo");
+      return;
+    }
     handleUndo();
+    updateStatus("Undo");
     setCarried(null);
     setMoveSnapshot(null);
-  }, [handleUndo]);
+  }, [handleUndo, undoStack.length, updateStatus]);
 
+  // Redo while clearing any carried building context.
   const redoWithCleanup = useCallback(() => {
+    if (!redoStack.length) {
+      updateStatus("Nothing to redo");
+      return;
+    }
     handleRedo();
+    updateStatus("Redo");
     setCarried(null);
     setMoveSnapshot(null);
-  }, [handleRedo]);
+  }, [handleRedo, redoStack.length, updateStatus]);
 
   const isCellUnlocked = useCallback(
     (x, y) => regionIsCellUnlocked(x, y, unlockedRegions),
     [unlockedRegions]
   );
 
+  // Prompted save of the current snapshot.
   const handleSaveState = useCallback(() => {
     const name = prompt("Save name?");
     if (!name) return;
@@ -322,6 +351,7 @@ export const useGameController = () => {
     updateStatus(`Saved state "${name}"`);
   }, [buildSnapshot, saveSnapshot, updateStatus]);
 
+  // Load a named snapshot and clear transient UI state.
   const handleLoadState = useCallback(
     (name) => {
       const snap = loadSnapshot(name);
@@ -363,12 +393,15 @@ export const useGameController = () => {
   } = useRegionAccess({
     unlockedRegions,
     goodsUnlocks,
+    setGoodsUnlocks,
     shardUnlocks,
+    setShardUnlocks,
     resources,
     layout,
     libraryMap,
   });
 
+  // Collect production for a set of buildings and update readiness.
   const harvestBuildings = useCallback(
     (instances, label = "Harvest", skipPopup = false, skipHistory = false) => {
       if (!instances.length) return;
@@ -407,6 +440,7 @@ export const useGameController = () => {
     [buildSnapshot, libraryMap, stats, setResources, pushHistory, resources]
   );
 
+  // Unlock region via goods or shards, with fast-buy fallback.
   const handleUnlockRegion = useCallback(
     (idx, method, goodKey) => {
       const row = Math.floor(idx / REGION_COLS);
@@ -488,10 +522,12 @@ export const useGameController = () => {
     ]
   );
 
+  // Enable/disable region debug tools.
   const toggleDebugRegions = useCallback(() => {
     setDebugRegions((prev) => !prev);
   }, []);
 
+  // Compute cell bounds (inclusive) for a region index.
   const regionRect = useCallback((idx) => {
     const row = Math.floor(idx / REGION_COLS);
     const col = idx % REGION_COLS;
@@ -505,6 +541,7 @@ export const useGameController = () => {
     };
   }, []);
 
+  // Check if any building occupies a given region.
   const hasAnyBuildingInRegion = useCallback(
     (idx) => {
       const { x0, y0, x1, y1 } = regionRect(idx);
@@ -520,6 +557,7 @@ export const useGameController = () => {
     [layout, regionRect]
   );
 
+  // Debug: unlock a region without cost.
   const handleDebugUnlockRegion = useCallback(
     (idx) => {
       if (!debugRegions) return;
@@ -548,6 +586,7 @@ export const useGameController = () => {
     ]
   );
 
+  // Debug: relock a region if empty and not base.
   const handleDebugLockRegion = useCallback(
     (idx, isBase = false) => {
       if (!debugRegions) return;
@@ -578,6 +617,7 @@ export const useGameController = () => {
     ]
   );
 
+  // Toggle move mode; starts/stops carrying interactions.
   const toggleMove = useCallback(() => {
     pushHistory(buildSnapshot());
     setMoveMode((prev) => {
@@ -595,6 +635,7 @@ export const useGameController = () => {
     });
   }, [buildSnapshot, pushHistory]);
 
+  // Toggle sell mode (coin return).
   const toggleSell = useCallback(() => {
     pushHistory(buildSnapshot());
     setSellMode((prev) => {
@@ -608,6 +649,7 @@ export const useGameController = () => {
     });
   }, [buildSnapshot, pushHistory]);
 
+  // Toggle refund mode (full cost return).
   const toggleRefund = useCallback(() => {
     pushHistory(buildSnapshot());
     setRefundMode((prev) => {
@@ -621,6 +663,7 @@ export const useGameController = () => {
     });
   }, [buildSnapshot, pushHistory]);
 
+  // Execute a goods purchase for a producer building.
   const handleGoodsPurchase = useCallback(
     (def, amount) => {
       const cost = def.goodsCost?.[amount];
@@ -648,6 +691,7 @@ export const useGameController = () => {
     ]
   );
 
+  // Handle fast-buy flow to unlock regions with lacking goods.
   const handleFastBuy = useCallback(
     (option) => {
       if (!fastBuyModal || fastBuyTarget === null) return;
@@ -687,12 +731,14 @@ export const useGameController = () => {
     ]
   );
 
+  // Mark all productions as ready.
   const finishProductions = useCallback(() => {
     const snapshot = buildSnapshot();
     pushHistory(snapshot);
     setReadyMap(finishProductionsReadyMap(layout));
   }, [buildSnapshot, pushHistory, layout]);
 
+  // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
     const readyOnes = layout.filter((b) => readyMap[b.id]);
     if (readyOnes.length > 0) {
@@ -702,14 +748,22 @@ export const useGameController = () => {
     }
   }, [layout, readyMap, harvestBuildings]);
 
+  // Close harvest modal after acknowledgment.
   const confirmHarvest = useCallback(() => {
     setHarvestModal(null);
   }, []);
 
+  // Close harvest modal without extra action.
   const cancelHarvest = useCallback(() => {
     setHarvestModal(null);
   }, []);
 
+  // Update freeform notes tied to the current city state.
+  const handleChangeNotes = useCallback((val) => {
+    setNotes(val ?? "");
+  }, []);
+
+  // Core board click handler covering placement, moving, selling, harvesting, and goods modal.
   const handleCellClick = useCallback(
     (x, y) => {
       const target = findTargetInstance(layout, x, y);
@@ -873,8 +927,10 @@ export const useGameController = () => {
     boardTransform,
     regionTransform,
     toolbarOffsetPx,
+    statusOffsetPx,
     boardTransformClass,
-  } = computeViewTransforms(viewMode, viewWidth, viewHeight);
+    cellSizePx,
+  } = computeViewTransforms(viewMode, viewWidth, viewHeight, boardScale);
 
   return {
     resources,
@@ -888,7 +944,9 @@ export const useGameController = () => {
     setSelectedBuildingId,
     unlockedRegions,
     goodsUnlocks,
+    setGoodsUnlocks,
     shardUnlocks,
+    setShardUnlocks,
     goodsModal,
     setGoodsModal,
     fastBuyModal,
@@ -897,7 +955,12 @@ export const useGameController = () => {
     unlockGoodSelect,
     viewMode,
     setViewMode,
+    boardScale,
+    setBoardScale,
     status,
+    notes,
+    setNotes,
+    handleChangeNotes,
     carried,
     readyMap,
     hoverCell,
@@ -916,7 +979,9 @@ export const useGameController = () => {
     boardTransform,
     regionTransform,
     toolbarOffsetPx,
+    statusOffsetPx,
     boardTransformClass,
+    cellSizePx,
     viewWidth,
     viewHeight,
     viewColStart,
