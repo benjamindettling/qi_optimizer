@@ -142,6 +142,54 @@ button.active {
   line-height: 1.1;
 }
 
+.happiness-block {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.happy-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.happy-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.happy-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #c3d2e5;
+}
+
+.happy-boost {
+  font-weight: 800;
+}
+
+.happy-table {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.happy-table-row {
+  display: contents;
+}
+
+.happy-tier {
+  font-weight: 700;
+}
+
+.happy-delta {
+  text-align: right;
+}
+
 .workspace {
   display: flex;
   gap: 16px;

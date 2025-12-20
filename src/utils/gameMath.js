@@ -1,7 +1,47 @@
+export const HAPPINESS_TIERS = [
+  {
+    cap: 20,
+    mult: 0.2,
+    icon: "/happiness/Rebellisch.webp",
+    label: "Rebellisch",
+  },
+  {
+    cap: 60,
+    mult: 0.6,
+    icon: "/happiness/Widerspenstig.webp",
+    label: "Widerspenstig",
+  },
+  {
+    cap: 80,
+    mult: 0.8,
+    icon: "/happiness/QIZufriedenheit-Unzufrieden.webp",
+    label: "Unzufrieden",
+  },
+  { cap: 120, mult: 1, icon: "/happiness/Neutral.webp", label: "Neutral" },
+  {
+    cap: 140,
+    mult: 1.1,
+    icon: "/happiness/Gehalten.webp",
+    label: "Gehalten",
+  },
+  {
+    cap: 200,
+    mult: 1.2,
+    icon: "/happiness/Zufrieden.webp",
+    label: "Zufrieden",
+  },
+  {
+    cap: Infinity,
+    mult: 1.5,
+    icon: "/happiness/Enthusiastisch.webp",
+    label: "Enthusiastisch",
+  },
+];
+
 export const happinessTier = (provided, required) => {
   if (required <= 0) {
     return {
-      ratio: 2,
+      ratio: 0,
       icon: "/happiness/Enthusiastisch.webp",
       nextDelta: 0,
       label: "Enthusiastisch",
@@ -9,50 +49,14 @@ export const happinessTier = (provided, required) => {
     };
   }
   const percent = (provided / required) * 100;
-  const tiers = [
-    {
-      cap: 20,
-      mult: 0.2,
-      icon: "/happiness/Rebellisch.webp",
-      label: "Rebellisch",
-    },
-    {
-      cap: 60,
-      mult: 0.6,
-      icon: "/happiness/Widerspenstig.webp",
-      label: "Widerspenstig",
-    },
-    {
-      cap: 80,
-      mult: 0.8,
-      icon: "/happiness/QIZufriedenheit-Unzufrieden.webp",
-      label: "Unzufrieden",
-    },
-    { cap: 120, mult: 1, icon: "/happiness/Neutral.webp", label: "Neutral" },
-    {
-      cap: 140,
-      mult: 1.1,
-      icon: "/happiness/Gehalten.webp",
-      label: "Gehalten",
-    },
-    {
-      cap: 200,
-      mult: 1.2,
-      icon: "/happiness/Zufrieden.webp",
-      label: "Zufrieden",
-    },
-    {
-      cap: Infinity,
-      mult: 1.5,
-      icon: "/happiness/Enthusiastisch.webp",
-      label: "Enthusiastisch",
-    },
-  ];
-  const current = tiers.find((t) => percent < t.cap) || tiers[tiers.length - 1];
-  const nextTier = tiers[tiers.indexOf(current) + 1];
+  const current =
+    HAPPINESS_TIERS.find((t) => percent < t.cap) ||
+    HAPPINESS_TIERS[HAPPINESS_TIERS.length - 1];
+  const currentIdx = HAPPINESS_TIERS.indexOf(current);
+  const nextTier = HAPPINESS_TIERS[currentIdx + 1];
   const nextDelta =
     !nextTier || nextTier.cap === Infinity
-      ? -Math.max(0, provided - (required * 200) / 100)
+      ? -Math.max(0, provided - (required * current.cap) / 100)
       : Math.ceil((nextTier.cap * required) / 100 - provided);
   return {
     ratio: current.mult,

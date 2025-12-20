@@ -8,6 +8,7 @@ import {
   BOARD_SCALE_MIN,
   BOARD_SCALE_MAX,
 } from "../config/boardConfig";
+import { HAPPINESS_TIERS } from "../utils/gameMath";
 
 export function TopBar({
   resources,
@@ -20,6 +21,33 @@ export function TopBar({
   onEditResource,
   onEditGood,
 }) {
+  const percentColor = (pct) => {
+    const hue = Math.min(120, Math.max(0, (pct / 200) * 120));
+    return `hsl(${hue}, 70%, 60%)`;
+  };
+
+  const percent = (stats.happinessProvided / stats.happinessRequired) * 100;
+  const tiers = HAPPINESS_TIERS.map((t, idx) => ({
+    ...t,
+    lower: idx === 0 ? 0 : HAPPINESS_TIERS[idx - 1].cap,
+    labelPercent: Math.round(t.mult * 100),
+  }));
+  const currentTierIdx =
+    tiers.findIndex((t) => percent < t.cap) !== -1
+      ? tiers.findIndex((t) => percent < t.cap)
+      : tiers.length - 1;
+
+  const tierRows = tiers
+    .filter((_, idx) => idx !== currentTierIdx)
+    .map((t) => {
+      const target = (t.lower * stats.happinessRequired) / 100;
+      const delta = Math.ceil(target - stats.happinessProvided);
+      return {
+        labelPercent: t.labelPercent,
+        delta,
+      };
+    });
+
   return (
     <header className="topbar">
       <div className="resource-stack">
@@ -74,42 +102,48 @@ export function TopBar({
             </span>
           </div>
         </div>
-        <div
-          className="resource-line happiness"
-          title={`Happiness: ${happyInfo.label}`}
-        >
-          <img src={happyInfo.icon} alt="happiness" />
-          <div className="happy-numbers">
-            <span title="Total happiness">tot: {stats.happinessProvided}</span>
-            <span title="Required happiness">
-              req: {stats.happinessRequired}
-            </span>
-            <span
-              className="large"
-              title="Happiness boost"
-              style={{
-                color: `hsl(${Math.min(
-                  120,
-                  ((happyInfo.percent ?? 0) / 200) * 120
-                )}, 70%, 60%)`,
-              }}
-            >
-              {Math.round((happyInfo.ratio ?? stats.happyMulti) * 100)}%
-            </span>
-            <span
-              title={
-                happyInfo.nextDelta > 0
-                  ? "Happiness needed for next tier"
-                  : "Extra happiness above top tier"
-              }
-              style={{
-                color: happyInfo.nextDelta > 0 ? "#ff7676" : "#6de38f",
-              }}
-            >
-              {happyInfo.nextDelta > 0
-                ? `+${happyInfo.nextDelta}`
-                : `${Math.abs(happyInfo.nextDelta)}`}
-            </span>
+        <div className="happiness-block">
+          <div
+            className="resource-line happiness"
+            title={`Happiness: ${happyInfo.label}`}
+          >
+            <img src={happyInfo.icon} alt="happiness" />
+            <div className="happy-summary">
+              <div className="happy-row">
+                <span className="happy-label">Boost</span>
+                <span
+                  className="happy-boost"
+                  style={{ color: percentColor((happyInfo.ratio ?? 1) * 100) }}
+                  title={`Current tier: ${happyInfo.label}`}
+                >
+                  {Math.round((happyInfo.ratio ?? stats.happyMulti) * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+          <div
+            className="happy-table"
+            title="Distance to other happiness tiers"
+          >
+            {tierRows.map((row) => (
+              <div className="happy-table-row" key={row.labelPercent}>
+                <span
+                  className="happy-tier"
+                  style={{ color: percentColor(row.labelPercent) }}
+                >
+                  {row.labelPercent}%
+                </span>
+                <span
+                  className="happy-delta"
+                  style={{
+                    color: row.delta < 0 ? "#6de38f" : "#ff7676",
+                  }}
+                >
+                  {row.delta > 0 ? "+" : ""}
+                  {row.delta}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
         <div className="resource-line" title="Shards">
