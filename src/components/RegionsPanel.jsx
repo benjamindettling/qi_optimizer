@@ -14,6 +14,7 @@ export function RegionsPanel({
   shardUnlocks,
   onSetGoodsUnlocks,
   onSetShardUnlocks,
+  infiniteResources = false,
   canAnyUnlock,
   handleUnlockRegion,
   REGION_COLS,
@@ -68,7 +69,7 @@ export function RegionsPanel({
                 isNeighbor={isNeighbor}
                 isVoid={isVoid}
                 isBase={isBase}
-                canUnlock={canAnyUnlock}
+                canUnlock={infiniteResources ? true : canAnyUnlock}
                 onUnlock={() => handleUnlockRegion?.(idx)}
                 debugMode={debugRegions}
                 onDebugUnlock={() => onDebugUnlockRegion?.(idx)}

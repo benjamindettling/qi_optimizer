@@ -88,6 +88,12 @@ export const useGameController = () => {
   const [sellMode, setSellMode] = useState(initialState.sellMode);
   const [refundMode, setRefundMode] = useState(initialState.refundMode);
   const [notes, setNotes] = useState(initialState.notes);
+  const [infiniteResources, setInfiniteResources] = useState(
+    initialState.infiniteResources
+  );
+  const [infiniteBackup, setInfiniteBackup] = useState(
+    initialState.infiniteBackup
+  );
   const [carried, setCarried] = useState(initialState.carried);
   const [moveSnapshot, setMoveSnapshot] = useState(initialState.moveSnapshot);
   const [harvestModal, setHarvestModal] = useState(initialState.harvestModal);
@@ -107,6 +113,67 @@ export const useGameController = () => {
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
   const [debugRegions, setDebugRegions] = useState(false);
+  const cloneResources = useCallback(
+    (obj) => ({
+      ...obj,
+      goods: { ...(obj?.goods ?? {}) },
+    }),
+    []
+  );
+
+  const effectiveResources = useMemo(() => {
+    if (!infiniteResources) return resources;
+    const huge = Number.MAX_SAFE_INTEGER;
+    return {
+      ...resources,
+      coins: huge,
+      supplies: huge,
+      chronos: huge,
+      shards: huge,
+      goods: GOODS_TYPES.reduce(
+        (acc, g) => ({ ...acc, [g]: huge }),
+        { ...(resources.goods ?? {}) }
+      ),
+    };
+  }, [infiniteResources, resources]);
+
+  const applySpend = useCallback(
+    (cost) => {
+      if (infiniteResources) return;
+      spendResources(cost);
+    },
+    [infiniteResources, spendResources]
+  );
+
+  const applyRefund = useCallback(
+    (delta) => {
+      if (infiniteResources) return;
+      refundResources(delta);
+    },
+    [infiniteResources, refundResources]
+  );
+
+  const applyAdjustGoods = useCallback(
+    (good, delta) => {
+      if (infiniteResources) return;
+      adjustGoods(good, delta);
+    },
+    [infiniteResources, adjustGoods]
+  );
+
+  const handleToggleInfinite = useCallback(
+    (checked) => {
+      if (checked) {
+        setInfiniteBackup(cloneResources(resources));
+        setInfiniteResources(true);
+      } else {
+        if (infiniteBackup) setResources(cloneResources(infiniteBackup));
+        setInfiniteResources(false);
+        setInfiniteBackup(null);
+      }
+    },
+    [cloneResources, resources, infiniteBackup, setResources]
+  );
 
   const {
     saves,
@@ -213,6 +280,8 @@ export const useGameController = () => {
         sellMode,
         refundMode,
         selectedCategory,
+        infiniteResources,
+        infiniteBackup,
         notes,
       }),
     [
@@ -226,6 +295,8 @@ export const useGameController = () => {
       sellMode,
       refundMode,
       selectedCategory,
+      infiniteResources,
+      infiniteBackup,
       notes,
     ]
   );
@@ -245,6 +316,8 @@ export const useGameController = () => {
         setRefundMode,
         setSelectedCategory,
         setNotes,
+        setInfiniteResources,
+        setInfiniteBackup,
         nextIdRef: nextId,
         townhallDef,
       }),
@@ -260,6 +333,8 @@ export const useGameController = () => {
       setRefundMode,
       setSelectedCategory,
       setNotes,
+      setInfiniteResources,
+      setInfiniteBackup,
       townhallDef,
     ]
   );
@@ -393,10 +468,8 @@ export const useGameController = () => {
   } = useRegionAccess({
     unlockedRegions,
     goodsUnlocks,
-    setGoodsUnlocks,
     shardUnlocks,
-    setShardUnlocks,
-    resources,
+    resources: effectiveResources,
     layout,
     libraryMap,
   });
@@ -408,19 +481,21 @@ export const useGameController = () => {
       const snapshot = skipHistory ? null : buildSnapshot();
       if (!skipHistory) pushHistory(snapshot);
       const total = aggregateHarvest(instances, libraryMap, stats);
-      setResources((prev) => ({
-        ...prev,
-        coins: prev.coins + total.coins,
-        supplies: prev.supplies + total.supplies,
-        chronos: prev.chronos + total.chronos,
-        goods: GOODS_TYPES.reduce(
-          (acc, g) => ({
-            ...acc,
-            [g]: (prev.goods[g] ?? 0) + (total.goods[g] ?? 0),
-          }),
-          {}
-        ),
-      }));
+      if (!infiniteResources) {
+        setResources((prev) => ({
+          ...prev,
+          coins: prev.coins + total.coins,
+          supplies: prev.supplies + total.supplies,
+          chronos: prev.chronos + total.chronos,
+          goods: GOODS_TYPES.reduce(
+            (acc, g) => ({
+              ...acc,
+              [g]: (prev.goods[g] ?? 0) + (total.goods[g] ?? 0),
+            }),
+            {}
+          ),
+        }));
+      }
       const harvestedIds = instances.map((i) => i.id);
       setReadyMap((prev) => {
         const next = { ...prev };
@@ -437,7 +512,15 @@ export const useGameController = () => {
         });
       }
     },
-    [buildSnapshot, libraryMap, stats, setResources, pushHistory, resources]
+    [
+      buildSnapshot,
+      libraryMap,
+      stats,
+      setResources,
+      pushHistory,
+      resources,
+      infiniteResources,
+    ]
   );
 
   // Unlock region via goods or shards, with fast-buy fallback.
@@ -460,10 +543,17 @@ export const useGameController = () => {
         return;
       }
       if (method === "goods") {
-        if (!canAffordSingleGood(resources.goods, goodKey, currentGoodsCost)) {
+        if (
+          !infiniteResources &&
+          !canAffordSingleGood(
+            effectiveResources.goods,
+            goodKey,
+            currentGoodsCost
+          )
+        ) {
           const fastBuy = prepareFastBuyModal({
             goodKey,
-            resources,
+            resources: effectiveResources,
             layout,
             libraryMap,
             currentGoodsCost,
@@ -483,22 +573,27 @@ export const useGameController = () => {
         }
         const snapshot = buildSnapshot();
         pushHistory(snapshot);
-        adjustGoods(goodKey, -currentGoodsCost);
+        applyAdjustGoods(goodKey, -currentGoodsCost);
         setGoodsUnlocks((prev) => prev + 1);
         setUnlockedRegions((prev) =>
           prev.map((val, i) => (i === idx ? true : val))
         );
       } else {
-        if ((resources.shards ?? 0) < currentShardCost) {
+        if (
+          !infiniteResources &&
+          (effectiveResources.shards ?? 0) < currentShardCost
+        ) {
           updateStatus("Need more shards to unlock.");
           return;
         }
         const snapshot = buildSnapshot();
         pushHistory(snapshot);
-        setResources((prev) => ({
-          ...prev,
-          shards: prev.shards - currentShardCost,
-        }));
+        if (!infiniteResources) {
+          setResources((prev) => ({
+            ...prev,
+            shards: prev.shards - currentShardCost,
+          }));
+        }
         setShardUnlocks((prev) => prev + 1);
         setUnlockedRegions((prev) =>
           prev.map((val, i) => (i === idx ? true : val))
@@ -509,7 +604,7 @@ export const useGameController = () => {
       setUnlockGoodSelect(null);
     },
     [
-      adjustGoods,
+      applyAdjustGoods,
       buildSnapshot,
       currentGoodsCost,
       currentShardCost,
@@ -517,8 +612,10 @@ export const useGameController = () => {
       libraryMap,
       pushHistory,
       resources,
+      effectiveResources,
       setResources,
       updateStatus,
+      infiniteResources,
     ]
   );
 
@@ -669,25 +766,28 @@ export const useGameController = () => {
       const cost = def.goodsCost?.[amount];
       if (!cost) return;
       if (
-        resources.coins < (cost.coins ?? 0) ||
-        resources.supplies < (cost.supplies ?? 0)
+        !infiniteResources &&
+        (effectiveResources.coins < (cost.coins ?? 0) ||
+          effectiveResources.supplies < (cost.supplies ?? 0))
       ) {
         updateStatus("Not enough coins or supplies.");
         return;
       }
       const snapshot = buildSnapshot();
       pushHistory(snapshot);
-      spendResources(cost);
-      adjustGoods(def.produces, Number(amount));
+      applySpend(cost);
+      applyAdjustGoods(def.produces, Number(amount));
       setGoodsModal(null);
     },
     [
+      effectiveResources,
       resources,
       updateStatus,
       buildSnapshot,
       pushHistory,
-      spendResources,
-      adjustGoods,
+      applySpend,
+      applyAdjustGoods,
+      infiniteResources,
     ]
   );
 
@@ -697,12 +797,12 @@ export const useGameController = () => {
       if (!fastBuyModal || fastBuyTarget === null) return;
       const goodKey = fastBuyModal.goodKey;
       const goodsCost = fastBuyModal.goodsCost;
-      if (!canAffordFastBuy(resources, option)) {
+      if (!infiniteResources && !canAffordFastBuy(effectiveResources, option)) {
         updateStatus("Not enough coins or supplies for fast buy.");
         return;
       }
       const goodsAfterPurchase =
-        (resources.goods[goodKey] ?? 0) + option.totalAmount;
+        (effectiveResources.goods[goodKey] ?? 0) + option.totalAmount;
       if (goodsAfterPurchase < goodsCost) {
         updateStatus("Fast buy plan insufficient.");
         return;
@@ -710,8 +810,8 @@ export const useGameController = () => {
       const totals = totalFastBuyCost(option);
       const snapshot = buildSnapshot();
       pushHistory(snapshot);
-      spendResources({ coins: totals.coins, supplies: totals.supplies });
-      adjustGoods(goodKey, option.totalAmount - goodsCost);
+      applySpend({ coins: totals.coins, supplies: totals.supplies });
+      applyAdjustGoods(goodKey, option.totalAmount - goodsCost);
       setUnlockedRegions((prev) =>
         prev.map((val, i) => (i === fastBuyTarget ? true : val))
       );
@@ -720,14 +820,16 @@ export const useGameController = () => {
       setFastBuyTarget(null);
     },
     [
-      adjustGoods,
+      applyAdjustGoods,
+      applySpend,
       buildSnapshot,
+      effectiveResources,
       fastBuyModal,
       fastBuyTarget,
       pushHistory,
       resources,
-      spendResources,
       updateStatus,
+      infiniteResources,
     ]
   );
 
@@ -799,7 +901,7 @@ export const useGameController = () => {
         }
         const snapshot = buildSnapshot();
         pushHistory(snapshot);
-        refundResources(delta);
+        if (!infiniteResources) refundResources(delta);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
         setReadyMap((prev) => {
           const next = { ...prev };
@@ -833,12 +935,15 @@ export const useGameController = () => {
           updateStatus("Blocked or locked area.");
           return;
         }
-        if (!canAffordResources(resources, selectedDef.cost)) {
+        if (
+          !infiniteResources &&
+          !canAffordResources(effectiveResources, selectedDef.cost)
+        ) {
           updateStatus("Not enough resources.");
           return;
         }
         const snapshot = buildSnapshot();
-        spendResources(selectedDef.cost);
+        applySpend(selectedDef.cost);
         const instance = {
           id: nextId.current++,
           defId: selectedDef.defId,
@@ -893,26 +998,28 @@ export const useGameController = () => {
       libraryMap,
       isCellUnlocked,
       moveSnapshot,
-      buildSnapshot,
-      pushHistory,
-      setCarried,
-      setLayout,
-      setMoveMode,
-      setReadyMap,
-      refundMode,
-      refundResources,
-      selectedDef,
-      stats,
-      resources,
-      spendResources,
-      moveMode,
-      sellMode,
-      readyMap,
-      harvestBuildings,
-      setGoodsModal,
-      updateStatus,
-    ]
-  );
+    buildSnapshot,
+    pushHistory,
+    setCarried,
+    setLayout,
+    setMoveMode,
+    setReadyMap,
+    refundMode,
+    refundResources,
+    selectedDef,
+    stats,
+    resources,
+    effectiveResources,
+    applySpend,
+    moveMode,
+    sellMode,
+    readyMap,
+    harvestBuildings,
+    setGoodsModal,
+    updateStatus,
+    infiniteResources,
+  ]
+);
 
   const previewDef = carried?.def ?? selectedDef;
   const previewOrigin = useMemo(
@@ -1022,5 +1129,7 @@ export const useGameController = () => {
     isCellUnlocked,
     undoStack,
     redoStack,
+    infiniteResources,
+    handleToggleInfinite,
   };
 };

@@ -16,6 +16,8 @@ export function TopBar({
   happyInfo,
   viewMode,
   setViewMode,
+  infiniteResources,
+  onToggleInfinite,
   boardScale,
   setBoardScale,
   onEditResource,
@@ -57,7 +59,7 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("coins")}
         >
           <img src={moneyIcon} alt="coins" />
-          <span>{resources.coins}</span>
+          <span>{infiniteResources ? "\u221e" : resources.coins}</span>
         </div>
         <div
           className="resource-line"
@@ -65,7 +67,7 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("supplies")}
         >
           <img src={suppliesIcon} alt="supplies" />
-          <span>{resources.supplies}</span>
+          <span>{infiniteResources ? "\u221e" : resources.supplies}</span>
         </div>
         <div
           className="resource-line"
@@ -73,7 +75,7 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("chronos")}
         >
           <img src={chronosIcon} alt="chronos" />
-          <span>{resources.chronos}</span>
+          <span>{infiniteResources ? "\u221e" : resources.chronos}</span>
         </div>
       </div>
       <div className="goods-stack">
@@ -88,7 +90,9 @@ export function TopBar({
               src={`/goods/${g === "Stein" ? "Backstein" : g}.webp`}
               alt={g}
             />
-            <span>{resources.goods[g] ?? 0}</span>
+            <span>
+              {infiniteResources ? "\u221e" : (resources.goods[g] ?? 0)}
+            </span>
           </div>
         ))}
       </div>
@@ -149,7 +153,7 @@ export function TopBar({
         <div className="resource-line" title="Shards">
           <img src={shardsIcon} alt="shards" />
           <span onDoubleClick={() => onEditResource?.("shards")}>
-            {resources.shards}
+            {infiniteResources ? "\u221e" : resources.shards}
           </span>
         </div>
       </div>
@@ -191,6 +195,14 @@ export function TopBar({
             />
           </div>
         </div>
+        <label className="infinite-toggle" title="Ignore resource costs">
+          <input
+            type="checkbox"
+            checked={!!infiniteResources}
+            onChange={(e) => onToggleInfinite?.(e.target.checked)}
+          />
+          Infinite Resources
+        </label>
         <span className="tips-text" title="">
           Doppelklick auf Ressource, um Wert anzupassen
         </span>

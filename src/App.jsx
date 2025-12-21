@@ -69,6 +69,8 @@ function App() {
     canAnyUnlock,
     setGoodsUnlocks,
     setShardUnlocks,
+    infiniteResources,
+    handleToggleInfinite,
     debugRegions,
     handleCellClick,
     handleUnlockRegion,
@@ -107,6 +109,7 @@ function App() {
         setSelectedBuildingId={setSelectedBuildingId}
         resources={resources}
         stats={stats}
+        infiniteResources={infiniteResources}
         viewMode={viewMode}
         regionTransform={regionTransform}
         unlockedRegions={unlockedRegions}
@@ -131,15 +134,17 @@ function App() {
       <div className="content-column">
         <TopBar
           resources={resources}
-          stats={stats}
-          happyInfo={happyInfo}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          boardScale={boardScale}
-          setBoardScale={setBoardScale}
-          onEditResource={handleEditResource}
-          onEditGood={handleEditGood}
-        />
+        stats={stats}
+        happyInfo={happyInfo}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        infiniteResources={infiniteResources}
+        onToggleInfinite={handleToggleInfinite}
+        boardScale={boardScale}
+        setBoardScale={setBoardScale}
+        onEditResource={handleEditResource}
+        onEditGood={handleEditGood}
+      />
         <div className="workspace">
           <div className="board-area">
             <Board

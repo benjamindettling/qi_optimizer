@@ -13,6 +13,8 @@ export const buildSnapshot = (state) =>
     sellMode: state.sellMode,
     refundMode: state.refundMode,
     selectedCategory: state.selectedCategory,
+    infiniteResources: state.infiniteResources,
+    infiniteBackup: state.infiniteBackup,
     notes: state.notes,
   });
 
@@ -29,6 +31,8 @@ export const applySnapshot = (snapshot, setters) => {
     setRefundMode,
     setSelectedCategory,
     setNotes,
+    setInfiniteResources,
+    setInfiniteBackup,
     nextIdRef,
     townhallDef,
   } = setters;
@@ -45,6 +49,12 @@ export const applySnapshot = (snapshot, setters) => {
   if (snapshot.refundMode !== undefined) setRefundMode(snapshot.refundMode);
   if (snapshot.selectedCategory) setSelectedCategory(snapshot.selectedCategory);
   if (setNotes && snapshot.notes !== undefined) setNotes(snapshot.notes ?? "");
+  if (setInfiniteResources && snapshot.infiniteResources !== undefined) {
+    setInfiniteResources(snapshot.infiniteResources);
+  }
+  if (setInfiniteBackup !== undefined) {
+    setInfiniteBackup(snapshot.infiniteBackup ?? null);
+  }
   if (
     townhallDef &&
     !snapshot.layout?.some((l) => l.defId === townhallDef.defId)

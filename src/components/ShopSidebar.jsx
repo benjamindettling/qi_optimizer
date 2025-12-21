@@ -7,6 +7,7 @@ export function ShopSidebar({
   setSelectedBuildingId,
   resources,
   stats,
+  infiniteResources = false,
   viewMode,
   regionTransform,
   unlockedRegions,
@@ -33,9 +34,10 @@ export function ShopSidebar({
     visibleCategories[0];
 
   const canBuild = (item) =>
-    (resources.coins ?? 0) >= (item.cost.coins ?? 0) &&
-    (resources.supplies ?? 0) >= (item.cost.supplies ?? 0) &&
-    (resources.chronos ?? 0) >= (item.cost.chronos ?? 0) &&
+    (infiniteResources ||
+      ((resources.coins ?? 0) >= (item.cost.coins ?? 0) &&
+        (resources.supplies ?? 0) >= (item.cost.supplies ?? 0) &&
+        (resources.chronos ?? 0) >= (item.cost.chronos ?? 0))) &&
     stats.people - stats.peopleReq >= (item.requiresPeople ?? 0);
 
   return (
@@ -130,6 +132,7 @@ export function ShopSidebar({
         shardUnlocks={shardUnlocks}
         onSetGoodsUnlocks={onSetGoodsUnlocks}
         onSetShardUnlocks={onSetShardUnlocks}
+        infiniteResources={infiniteResources}
         canAnyUnlock={canAnyUnlock}
         handleUnlockRegion={handleUnlockRegion}
         REGION_COLS={REGION_COLS}

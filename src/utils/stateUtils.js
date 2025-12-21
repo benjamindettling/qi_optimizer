@@ -22,6 +22,10 @@ export const serializeState = (state) => ({
   sellMode: state.sellMode,
   refundMode: state.refundMode,
   selectedCategory: state.selectedCategory,
+  infiniteResources: state.infiniteResources ?? false,
+  infiniteBackup: state.infiniteBackup
+    ? { ...state.infiniteBackup, goods: { ...(state.infiniteBackup.goods ?? {}) } }
+    : null,
   notes: state.notes ?? "",
 });
 

@@ -59,6 +59,8 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     viewMode: "down",
     status: "",
     readyMap,
+    infiniteResources: false,
+    infiniteBackup: null,
     notes: "",
     resources: {
       coins: 450000,
