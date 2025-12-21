@@ -34,7 +34,7 @@ body {
 .topbar {
   padding: 12px 18px;
   display: grid;
-  grid-template-columns: repeat(3, auto) 1fr;
+  grid-template-columns: repeat(5, auto) 1fr;
   align-items: center;
   background: #10253c;
   border-bottom: 1px solid #26435f;
@@ -153,7 +153,31 @@ button.active {
 .happiness-block {
   display: flex;
   gap: 10px;
-  align-items: center;
+  align-items: stretch;
+}
+
+.happy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.happy-tab {
+  padding: 4px 0;
+}
+
+.happy-mults .happy-row {
+  gap: 8px;
+}
+
+
+
+.happy-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
 }
 
 .happy-summary {
@@ -166,6 +190,9 @@ button.active {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+.happy-row.small {
+  font-size: 11px;
 }
 
 .happy-label {
@@ -196,6 +223,13 @@ button.active {
 
 .happy-delta {
   text-align: right;
+}
+
+.total-pop {
+    font-size: 12px;
+    gap: 0px 0px;
+    padding: 0px;
+
 }
 
 .workspace {
@@ -312,6 +346,73 @@ button.active {
   border: 1px solid #1f3e63;
   border-radius: 8px;
   padding: 10px;
+}
+
+.card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-body {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.card-cost-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #ff9b9b;
+  min-width: 120px;
+}
+
+.card-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: #9ae1a6;
+  flex: 1;
+}
+
+.cost-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cost-row img {
+  width: 18px;
+  height: 18px;
+}
+
+.cost-row.cost {
+  color: #ff9b9b;
+}
+
+.cost-row.gain {
+  color: #9ae1a6;
+}
+
+.goods-table {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  color: #c3d2e5;
+  font-size: 12px;
+}
+
+.goods-row {
+  display: flex;
+  justify-content: space-between;
 }
 
 .card.disabled {

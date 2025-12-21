@@ -49,13 +49,26 @@ export function TopBar({
         delta,
       };
     });
+  const coinMult = (
+    (stats.coinBoost ?? 0) +
+    (happyInfo.ratio ?? 1) -
+    1 +
+    1
+  ).toFixed(2);
+  const supplyMult = (
+    (stats.supplyBoost ?? 0) +
+    (happyInfo.ratio ?? 1) -
+    1 +
+    1
+  ).toFixed(2);
+  const chronosMult = (happyInfo.ratio ?? 1).toFixed(2);
 
   return (
     <header className="topbar">
       <div className="resource-stack">
         <div
           className="resource-line"
-          title="Coins"
+          title="Münzen"
           onDoubleClick={() => onEditResource?.("coins")}
         >
           <img src={moneyIcon} alt="coins" />
@@ -63,7 +76,7 @@ export function TopBar({
         </div>
         <div
           className="resource-line"
-          title="Supplies"
+          title="Vorräte"
           onDoubleClick={() => onEditResource?.("supplies")}
         >
           <img src={suppliesIcon} alt="supplies" />
@@ -76,6 +89,12 @@ export function TopBar({
         >
           <img src={chronosIcon} alt="chronos" />
           <span>{infiniteResources ? "\u221e" : resources.chronos}</span>
+        </div>
+        <div className="resource-line" title="Scherben">
+          <img src={shardsIcon} alt="shards" />
+          <span onDoubleClick={() => onEditResource?.("shards")}>
+            {infiniteResources ? "\u221e" : resources.shards}
+          </span>
         </div>
       </div>
       <div className="goods-stack">
@@ -91,70 +110,91 @@ export function TopBar({
               alt={g}
             />
             <span>
-              {infiniteResources ? "\u221e" : (resources.goods[g] ?? 0)}
+              {infiniteResources ? "\u221e" : resources.goods[g] ?? 0}
             </span>
           </div>
         ))}
       </div>
-      <div className="meta-row">
-        <div className="resource-line population" title="Population">
+      <div className="boost-stack">
+        <div
+          className="resource-line happiness"
+          title={`Zufriedenheit: ${happyInfo.label}`}
+        >
+          <img src={happyInfo.icon} alt="happiness" />
+          <div className="happy-summary">
+            <div className="happy-row">
+              <span className="happy-label"></span>
+              <span
+                className="happy-boost"
+                style={{
+                  color: percentColor((happyInfo.ratio ?? 1) * 100),
+                }}
+                title={`Zufriedenheit: ${happyInfo.label}`}
+              >
+                {Math.round((happyInfo.ratio ?? stats.happyMulti) * 100)}%
+              </span>
+            </div>
+          </div>
+        </div>
+        <div className="resource-line" title="Totaler Münzboost">
+          <img src={moneyIcon} alt="coins" />
+          <span className="happy-label"></span>
+          <span className="happy-boost">x{coinMult}</span>
+        </div>
+        <div className="resource-line">
+          <img src={suppliesIcon} alt="supplies" title="Totaler Vorratsboost" />
+          <span className="happy-label"></span>
+          <span className="happy-boost">x{supplyMult}</span>
+        </div>
+        <div className="resource-line" title="Totaler Chronossboost">
+          <img src={chronosIcon} alt="chronos" />
+          <span className="happy-label"></span>
+          <span className="happy-boost">x{chronosMult}</span>
+        </div>
+        <div className="resource-line population" title="Bevölkerung">
           <img src={populationIcon} alt="population" />
-          <div className="pop-numbers">
-            <span title="Total population">tot: {stats.people}</span>
-            <span title="Free population">
+          <div>
+            <span className="total-pop" title="Totale Bevölkerung">
+              tot: {stats.people}
+            </span>
+            <br></br>
+            <span title="Freie Bevölkerung">
               free: {Math.max(0, stats.people - stats.peopleReq)}
             </span>
           </div>
         </div>
-        <div className="happiness-block">
-          <div
-            className="resource-line happiness"
-            title={`Happiness: ${happyInfo.label}`}
-          >
-            <img src={happyInfo.icon} alt="happiness" />
-            <div className="happy-summary">
-              <div className="happy-row">
-                <span className="happy-label">Boost</span>
-                <span
-                  className="happy-boost"
-                  style={{ color: percentColor((happyInfo.ratio ?? 1) * 100) }}
-                  title={`Current tier: ${happyInfo.label}`}
-                >
-                  {Math.round((happyInfo.ratio ?? stats.happyMulti) * 100)}%
-                </span>
+      </div>
+      <div className="happiness-block">
+        <div className="happy-tabs">
+          <div className="happy-tab happy-mults"></div>
+          <div className="happy-tab happy-detail">
+            <div className="happy-detail-grid">
+              <div
+                className="happy-table"
+                title="Distanz zu anderen Zufriedenheitsstufen"
+              >
+                {tierRows.map((row) => (
+                  <div className="happy-table-row" key={row.labelPercent}>
+                    <span
+                      className="happy-tier"
+                      style={{ color: percentColor(row.labelPercent) }}
+                    >
+                      {row.labelPercent}%
+                    </span>
+                    <span
+                      className="happy-delta"
+                      style={{
+                        color: row.delta < 0 ? "#6de38f" : "#ff7676",
+                      }}
+                    >
+                      {row.delta > 0 ? "+" : ""}
+                      {row.delta}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
-          <div
-            className="happy-table"
-            title="Distance to other happiness tiers"
-          >
-            {tierRows.map((row) => (
-              <div className="happy-table-row" key={row.labelPercent}>
-                <span
-                  className="happy-tier"
-                  style={{ color: percentColor(row.labelPercent) }}
-                >
-                  {row.labelPercent}%
-                </span>
-                <span
-                  className="happy-delta"
-                  style={{
-                    color: row.delta < 0 ? "#6de38f" : "#ff7676",
-                  }}
-                >
-                  {row.delta > 0 ? "+" : ""}
-                  {row.delta}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="resource-line" title="Shards">
-          <img src={shardsIcon} alt="shards" />
-          <span onDoubleClick={() => onEditResource?.("shards")}>
-            {infiniteResources ? "\u221e" : resources.shards}
-          </span>
         </div>
       </div>
       <div className="actions">
@@ -191,21 +231,21 @@ export function TopBar({
               step={0.05}
               value={boardScale}
               onChange={(e) => setBoardScale?.(Number(e.target.value))}
-              title="Board size"
+              title="Grösse Stadtanzeige"
             />
           </div>
         </div>
-        <label className="infinite-toggle" title="Ignore resource costs">
+        <label className="infinite-toggle" title="Unendliche Ressources">
           <input
             type="checkbox"
             checked={!!infiniteResources}
             onChange={(e) => onToggleInfinite?.(e.target.checked)}
           />
-          Infinite Resources
+          &#8734;
         </label>
-        <span className="tips-text" title="">
-          Doppelklick auf Ressource, um Wert anzupassen
-        </span>
+        {/*
+        <button className="tips-text">tips</button>
+        */}
       </div>
     </header>
   );
