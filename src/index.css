@@ -837,6 +837,87 @@ button.active {
   border-color: rgba(255, 80, 80, 0.55);
 }
 
+.help-modal {
+  width: 540px;
+}
+
+.help-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.help-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.help-tabs button {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #355d91;
+  background: #132f4c;
+  color: #e9ecf1;
+}
+
+.help-tabs button.active {
+  background: #355d91;
+  border-color: #5a8bd1;
+}
+
+.help-content ul {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.config-grid {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  color: #e9ecf1;
+}
+
+.config-row input {
+  width: 140px;
+}
+
+.config-input::-webkit-outer-spin-button,
+.config-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.config-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.config-footer {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #c3d2e5;
+}
+
+.config-actions {
+  display: flex;
+  gap: 6px;
+}
+
 /* Regions: debug colors (no size/layout changes) */
 .region.debug-unlockable {
   background: rgba(0, 255, 0, 0.18); /* semi-transparent green */

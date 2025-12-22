@@ -25,6 +25,17 @@ const StatRow = ({ icon, label }) => (
   </div>
 );
 
+// Single transparent pixel to hide the default drag preview.
+const TRANSPARENT_IMG = (() => {
+  const img = new Image();
+  img.src =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y0nZocAAAAASUVORK5CYII=";
+  return img;
+})();
+
+let dragMoved = false;
+let touchMoved = false;
+
 export function ShopSidebar({
   selectedCategory,
   setSelectedCategory,
@@ -148,8 +159,8 @@ export function ShopSidebar({
           <div className="goods-row header">
             <span className="goods-amount">
               <img
-                src={`/goods/${item.produces === "Stein" ? "Backstein" : item.produces}.webp`}
-                alt={item.produces}
+                src={`/goods/${item.produces === "Stein" ? "Backstein" : item.produces || "Kupfer"}.webp`}
+                alt={item.produces || "goods"}
               />
             </span>
             <span className="goods-cost">
@@ -226,8 +237,47 @@ export function ShopSidebar({
               className={`card card-grid ${!buildable ? "disabled" : ""}`}
               onClick={() => {
                 if (!buildable) return;
+                if (dragMoved) {
+                  dragMoved = false;
+                  return;
+                }
                 if (onResetModes) onResetModes();
                 setSelectedBuildingId(defId);
+              }}
+              draggable
+              onDragStart={(e) => {
+                dragMoved = false;
+                if (onResetModes) onResetModes();
+                setSelectedBuildingId(defId);
+                // Indicate a move operation for compatibility with browsers
+                try {
+                  e.dataTransfer.effectAllowed = "move";
+                  // Hide the default ghost image; board hover/preview will guide placement.
+                  e.dataTransfer.setDragImage(TRANSPARENT_IMG, 0, 0);
+                } catch {}
+              }}
+              onDrag={(e) => {
+                dragMoved = true;
+                // keep selection while dragging
+                setSelectedBuildingId(defId);
+              }}
+              onDragEnd={() => {
+                dragMoved = false;
+              }}
+              onTouchStart={() => {
+                touchMoved = false;
+                if (onResetModes) onResetModes();
+                setSelectedBuildingId(defId);
+              }}
+              onTouchMove={() => {
+                touchMoved = true;
+              }}
+              onTouchEnd={(e) => {
+                if (!touchMoved) {
+                  // treat as tap to select
+                  setSelectedBuildingId(defId);
+                }
+                touchMoved = false;
               }}
             >
               <div className="card-header">

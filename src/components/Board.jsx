@@ -9,6 +9,7 @@ export function Board({
   isCellUnlocked,
   handleCellClick,
   setHoverCell,
+  onDropComplete,
   layout,
   libraryMap,
   categoryColors,
@@ -46,13 +47,31 @@ export function Board({
                 return (
                   <div
                     key={`${globalCol}-${globalRow}`}
-                    className={`cell ${cellLocked ? "locked" : ""} ${
-                      inPreview ? "preview" : ""
-                    }`}
+                  className={`cell ${cellLocked ? "locked" : ""} ${
+                    inPreview ? "preview" : ""
+                  }`}
                     onMouseEnter={() =>
                       setHoverCell({ x: globalCol, y: globalRow })
                     }
                     onClick={() => handleCellClick(globalCol, globalRow)}
+                    onTouchMove={(e) => {
+                      e.preventDefault();
+                      setHoverCell({ x: globalCol, y: globalRow });
+                    }}
+                    onTouchEnd={(e) => {
+                      e.preventDefault();
+                      handleCellClick(globalCol, globalRow);
+                      onDropComplete?.();
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setHoverCell({ x: globalCol, y: globalRow });
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleCellClick(globalCol, globalRow);
+                      onDropComplete?.();
+                    }}
                   />
                 );
               })}

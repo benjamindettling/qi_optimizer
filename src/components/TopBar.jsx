@@ -22,6 +22,8 @@ export function TopBar({
   setBoardScale,
   onEditResource,
   onEditGood,
+  onOpenHelp,
+  onOpenConfig,
 }) {
   const percentColor = (pct) => {
     const hue = Math.min(120, Math.max(0, (pct / 200) * 120));
@@ -40,10 +42,15 @@ export function TopBar({
       : tiers.length - 1;
 
   const tierRows = tiers
-    .filter((_, idx) => idx !== currentTierIdx)
+    .map((t, idx) => ({ ...t, idx }))
+    .filter((t) => t.idx !== currentTierIdx)
     .map((t) => {
-      const target = (t.lower * stats.happinessRequired) / 100;
-      const delta = Math.ceil(target - stats.happinessProvided);
+      const isHigher = t.idx > currentTierIdx;
+      const targetPercent = isHigher ? t.lower : t.cap;
+      const targetProvided = (targetPercent * stats.happinessRequired) / 100;
+      const delta = isHigher
+        ? Math.ceil(targetProvided - stats.happinessProvided)
+        : -Math.ceil(stats.happinessProvided - targetProvided);
       return {
         labelPercent: t.labelPercent,
         delta,
@@ -235,7 +242,10 @@ export function TopBar({
             />
           </div>
         </div>
-        <label className="infinite-toggle" title="Unendliche Ressources">
+        <label
+          className="infinite-toggle"
+          title="Unendliche Ressourcen, um einfacher Städte zu setuppen"
+        >
           <input
             type="checkbox"
             checked={!!infiniteResources}
@@ -243,10 +253,16 @@ export function TopBar({
           />
           &#8734;
         </label>
-        {/*
-        <button className="tips-text">tips</button>
-        */}
+
+        <button className="help-button" onClick={onOpenHelp} title="Hilfe">
+          Hilfe
+        </button>
+        <button className="help-button" onClick={onOpenConfig} title="Konfiguration">
+          Config
+        </button>
       </div>
     </header>
   );
 }
+
+

@@ -11,6 +11,8 @@ import { ChooseGoodModal } from "./components/modals/ChooseGoodModal";
 import { GoodsPurchaseModal } from "./components/modals/GoodsPurchaseModal";
 import { FastBuyModal } from "./components/modals/FastBuyModal";
 import { HarvestModal } from "./components/modals/HarvestModal";
+import { HelpModal } from "./components/modals/HelpModal";
+import { ConfigModal } from "./components/modals/ConfigModal";
 import { useGameController } from "./hooks/useGameController";
 
 // Entry component that wires controller state into all UI pieces.
@@ -99,6 +101,12 @@ function App() {
     redoStack,
     notes,
     handleChangeNotes,
+    helpModal,
+    setHelpModal,
+    configModal,
+    setConfigModal,
+    config,
+    updateConfig,
   } = useGameController();
 
   return (
@@ -140,6 +148,8 @@ function App() {
         setViewMode={setViewMode}
         infiniteResources={infiniteResources}
         onToggleInfinite={handleToggleInfinite}
+        onOpenConfig={() => setConfigModal(true)}
+        onOpenHelp={() => setHelpModal(true)}
         boardScale={boardScale}
         setBoardScale={setBoardScale}
         onEditResource={handleEditResource}
@@ -154,14 +164,15 @@ function App() {
               viewHeight={viewHeight}
               viewColStart={viewColStart}
               viewRowStart={viewRowStart}
-              previewOrigin={previewOrigin}
-              isCellUnlocked={isCellUnlocked}
-              handleCellClick={handleCellClick}
-              setHoverCell={setHoverCell}
-              layout={layout}
-              libraryMap={libraryMap}
-              categoryColors={categoryColors}
-              boardTransformClass={boardTransformClass}
+          previewOrigin={previewOrigin}
+          isCellUnlocked={isCellUnlocked}
+          handleCellClick={handleCellClick}
+          setHoverCell={setHoverCell}
+          onDropComplete={() => setSelectedBuildingId(null)}
+          layout={layout}
+          libraryMap={libraryMap}
+          categoryColors={categoryColors}
+          boardTransformClass={boardTransformClass}
               readyMap={readyMap}
             />
             {status && (
@@ -250,6 +261,13 @@ function App() {
           setFastBuyModal(null);
           setFastBuyTarget(null);
         }}
+      />
+      <HelpModal open={!!helpModal} onClose={() => setHelpModal(false)} />
+      <ConfigModal
+        open={!!configModal}
+        onClose={() => setConfigModal(false)}
+        config={config}
+        onSave={updateConfig}
       />
     </div>
   );

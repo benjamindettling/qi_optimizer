@@ -27,6 +27,7 @@ import { useResources } from "./useResources";
 import { useUndoRedo } from "./useUndoRedo";
 import { useRegionAccess } from "./useRegionAccess";
 import { useSaves } from "./useSaves";
+import { useConfig } from "./useConfig";
 import {
   dropCarried,
   buildPreviewOrigin,
@@ -56,6 +57,7 @@ import {
 export const useGameController = () => {
   const { library, libraryMap, categories, categoryColors, townhallDef } =
     useMemo(() => buildLibrary(), []);
+  const { config, updateConfig } = useConfig();
 
   const initialState = useMemo(
     () => buildInitialGameState({ libraryMap, townhallDef }),
@@ -63,13 +65,27 @@ export const useGameController = () => {
   );
 
   const nextId = useRef(2);
+  const adjustedInitialResources = useMemo(() => {
+    const base = initialState.resources;
+    const goodsStart = config.goodsStartBonus ?? 0;
+    return {
+      ...base,
+      coins: (base.coins ?? 0) + (config.extraCoins ?? 0),
+      supplies: (base.supplies ?? 0) + (config.extraSupplies ?? 0),
+      goods: GOODS_TYPES.reduce(
+        (acc, g) => ({ ...acc, [g]: (base.goods[g] ?? 0) + goodsStart }),
+        {}
+      ),
+    };
+  }, [initialState.resources, config]);
+
   const {
     resources,
     setResources,
     spendResources,
     refundResources,
     adjustGoods,
-  } = useResources(initialState.resources);
+  } = useResources(adjustedInitialResources);
 
   const [layout, setLayout] = useState(initialState.layout);
   const [unlockedRegions, setUnlockedRegions] = useState(
@@ -102,6 +118,8 @@ export const useGameController = () => {
   const [fastBuyTarget, setFastBuyTarget] = useState(
     initialState.fastBuyTarget
   );
+  const [helpModal, setHelpModal] = useState(initialState.helpModal);
+  const [configModal, setConfigModal] = useState(initialState.configModal);
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
     initialState.unlockGoodSelect
@@ -130,10 +148,9 @@ export const useGameController = () => {
       supplies: huge,
       chronos: huge,
       shards: huge,
-      goods: GOODS_TYPES.reduce(
-        (acc, g) => ({ ...acc, [g]: huge }),
-        { ...(resources.goods ?? {}) }
-      ),
+      goods: GOODS_TYPES.reduce((acc, g) => ({ ...acc, [g]: huge }), {
+        ...(resources.goods ?? {}),
+      }),
     };
   }, [infiniteResources, resources]);
 
@@ -453,7 +470,13 @@ export const useGameController = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [moveSnapshot, applySnapshot]);
 
-  const stats = computeStats(layout, libraryMap);
+  const baseStats = computeStats(layout, libraryMap);
+  const statsWithConfig = {
+    ...baseStats,
+    coinBoost: (baseStats.coinBoost ?? 0) + (config.coinBoost / 100 ?? 0),
+    supplyBoost: (baseStats.supplyBoost ?? 0) + (config.supplyBoost / 100 ?? 0),
+  };
+  const stats = statsWithConfig;
   const happyInfo = happinessTier(
     stats.happinessProvided,
     stats.happinessRequired
@@ -998,28 +1021,28 @@ export const useGameController = () => {
       libraryMap,
       isCellUnlocked,
       moveSnapshot,
-    buildSnapshot,
-    pushHistory,
-    setCarried,
-    setLayout,
-    setMoveMode,
-    setReadyMap,
-    refundMode,
-    refundResources,
-    selectedDef,
-    stats,
-    resources,
-    effectiveResources,
-    applySpend,
-    moveMode,
-    sellMode,
-    readyMap,
-    harvestBuildings,
-    setGoodsModal,
-    updateStatus,
-    infiniteResources,
-  ]
-);
+      buildSnapshot,
+      pushHistory,
+      setCarried,
+      setLayout,
+      setMoveMode,
+      setReadyMap,
+      refundMode,
+      refundResources,
+      selectedDef,
+      stats,
+      resources,
+      effectiveResources,
+      applySpend,
+      moveMode,
+      sellMode,
+      readyMap,
+      harvestBuildings,
+      setGoodsModal,
+      updateStatus,
+      infiniteResources,
+    ]
+  );
 
   const previewDef = carried?.def ?? selectedDef;
   const previewOrigin = useMemo(
@@ -1060,6 +1083,9 @@ export const useGameController = () => {
     fastBuyTarget,
     unlockChoice,
     unlockGoodSelect,
+    helpModal,
+    configModal,
+    helpModal,
     viewMode,
     setViewMode,
     boardScale,
@@ -1131,5 +1157,11 @@ export const useGameController = () => {
     redoStack,
     infiniteResources,
     handleToggleInfinite,
+    helpModal,
+    setHelpModal,
+    configModal,
+    setConfigModal,
+    config,
+    updateConfig,
   };
 };

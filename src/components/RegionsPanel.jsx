@@ -81,7 +81,7 @@ export function RegionsPanel({
       </div>
 
       <div className="region-note">
-        Costs scale per unlock. Current:{" "}
+        Kosten skalieren mit jedem Kauf. Aktuell:{" "}
         <span
           className={debugRegions ? "cost-debug" : ""}
           onDoubleClick={() => debugRegions && setEditGoods(true)}
@@ -106,7 +106,7 @@ export function RegionsPanel({
               ))}
             </select>
           ) : (
-            `${currentGoodsCost} goods`
+            `${currentGoodsCost} Güter`
           )}
         </span>{" "}
         or{" "}
@@ -134,10 +134,11 @@ export function RegionsPanel({
               ))}
             </select>
           ) : (
-            `${currentShardCost} shards`
+            `${currentShardCost} Scherben`
           )}
         </span>
-        .
+        . <br></br>
+        Werte ändern automatisch, oder können im 'debug' Modus bearbeitet werden
       </div>
     </div>
   );
