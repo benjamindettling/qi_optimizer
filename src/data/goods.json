@@ -3,7 +3,7 @@
     "id": "kupfergiesserei",
     "name": "Kupfergiesserei",
     "size": [4, 3],
-    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
     "requiresPeople": 100,
     "goodsCost": {
@@ -18,7 +18,7 @@
     "id": "imkerei",
     "name": "Imkerei",
     "size": [3, 3],
-    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
     "requiresPeople": 100,
     "goodsCost": {
@@ -33,7 +33,7 @@
     "id": "ziegelei",
     "name": "Ziegelei",
     "size": [4, 3],
-    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
     "requiresPeople": 100,
     "goodsCost": {
@@ -48,7 +48,7 @@
     "id": "seilerei",
     "name": "Seilerei",
     "size": [3, 2],
-    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
     "requiresPeople": 100,
     "goodsCost": {
@@ -63,7 +63,7 @@
     "id": "schiesspulvermanufaktur",
     "name": "Schiesspulver-Manufaktur",
     "size": [3, 3],
-    "cost": { "coins": 25000, "supplies": 7500, "chronos": 200 },
+    "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
     "requiresPeople": 100,
     "goodsCost": {
