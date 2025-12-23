@@ -108,6 +108,8 @@ function App() {
     redoStack,
     notes,
     handleChangeNotes,
+    useShortNames,
+    setUseShortNames,
     helpModal,
     setHelpModal,
     configModal,
@@ -152,41 +154,44 @@ function App() {
       <div className="content-column">
         <TopBar
           resources={resources}
-        stats={stats}
-        happyInfo={happyInfo}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        infiniteResources={infiniteResources}
-        onToggleInfinite={handleToggleInfinite}
-        onOpenConfig={() => setConfigModal(true)}
-        onOpenHelp={() => setHelpModal(true)}
-        boardScale={boardScale}
-        setBoardScale={setBoardScale}
-        onEditResource={handleEditResource}
-        onEditGood={handleEditGood}
-      />
+          stats={stats}
+          happyInfo={happyInfo}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          infiniteResources={infiniteResources}
+          onToggleInfinite={handleToggleInfinite}
+          useShortNames={useShortNames}
+          setUseShortNames={setUseShortNames}
+          onOpenConfig={() => setConfigModal(true)}
+          onOpenHelp={() => setHelpModal(true)}
+          boardScale={boardScale}
+          setBoardScale={setBoardScale}
+          onEditResource={handleEditResource}
+          onEditGood={handleEditGood}
+        />
         <div className="workspace">
           <div className="board-area">
             <Board
-          viewRotation={viewRotation}
-          boardTransform={boardTransform}
-          viewWidth={viewWidth}
-          viewHeight={viewHeight}
-          viewColStart={viewColStart}
-          viewRowStart={viewRowStart}
-          cellSizePx={cellSizePx}
-          previewOrigin={previewOrigin}
-          isCellUnlocked={isCellUnlocked}
-          handleCellClick={handleCellClick}
-          setHoverCell={setHoverCell}
-          onDropComplete={() => setSelectedBuildingId(null)}
-          layout={layout}
-          libraryMap={libraryMap}
-          categoryColors={categoryColors}
-          boardTransformClass={boardTransformClass}
-          buildLocks={buildLocks}
-          readyMap={readyMap}
-        />
+              viewRotation={viewRotation}
+              boardTransform={boardTransform}
+              viewWidth={viewWidth}
+              viewHeight={viewHeight}
+              viewColStart={viewColStart}
+              viewRowStart={viewRowStart}
+              cellSizePx={cellSizePx}
+              previewOrigin={previewOrigin}
+              isCellUnlocked={isCellUnlocked}
+              handleCellClick={handleCellClick}
+              setHoverCell={setHoverCell}
+              onDropComplete={() => setSelectedBuildingId(null)}
+              layout={layout}
+              libraryMap={libraryMap}
+              categoryColors={categoryColors}
+              boardTransformClass={boardTransformClass}
+              buildLocks={buildLocks}
+              readyMap={readyMap}
+              useShortNames={useShortNames}
+            />
             {status && (
               <div
                 className="status"

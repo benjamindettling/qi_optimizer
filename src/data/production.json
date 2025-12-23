@@ -2,6 +2,7 @@
   {
     "id": "gerberei",
     "name": "Gerberei",
+    "short": "Ger",
     "size": [3, 3],
     "cost": { "coins": 12000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -12,6 +13,7 @@
   {
     "id": "schusterwerkstatt",
     "name": "Schusterwerkstatt",
+    "short": "Sc",
     "size": [3, 3],
     "cost": { "coins": 36000, "supplies": 50000, "chronos": 200 },
     "buildTime": 1,
@@ -22,6 +24,7 @@
   {
     "id": "baeckerei",
     "name": "Bäckerei",
+    "short": "Bä",
     "size": [4, 3],
     "cost": { "coins": 84000, "supplies": 100000, "chronos": 1000 },
     "buildTime": 10,
@@ -32,6 +35,7 @@
   {
     "id": "bauernhof",
     "name": "Bauernhof",
+    "short": "Ba",
     "size": [4, 5],
     "cost": { "coins": 16800, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -42,6 +46,7 @@
   {
     "id": "alchemistenlabor",
     "name": "Alchemistenlabor",
+    "short": "Al",
     "size": [3, 2],
     "cost": { "coins": 50400, "supplies": 60000, "chronos": 200 },
     "buildTime": 1,
@@ -52,6 +57,7 @@
   {
     "id": "windmuehle",
     "name": "Windmühle",
+    "short": "Wi",
     "size": [4, 3],
     "cost": { "coins": 117600, "supplies": 120000, "chronos": 1000 },
     "buildTime": 10,
@@ -62,6 +68,7 @@
   {
     "id": "brauerei",
     "name": "Brauerei",
+    "short": "Br",
     "size": [3, 3],
     "cost": { "coins": 19200, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -72,6 +79,7 @@
   {
     "id": "gewuerzhandlung",
     "name": "Gewürzhandlung",
+    "short": "Gew",
     "size": [3, 3],
     "cost": { "coins": 57600, "supplies": 70000, "chronos": 200 },
     "buildTime": 10,
@@ -82,6 +90,7 @@
   {
     "id": "kueferei",
     "name": "Küferei",
+    "short": "Kü",
     "size": [3, 4],
     "cost": { "coins": 134400, "supplies": 140000, "chronos": 1000 },
     "buildTime": 10,

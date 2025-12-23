@@ -2,6 +2,7 @@
   {
     "id": "marktplatz",
     "name": "Marktplatz",
+    "short": "Ma",
     "size": [3, 3],
     "cost": { "coins": 12000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -11,6 +12,7 @@
   {
     "id": "galgen",
     "name": "Galgen",
+    "short": "Ga",
     "size": [2, 2],
     "cost": { "coins": 36000, "supplies": 36000, "chronos": 100 },
     "buildTime": 1,
@@ -20,6 +22,7 @@
   {
     "id": "pranger",
     "name": "Pranger",
+    "short": "Pr",
     "size": [2, 2],
     "cost": { "coins": 120000, "supplies": 120000, "chronos": 500 },
     "buildTime": 10,
@@ -29,6 +32,7 @@
   {
     "id": "kirche",
     "name": "Kirche",
+    "short": "Ki",
     "size": [3, 3],
     "cost": { "coins": 16800, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -38,6 +42,7 @@
   {
     "id": "druckerei",
     "name": "Druckerei",
+    "short": "Dr",
     "size": [3, 3],
     "cost": { "coins": 50400, "supplies": 43200, "chronos": 100 },
     "buildTime": 1,
@@ -47,6 +52,7 @@
   {
     "id": "doktor",
     "name": "Doktor",
+    "short": "Do",
     "size": [3, 3],
     "cost": { "coins": 168000, "supplies": 144000, "chronos": 500 },
     "buildTime": 10,
@@ -56,6 +62,7 @@
   {
     "id": "palast",
     "name": "Palast",
+    "short": "Pa",
     "size": [4, 4],
     "cost": { "coins": 19200, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -65,6 +72,7 @@
   {
     "id": "buecherei",
     "name": "Bücherei",
+    "short": "Bü",
     "size": [4, 4],
     "cost": { "coins": 57600, "supplies": 50400, "chronos": 100 },
     "buildTime": 1,
@@ -74,6 +82,7 @@
   {
     "id": "kartograph",
     "name": "Kartograph",
+    "short": "Ka",
     "size": [3, 2],
     "cost": { "coins": 192000, "supplies": 168000, "chronos": 500 },
     "buildTime": 10,

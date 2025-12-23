@@ -135,6 +135,7 @@ export const useGameController = () => {
   const [status, setStatus] = useState(initialState.status);
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
   const [buildLocks, setBuildLocks] = useState(initialState.buildLocks || {});
+  const [useShortNames, setUseShortNames] = useState(false);
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
   const [debugRegions, setDebugRegions] = useState(false);
   const cloneResources = useCallback(
@@ -1285,9 +1286,13 @@ export const useGameController = () => {
     notes,
     setNotes,
     handleChangeNotes,
+    useShortNames,
+    setUseShortNames,
     carried,
     readyMap,
     buildLocks,
+    useShortNames,
+    setUseShortNames,
     hoverCell,
     setHoverCell,
     moveMode,

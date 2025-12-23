@@ -20,6 +20,8 @@ export function TopBar({
   setViewMode,
   infiniteResources,
   onToggleInfinite,
+  useShortNames = false,
+  setUseShortNames,
   boardScale,
   setBoardScale,
   onEditResource,
@@ -192,7 +194,10 @@ export function TopBar({
             </span>
             <br></br>
             <span title="Freie Bevölkerung">
-              free: {formatNumber(Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0)))}
+              free:{" "}
+              {formatNumber(
+                Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0))
+              )}
             </span>
           </div>
         </div>
@@ -268,29 +273,39 @@ export function TopBar({
             />
           </div>
         </div>
-        <label
-          className="infinite-toggle"
-          title="Unendliche Ressourcen, um einfacher Städte zu setuppen"
-        >
-          <input
-            type="checkbox"
-            checked={!!infiniteResources}
-            onChange={(e) => onToggleInfinite?.(e.target.checked)}
-          />
-          &#8734;
-        </label>
+        <div className="goods-stack">
+          <label
+            className="infinite-toggle"
+            title="Unendliche Ressourcen, um einfacher Städte zu setuppen"
+          >
+            <input
+              type="checkbox"
+              checked={!!infiniteResources}
+              onChange={(e) => onToggleInfinite?.(e.target.checked)}
+            />
+            &#8734;
+          </label>
+          <label className="infinite-toggle" title="Gebaeudenamen abkuerzen">
+            <input
+              type="checkbox"
+              checked={!!useShortNames}
+              onChange={(e) => setUseShortNames?.(e.target.checked)}
+            />
+            Abkürzen
+          </label>
+        </div>
 
         <button className="help-button" onClick={onOpenHelp} title="Hilfe">
           Hilfe
         </button>
-        <button className="help-button" onClick={onOpenConfig} title="Konfiguration">
+        <button
+          className="help-button"
+          onClick={onOpenConfig}
+          title="Konfiguration"
+        >
           Config
         </button>
       </div>
     </header>
   );
 }
-
-
-
-

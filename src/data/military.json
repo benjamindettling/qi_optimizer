@@ -2,6 +2,7 @@
   {
     "id": "katapultcamp",
     "name": "Katapult-Camp",
+    "short": "Kat",
     "size": [3, 3],
     "cost": { "coins": 15000, "supplies": 7500, "chronos": 0 },
     "buildTime": 0,
@@ -17,6 +18,7 @@
   {
     "id": "blidencamp",
     "name": "Bliden-Camp",
+    "short": "Bli",
     "size": [3, 3],
     "cost": { "coins": 45000, "supplies": 22500, "chronos": 200 },
     "buildTime": 1,
@@ -32,6 +34,7 @@
   {
     "id": "kanonencamp",
     "name": "Kanonen-Camp",
+    "short": "Kan",
     "size": [3, 4],
     "cost": { "coins": 75000, "supplies": 37500, "chronos": 1000 },
     "buildTime": 10,

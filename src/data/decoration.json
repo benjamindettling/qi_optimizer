@@ -2,6 +2,7 @@
   {
     "id": "heckemitblumen",
     "name": "Hecke mit Blumen",
+    "short": "HmB",
     "size": [1, 1],
     "cost": { "coins": 50000, "supplies": 50000, "chronos": 200 },
     "buildTime": 1,
@@ -11,6 +12,7 @@
   {
     "id": "zypresse",
     "name": "Zypresse",
+    "short": "Zy",
     "size": [1, 1],
     "cost": { "coins": 50000, "supplies": 50000, "chronos": 200 },
     "buildTime": 1,
@@ -20,6 +22,7 @@
   {
     "id": "teich",
     "name": "Teich",
+    "short": "Te",
     "size": [2, 2],
     "cost": { "coins": 200000, "supplies": 200000, "chronos": 750 },
     "buildTime": 10,
@@ -29,6 +32,7 @@
   {
     "id": "wasserspeier",
     "name": "Wasserspeier",
+    "short": "Wa",
     "size": [1, 1],
     "cost": { "coins": 75000, "supplies": 62500, "chronos": 200 },
     "buildTime": 1,
@@ -38,6 +42,7 @@
   {
     "id": "wegweiser",
     "name": "Wegweiser",
+    "short": "We",
     "size": [1, 1],
     "cost": { "coins": 75000, "supplies": 62500, "chronos": 200 },
     "buildTime": 1,
@@ -47,6 +52,7 @@
   {
     "id": "fahne",
     "name": "Fahne",
+    "short": "Fa",
     "size": [1, 1],
     "cost": { "coins": 300000, "supplies": 250000, "chronos": 750 },
     "buildTime": 10,
@@ -56,6 +62,7 @@
   {
     "id": "baumgruppe",
     "name": "Baumgruppe",
+    "short": "Ba",
     "size": [2, 2],
     "cost": { "coins": 100000, "supplies": 75000, "chronos": 200 },
     "buildTime": 1,
@@ -65,6 +72,7 @@
   {
     "id": "turmruine",
     "name": "Turmruine",
+    "short": "Tu",
     "size": [2, 2],
     "cost": { "coins": 100000, "supplies": 75000, "chronos": 200 },
     "buildTime": 1,
@@ -74,6 +82,7 @@
   {
     "id": "seefahrerstatue",
     "name": "Seefahrer-Statue",
+    "short": "See",
     "size": [1, 1],
     "cost": { "coins": 400000, "supplies": 300000, "chronos": 750 },
     "buildTime": 10,

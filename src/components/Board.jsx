@@ -19,6 +19,7 @@ export function Board({
   cellSizePx,
   readyMap = {},
   buildLocks = {},
+  useShortNames = false,
 }) {
   const titleMap = useMemo(() => {
     const map = {};
@@ -128,7 +129,9 @@ export function Board({
                         : "#ffffff",
                     }}
                   >
-                    {libraryMap[b.defId].name}
+                  {useShortNames && libraryMap[b.defId]?.short
+                    ? libraryMap[b.defId].short
+                    : libraryMap[b.defId].name}
                   </div>
                 </div>
             ))}

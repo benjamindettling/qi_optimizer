@@ -2,6 +2,7 @@
   {
     "id": "mehrgeschossiges_haus",
     "name": "Mehrgeschossiges Haus",
+    "short": "MH",
     "size": [2, 2],
     "cost": { "coins": 10000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -12,6 +13,7 @@
   {
     "id": "fachwerkhaus",
     "name": "Fachwerkhaus",
+    "short": "Fa",
     "size": [2, 2],
     "cost": { "coins": 30000, "supplies": 50000, "chronos": 200 },
     "buildTime": 1,
@@ -22,6 +24,7 @@
   {
     "id": "schindelhaus",
     "name": "Schindelhaus",
+    "short": "Sch",
     "size": [2, 2],
     "cost": { "coins": 210000, "supplies": 200000, "chronos": 1000 },
     "buildTime": 10,
@@ -32,6 +35,7 @@
   {
     "id": "herrenhaus",
     "name": "Herrenhaus",
+    "short": "He",
     "size": [2, 2],
     "cost": { "coins": 14000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -42,6 +46,7 @@
   {
     "id": "sandsteinhaus",
     "name": "Sandsteinhaus",
+    "short": "Sa",
     "size": [2, 2],
     "cost": { "coins": 42000, "supplies": 60000, "chronos": 200 },
     "buildTime": 1,
@@ -52,6 +57,7 @@
   {
     "id": "stadthaus",
     "name": "Stadthaus",
+    "short": "St",
     "size": [2, 2],
     "cost": { "coins": 294125, "supplies": 240000, "chronos": 1000 },
     "buildTime": 10,
@@ -62,6 +68,7 @@
   {
     "id": "gutshaus",
     "name": "Gutshaus",
+    "short": "Gu",
     "size": [2, 2],
     "cost": { "coins": 16000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
@@ -72,6 +79,7 @@
   {
     "id": "mietshaus",
     "name": "Mietshaus",
+    "short": "Mi",
     "size": [2, 2],
     "cost": { "coins": 48000, "supplies": 70000, "chronos": 200 },
     "buildTime": 1,
@@ -82,6 +90,7 @@
   {
     "id": "landgut",
     "name": "Landgut",
+    "short": "La",
     "size": [2, 2],
     "cost": { "coins": 336000, "supplies": 280000, "chronos": 1000 },
     "buildTime": 10,
