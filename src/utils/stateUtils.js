@@ -13,6 +13,8 @@ export const serializeState = (state) => ({
     goods: { ...(state.resources.goods ?? {}) },
     units: { ...(state.resources.units ?? {}) },
   },
+  saves: state.saves ? { ...state.saves } : {},
+  loadName: state.loadName ?? "",
   layout: cloneLayout(state.layout ?? []),
   unlockedRegions: [...(state.unlockedRegions ?? [])],
   goodsUnlocks: state.goodsUnlocks,

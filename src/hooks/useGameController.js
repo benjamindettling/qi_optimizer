@@ -214,6 +214,7 @@ export const useGameController = () => {
     saves,
     loadName,
     setLoadName,
+    setAllSaves,
     saveSnapshot,
     loadSnapshot,
     deleteSave,
@@ -315,6 +316,8 @@ export const useGameController = () => {
     () =>
       buildSnapshotState({
         resources,
+        saves,
+        loadName,
         layout,
         unlockedRegions,
         goodsUnlocks,
@@ -352,20 +355,22 @@ export const useGameController = () => {
   const applySnapshot = useCallback(
     (snapshot) =>
       applySnapshotState(snapshot, {
-        setResources,
-        setLayout,
-        setUnlockedRegions,
-        setGoodsUnlocks,
-        setShardUnlocks,
-        setReadyMap,
+    setResources,
+    setSaves: setAllSaves,
+    setLayout,
+    setUnlockedRegions,
+    setGoodsUnlocks,
+    setShardUnlocks,
+    setReadyMap,
         setBuildLocks,
         setMoveMode,
         setSellMode,
-        setRefundMode,
-        setSelectedCategory,
-        setNotes,
-        setInfiniteResources,
-        setInfiniteBackup,
+    setRefundMode,
+    setSelectedCategory,
+    setLoadName,
+    setNotes,
+    setInfiniteResources,
+    setInfiniteBackup,
         nextIdRef: nextId,
         townhallDef,
       }),
@@ -485,26 +490,44 @@ export const useGameController = () => {
   );
 
   // Prompted save of the current snapshot.
-  const handleSaveState = useCallback(() => {
-    const name = prompt("Save name?");
-    if (!name) return;
-    const snapshot = buildSnapshot();
-    saveSnapshot(name, snapshot);
-    updateStatus(`Saved state "${name}"`);
-  }, [buildSnapshot, saveSnapshot, updateStatus]);
+  const handleSaveState = useCallback(
+    (nameArg) => {
+      const targetName =
+        nameArg || loadName || prompt("Save name?", loadName || "");
+      if (!targetName) return;
+      const snapshotBefore = buildSnapshot();
+      pushHistory(snapshotBefore);
+      const snapshot = buildSnapshot();
+      saveSnapshot(targetName, snapshot);
+      setLoadName(targetName);
+      updateStatus(`Saved state "${targetName}"`);
+    },
+    [
+      buildSnapshot,
+      loadName,
+      saveSnapshot,
+      setLoadName,
+      updateStatus,
+      pushHistory,
+    ]
+  );
 
   // Load a named snapshot and clear transient UI state.
   const handleLoadState = useCallback(
     (name) => {
+      if (!name) return;
       const snap = loadSnapshot(name);
       if (!snap) return;
+      const prev = buildSnapshot();
+      pushHistory(prev);
       applySnapshot(snap);
       setCarried(null);
       setMoveSnapshot(null);
       setMoveMode(false);
+      setLoadName(name);
       updateStatus(`Loaded state "${name}"`);
     },
-    [applySnapshot, loadSnapshot, updateStatus]
+    [applySnapshot, loadSnapshot, updateStatus, buildSnapshot, pushHistory, setLoadName]
   );
 
   useEffect(() => {

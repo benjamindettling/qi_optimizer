@@ -23,12 +23,28 @@ export function ActionToolbar({
   notes,
   onChangeNotes,
 }) {
-  const saveKeys = Object.keys(saves);
+  const saveKeys = Object.keys(saves).sort((a, b) => a.localeCompare(b));
   const {
     ref: saveMenuRef,
     isOpen: isSaveMenuOpen,
     setIsOpen: setIsSaveMenuOpen,
   } = useDropdownMenu(false);
+
+  const promptSaveName = () => {
+    const next = prompt("Save name?", loadName || "");
+    if (!next) return;
+    setLoadName(next);
+    return next;
+  };
+
+  const handleSaveClick = () => {
+    let target = loadName;
+    if (!target) {
+      target = promptSaveName();
+    }
+    if (!target) return;
+    if (onSave) onSave(target);
+  };
 
   return (
     <div
@@ -94,10 +110,21 @@ export function ActionToolbar({
       </button>
 
       <button
-        onClick={onSave}
+        onClick={handleSaveClick}
         title="Speicher aktuellen Stand in deinem Browser. (Hinweis, undo/redo Verlauf wird nicht mitgespeichert)"
       >
-        Save
+        Save as "
+        <span
+          style={{ textDecoration: "underline", cursor: "pointer" }}
+          onClick={(e) => {
+            e.stopPropagation();
+            promptSaveName();
+          }}
+          title="Name ändern"
+        >
+          {loadName || "neuer Save"}
+        </span>
+        "
       </button>
       <div className="save-control" ref={saveMenuRef}>
         <button

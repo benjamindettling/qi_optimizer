@@ -22,9 +22,14 @@ export function useSaves() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
   };
 
+  const setAllSaves = (next) => {
+    const value = typeof next === "function" ? next(saves) : next;
+    persist(value || {});
+  };
+
   const saveSnapshot = (name, snapshot) => {
     if (!name) return;
-    persist({ ...saves, [name]: { snapshot } });
+    setAllSaves((prev) => ({ ...prev, [name]: { snapshot } }));
   };
 
   const loadSnapshot = (name) => saves[name]?.snapshot ?? null;
@@ -35,5 +40,13 @@ export function useSaves() {
     persist(next);
   };
 
-  return { saves, loadName, setLoadName, saveSnapshot, loadSnapshot, deleteSave };
+  return {
+    saves,
+    loadName,
+    setLoadName,
+    setAllSaves,
+    saveSnapshot,
+    loadSnapshot,
+    deleteSave,
+  };
 }

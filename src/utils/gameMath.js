@@ -70,7 +70,8 @@ export const happinessTier = (provided, required) => {
 export const computeRefund = (def) => {
   const coins = Math.floor((def.cost?.coins ?? 0) * 0.25);
   const supplies = Math.floor((def.cost?.supplies ?? 0) * 0.25);
-  return { coins, supplies, chronos: 0 };
+  const chronos = Math.floor((def.cost?.chronos ?? 0) * 0.25);
+  return { coins, supplies, chronos };
 };
 
 export const formatGoods = (goodsBag, goodsTypes) =>
