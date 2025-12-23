@@ -16,6 +16,7 @@ export function Board({
   boardTransformClass,
   cellSizePx,
   readyMap = {},
+  buildLocks = {},
 }) {
   return (
     <div className="board-wrapper">
@@ -81,7 +82,9 @@ export function Board({
             {layout.map((b) => (
               <div
                 key={b.id}
-                className="building-rect"
+                  className={`building-rect ${
+                    buildLocks[b.id] ? "building-locked" : ""
+                  }`}
                 style={{
                   left: `calc(var(--cell-size) * ${b.x - viewColStart})`,
                   top: `calc(var(--cell-size) * ${b.y - viewRowStart})`,
@@ -93,15 +96,23 @@ export function Board({
                   borderColor: categoryColors[libraryMap[b.defId].category],
                   pointerEvents: "none",
                 }}
-              >
-                <div className="building-subgrid" />
-                <div
-                  className="building-label"
-                  style={{ color: readyMap[b.id] ? "#ffeb3b" : "#ffffff" }}
                 >
-                  {libraryMap[b.defId].name}
+                  <div className="building-subgrid" />
+                  <div
+                    className="building-label"
+                    style={{
+                      color: buildLocks[b.id]
+                        ? readyMap[b.id]
+                          ? "#ffeb3b"
+                          : "#9aa3b5"
+                        : readyMap[b.id]
+                        ? "#ffeb3b"
+                        : "#ffffff",
+                    }}
+                  >
+                    {libraryMap[b.defId].name}
+                  </div>
                 </div>
-              </div>
             ))}
           </div>
         </div>

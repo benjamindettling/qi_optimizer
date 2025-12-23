@@ -11,6 +11,7 @@ export const serializeState = (state) => ({
   resources: {
     ...state.resources,
     goods: { ...(state.resources.goods ?? {}) },
+    units: { ...(state.resources.units ?? {}) },
   },
   layout: cloneLayout(state.layout ?? []),
   unlockedRegions: [...(state.unlockedRegions ?? [])],
@@ -24,9 +25,14 @@ export const serializeState = (state) => ({
   selectedCategory: state.selectedCategory,
   infiniteResources: state.infiniteResources ?? false,
   infiniteBackup: state.infiniteBackup
-    ? { ...state.infiniteBackup, goods: { ...(state.infiniteBackup.goods ?? {}) } }
+    ? {
+        ...state.infiniteBackup,
+        goods: { ...(state.infiniteBackup.goods ?? {}) },
+        units: { ...(state.infiniteBackup.units ?? {}) },
+      }
     : null,
   notes: state.notes ?? "",
+  buildLocks: { ...(state.buildLocks ?? {}) },
 });
 
 /**

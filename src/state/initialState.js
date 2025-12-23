@@ -1,4 +1,4 @@
-import { initialRegions, initialGoods } from "../config/boardConfig";
+import { initialRegions, initialGoods, initialUnits } from "../config/boardConfig";
 import { categories, categoryColors } from "../config/categories";
 
 export const buildLibrary = () => {
@@ -54,6 +54,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     goodsModal: null,
     fastBuyModal: null,
     fastBuyTarget: null,
+    unitModal: null,
     helpModal: null,
     configModal: null,
     editGoodModal: null,
@@ -62,6 +63,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     viewMode: "down",
     status: "",
     readyMap,
+    buildLocks: {},
     infiniteResources: false,
     infiniteBackup: null,
     notes: "",
@@ -71,6 +73,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
       chronos: 0,
       shards: 500,
       goods: initialGoods(),
+      units: initialUnits(),
     },
   };
 };

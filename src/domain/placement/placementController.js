@@ -24,6 +24,8 @@ export const dropCarried = ({
   setLayout,
   setCarried,
   setReadyMap,
+  setBuildLocks,
+  buildLocks,
   pushHistory,
   setMoveSnapshot,
   setMoveMode,
@@ -77,6 +79,12 @@ export const dropCarried = ({
         carried.instance.ready ?? prev[carried.instance.id] ?? false,
       [overlap.id]: prev[overlap.id] ?? false,
     }));
+    setBuildLocks((prev) => ({
+      ...prev,
+      [carried.instance.id]:
+        carried.instance.locked ?? prev[carried.instance.id] ?? false,
+      [overlap.id]: prev[overlap.id] ?? false,
+    }));
   } else {
     const snapshot = moveSnapshot ?? buildSnapshot();
     setLayout((prev) => [
@@ -93,6 +101,11 @@ export const dropCarried = ({
       ...prev,
       [carried.instance.id]:
         carried.instance.ready ?? prev[carried.instance.id] ?? false,
+    }));
+    setBuildLocks((prev) => ({
+      ...prev,
+      [carried.instance.id]:
+        carried.instance.locked ?? prev[carried.instance.id] ?? false,
     }));
     pushHistory(snapshot);
     setCarried(null);

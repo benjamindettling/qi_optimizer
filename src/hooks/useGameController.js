@@ -8,6 +8,7 @@ import {
   REGION_COLS,
   REGION_MASK,
   GOODS_TYPES,
+  UNIT_TYPES,
   BOARD_SCALE_DEFAULT,
 } from "../config/boardConfig";
 import { buildInitialGameState, buildLibrary } from "../state/initialState";
@@ -76,6 +77,7 @@ export const useGameController = () => {
         (acc, g) => ({ ...acc, [g]: (base.goods[g] ?? 0) + goodsStart }),
         {}
       ),
+      units: { ...(base.units ?? {}) },
     };
   }, [initialState.resources, config]);
 
@@ -85,6 +87,7 @@ export const useGameController = () => {
     spendResources,
     refundResources,
     adjustGoods,
+    adjustUnits,
   } = useResources(adjustedInitialResources);
 
   const [layout, setLayout] = useState(initialState.layout);
@@ -114,6 +117,7 @@ export const useGameController = () => {
   const [moveSnapshot, setMoveSnapshot] = useState(initialState.moveSnapshot);
   const [harvestModal, setHarvestModal] = useState(initialState.harvestModal);
   const [goodsModal, setGoodsModal] = useState(initialState.goodsModal);
+  const [unitModal, setUnitModal] = useState(initialState.unitModal);
   const [fastBuyModal, setFastBuyModal] = useState(initialState.fastBuyModal);
   const [fastBuyTarget, setFastBuyTarget] = useState(
     initialState.fastBuyTarget
@@ -130,12 +134,14 @@ export const useGameController = () => {
   const [boardScale, setBoardScale] = useState(BOARD_SCALE_DEFAULT);
   const [status, setStatus] = useState(initialState.status);
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
+  const [buildLocks, setBuildLocks] = useState(initialState.buildLocks || {});
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
   const [debugRegions, setDebugRegions] = useState(false);
   const cloneResources = useCallback(
     (obj) => ({
       ...obj,
       goods: { ...(obj?.goods ?? {}) },
+      units: { ...(obj?.units ?? {}) },
     }),
     []
   );
@@ -151,6 +157,9 @@ export const useGameController = () => {
       shards: huge,
       goods: GOODS_TYPES.reduce((acc, g) => ({ ...acc, [g]: huge }), {
         ...(resources.goods ?? {}),
+      }),
+      units: UNIT_TYPES.reduce((acc, u) => ({ ...acc, [u]: huge }), {
+        ...(resources.units ?? {}),
       }),
     };
   }, [infiniteResources, resources]);
@@ -177,6 +186,14 @@ export const useGameController = () => {
       adjustGoods(good, delta);
     },
     [infiniteResources, adjustGoods]
+  );
+
+  const applyAdjustUnits = useCallback(
+    (unit, delta) => {
+      if (infiniteResources) return;
+      adjustUnits(unit, delta);
+    },
+    [infiniteResources, adjustUnits]
   );
 
   const handleToggleInfinite = useCallback(
@@ -259,19 +276,31 @@ export const useGameController = () => {
         height: townhallDef.height,
       };
       setReadyMap((prev) => ({ ...prev, [id]: false }));
+      setBuildLocks((prev) => ({ ...prev, [id]: townhallDef.buildTime === 10 }));
       return [...prevLayout, instance];
     });
   }, [townhallDef, carried, unlockedRegions, layout]);
 
   useEffect(() => {
+    const ids = new Set(layout.map((b) => b.id));
     setReadyMap((prev) => {
-      const next = { ...prev };
+      const next = {};
       layout.forEach((b) => {
-        if (next[b.id] === undefined) next[b.id] = false;
+        next[b.id] = prev[b.id] ?? false;
       });
       return next;
     });
-  }, [layout]);
+    setBuildLocks((prev) => {
+      const next = {};
+      layout.forEach((b) => {
+        next[b.id] =
+          prev[b.id] !== undefined
+            ? prev[b.id]
+            : libraryMap[b.defId]?.buildTime === 10;
+      });
+      return next;
+    });
+  }, [layout, libraryMap]);
 
   const selectedDef = selectedBuildingId
     ? libraryMap[selectedBuildingId]
@@ -289,11 +318,10 @@ export const useGameController = () => {
         layout,
         unlockedRegions,
         goodsUnlocks,
-        setGoodsUnlocks,
         shardUnlocks,
-        setShardUnlocks,
         nextId: nextId.current,
         readyMap,
+        buildLocks,
         moveMode,
         sellMode,
         refundMode,
@@ -309,6 +337,7 @@ export const useGameController = () => {
       goodsUnlocks,
       shardUnlocks,
       readyMap,
+      buildLocks,
       moveMode,
       sellMode,
       refundMode,
@@ -329,6 +358,7 @@ export const useGameController = () => {
         setGoodsUnlocks,
         setShardUnlocks,
         setReadyMap,
+        setBuildLocks,
         setMoveMode,
         setSellMode,
         setRefundMode,
@@ -346,6 +376,7 @@ export const useGameController = () => {
       setGoodsUnlocks,
       setShardUnlocks,
       setReadyMap,
+      setBuildLocks,
       setMoveMode,
       setSellMode,
       setRefundMode,
@@ -489,7 +520,12 @@ export const useGameController = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [moveSnapshot, applySnapshot]);
 
-  const baseStats = computeStats(layout, libraryMap);
+  const unlockedLayout = useMemo(
+    () => layout.filter((b) => !buildLocks[b.id]),
+    [layout, buildLocks]
+  );
+
+  const baseStats = computeStats(unlockedLayout, libraryMap);
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
   const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
   const statsWithConfig = {
@@ -524,20 +560,33 @@ export const useGameController = () => {
       if (!instances.length) return;
       const snapshot = skipHistory ? null : buildSnapshot();
       if (!skipHistory) pushHistory(snapshot);
-      const total = aggregateHarvest(instances, libraryMap, stats);
+
+      const lockedIds = [];
+      const harvestable = [];
+      instances.forEach((inst) => {
+        if (buildLocks[inst.id]) lockedIds.push(inst.id);
+        else harvestable.push(inst);
+      });
+
+      const total =
+        harvestable.length > 0
+          ? aggregateHarvest(harvestable, libraryMap, stats)
+          : { coins: 0, supplies: 0, chronos: 0, goods: {} };
+
       if (!infiniteResources) {
         setResources((prev) => ({
           ...prev,
-          coins: prev.coins + total.coins,
-          supplies: prev.supplies + total.supplies,
-          chronos: prev.chronos + total.chronos,
+          coins: prev.coins + (total.coins ?? 0),
+          supplies: prev.supplies + (total.supplies ?? 0),
+          chronos: prev.chronos + (total.chronos ?? 0),
           goods: GOODS_TYPES.reduce(
             (acc, g) => ({
               ...acc,
-              [g]: (prev.goods[g] ?? 0) + (total.goods[g] ?? 0),
+              [g]: (prev.goods?.[g] ?? 0) + (total.goods?.[g] ?? 0),
             }),
             {}
           ),
+          units: { ...(prev.units ?? {}) },
         }));
       }
       const harvestedIds = instances.map((i) => i.id);
@@ -548,6 +597,15 @@ export const useGameController = () => {
         });
         return next;
       });
+      if (lockedIds.length) {
+        setBuildLocks((prev) => {
+          const next = { ...prev };
+          lockedIds.forEach((id) => {
+            next[id] = false;
+          });
+          return next;
+        });
+      }
       if (!skipPopup) {
         setHarvestModal({
           delta: total,
@@ -564,6 +622,7 @@ export const useGameController = () => {
       pushHistory,
       resources,
       infiniteResources,
+      buildLocks,
     ]
   );
 
@@ -821,7 +880,6 @@ export const useGameController = () => {
       pushHistory(snapshot);
       applySpend(cost);
       applyAdjustGoods(def.produces, Number(amount));
-      setGoodsModal(null);
     },
     [
       effectiveResources,
@@ -831,6 +889,35 @@ export const useGameController = () => {
       pushHistory,
       applySpend,
       applyAdjustGoods,
+      infiniteResources,
+    ]
+  );
+
+  const handleUnitPurchase = useCallback(
+    (def, amount) => {
+      const cost = def.unitCosts?.[amount];
+      if (!cost) return;
+      if (
+        !infiniteResources &&
+        (effectiveResources.coins < (cost.coins ?? 0) ||
+          effectiveResources.supplies < (cost.supplies ?? 0))
+      ) {
+        updateStatus("Not enough coins or supplies.");
+        return;
+      }
+      const snapshot = buildSnapshot();
+      pushHistory(snapshot);
+      applySpend(cost);
+      applyAdjustUnits(def.produces, Number(amount));
+      updateStatus(`Produced ${amount} ${def.produces}`);
+    },
+    [
+      effectiveResources,
+      updateStatus,
+      buildSnapshot,
+      pushHistory,
+      applySpend,
+      applyAdjustUnits,
       infiniteResources,
     ]
   );
@@ -881,12 +968,14 @@ export const useGameController = () => {
   const finishProductions = useCallback(() => {
     const snapshot = buildSnapshot();
     pushHistory(snapshot);
-    setReadyMap(finishProductionsReadyMap(layout));
-  }, [buildSnapshot, pushHistory, layout]);
+    setReadyMap((prev) =>
+      finishProductionsReadyMap(layout, libraryMap, prev, buildLocks)
+    );
+  }, [buildSnapshot, pushHistory, layout, libraryMap, buildLocks]);
 
   // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
-    const readyOnes = layout.filter((b) => readyMap[b.id]);
+    const readyOnes = layout.filter((b) => readyMap[b.id] === true);
     if (readyOnes.length > 0) {
       harvestBuildings(readyOnes, "Partial Harvest");
     } else {
@@ -926,6 +1015,8 @@ export const useGameController = () => {
           setLayout,
           setCarried,
           setReadyMap,
+          setBuildLocks,
+          buildLocks,
           pushHistory,
           setMoveSnapshot,
           setMoveMode,
@@ -940,7 +1031,7 @@ export const useGameController = () => {
           return;
         }
         const delta = computeSaleOrRefund(target, libraryMap, refundMode);
-        if (readyMap[target.id]) {
+        if (readyMap[target.id] === true) {
           harvestBuildings([target], "Harvest", true, true);
         }
         const snapshot = buildSnapshot();
@@ -948,6 +1039,11 @@ export const useGameController = () => {
         if (!infiniteResources) refundResources(delta);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
         setReadyMap((prev) => {
+          const next = { ...prev };
+          delete next[target.id];
+          return next;
+        });
+        setBuildLocks((prev) => {
           const next = { ...prev };
           delete next[target.id];
           return next;
@@ -998,6 +1094,10 @@ export const useGameController = () => {
         };
         setLayout((prev) => [...prev, instance]);
         setReadyMap((prev) => ({ ...prev, [instance.id]: false }));
+        setBuildLocks((prev) => ({
+          ...prev,
+          [instance.id]: selectedDef.buildTime === 10,
+        }));
         pushHistory(snapshot);
         updateStatus(`Placed ${selectedDef.name}`);
         return;
@@ -1007,10 +1107,14 @@ export const useGameController = () => {
         const snapshot = buildSnapshot();
         setMoveSnapshot(snapshot);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
-        setCarried({
-          instance: { ...target, ready: readyMap[target.id] },
-          def: libraryMap[target.defId],
-        });
+      setCarried({
+        instance: {
+          ...target,
+          ready: readyMap[target.id],
+          locked: buildLocks[target.id],
+        },
+        def: libraryMap[target.defId],
+      });
         updateStatus(`Picked up ${libraryMap[target.defId].name}`);
         return;
       }
@@ -1021,10 +1125,19 @@ export const useGameController = () => {
         !refundMode &&
         !selectedDef &&
         target &&
-        readyMap[target.id]
+        readyMap[target.id] === true
       ) {
         harvestBuildings([target], "Harvest", true);
         return;
+      }
+
+      if (
+        !moveMode &&
+        target &&
+        libraryMap[target.defId]?.category === "military"
+      ) {
+        const def = libraryMap[target.defId];
+        setUnitModal({ def });
       }
 
       if (
@@ -1100,6 +1213,8 @@ export const useGameController = () => {
     setShardUnlocks,
     goodsModal,
     setGoodsModal,
+    unitModal,
+    setUnitModal,
     fastBuyModal,
     fastBuyTarget,
     unlockChoice,
@@ -1115,6 +1230,7 @@ export const useGameController = () => {
     handleChangeNotes,
     carried,
     readyMap,
+    buildLocks,
     hoverCell,
     setHoverCell,
     moveMode,
@@ -1167,6 +1283,7 @@ export const useGameController = () => {
     setUnlockChoice,
     setUnlockGoodSelect,
     handleGoodsPurchase,
+    handleUnitPurchase,
     handleFastBuy,
     resetModes,
     handleEditResource,

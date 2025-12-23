@@ -34,7 +34,7 @@ body {
 .topbar {
   padding: 12px 18px;
   display: grid;
-  grid-template-columns: repeat(5, auto) 1fr;
+  grid-template-columns: repeat(6, auto) 1fr;
   align-items: center;
   background: #10253c;
   border-bottom: 1px solid #26435f;
@@ -670,6 +670,10 @@ button.active {
   transform-origin: center;
   pointer-events: none;
   color: #ffffff;
+}
+
+.building-locked {
+  opacity: 0.5;
 }
 
 .status {

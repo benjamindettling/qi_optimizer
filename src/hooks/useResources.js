@@ -31,11 +31,19 @@ export function useResources(initialResources) {
     }));
   }, []);
 
+  const adjustUnits = useCallback((unit, delta) => {
+    setResources((prev) => ({
+      ...prev,
+      units: { ...prev.units, [unit]: (prev.units?.[unit] ?? 0) + delta },
+    }));
+  }, []);
+
   return {
     resources,
     setResources,
     spendResources,
     refundResources,
     adjustGoods,
+    adjustUnits,
   };
 }

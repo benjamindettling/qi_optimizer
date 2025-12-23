@@ -19,8 +19,13 @@ export function GoodsPurchaseModal({ goodsModal, onPurchase, onClose }) {
   const costs = Object.entries(def.goodsCost || {});
 
   return (
-    <div className="modal">
-      <div className="modal-card">
+    <div className="modal" onClick={onClose}>
+      <div
+        className="modal-card"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+      >
         <h3>Buy {def.produces}</h3>
         <div className="modal-body">
           {costs.map(([amt, cost]) => (

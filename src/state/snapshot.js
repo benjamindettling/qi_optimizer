@@ -9,6 +9,7 @@ export const buildSnapshot = (state) =>
     shardUnlocks: state.shardUnlocks,
     nextId: state.nextId,
     readyMap: state.readyMap,
+    buildLocks: state.buildLocks,
     moveMode: state.moveMode,
     sellMode: state.sellMode,
     refundMode: state.refundMode,
@@ -33,6 +34,7 @@ export const applySnapshot = (snapshot, setters) => {
     setNotes,
     setInfiniteResources,
     setInfiniteBackup,
+    setBuildLocks,
     nextIdRef,
     townhallDef,
   } = setters;
@@ -54,6 +56,9 @@ export const applySnapshot = (snapshot, setters) => {
   }
   if (setInfiniteBackup !== undefined) {
     setInfiniteBackup(snapshot.infiniteBackup ?? null);
+  }
+  if (setBuildLocks) {
+    setBuildLocks(snapshot.buildLocks ?? {});
   }
   if (
     townhallDef &&

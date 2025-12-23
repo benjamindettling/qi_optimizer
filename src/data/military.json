@@ -11,7 +11,8 @@
       "3": { "coins": 13500, "supplies": 10800 },
       "6": { "coins": 24000, "supplies": 19200 },
       "10": { "coins": 35000, "supplies": 28000 }
-    }
+    },
+    "produces": "Katapult"
   },
   {
     "id": "blidencamp",
@@ -25,7 +26,8 @@
       "3": { "coins": 16200, "supplies": 13500 },
       "6": { "coins": 28800, "supplies": 24000 },
       "10": { "coins": 42000, "supplies": 35000 }
-    }
+    },
+    "produces": "Blide"
   },
   {
     "id": "kanonencamp",
@@ -39,6 +41,7 @@
       "3": { "coins": 18900, "supplies": 16200 },
       "6": { "coins": 33600, "supplies": 28800 },
       "10": { "coins": 49000, "supplies": 42000 }
-    }
+    },
+    "produces": "Kanone"
   }
 ]

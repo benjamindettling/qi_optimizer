@@ -5,6 +5,7 @@ import populationIcon from "/population.webp";
 import shardsIcon from "/shards.webp";
 import {
   GOODS_TYPES,
+  UNIT_TYPES,
   BOARD_SCALE_MIN,
   BOARD_SCALE_MAX,
 } from "../config/boardConfig";
@@ -131,6 +132,18 @@ export function TopBar({
               {infiniteResources
                 ? "\u221e"
                 : formatNumber(resources.goods[g] ?? 0)}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="goods-stack">
+        {UNIT_TYPES.map((u) => (
+          <div key={u} className="resource-line" title={u}>
+            <img src={`/units/${u}.webp`} alt={u} />
+            <span>
+              {infiniteResources
+                ? "\u221e"
+                : formatNumber(resources.units?.[u] ?? 0)}
             </span>
           </div>
         ))}

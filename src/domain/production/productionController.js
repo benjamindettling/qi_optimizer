@@ -71,8 +71,25 @@ export const aggregateHarvest = (instances, libraryMap, stats) => {
   return total;
 };
 
-export const finishProductionsReadyMap = (layout) =>
-  layout.reduce((acc, b) => ({ ...acc, [b.id]: true }), {});
+export const finishProductionsReadyMap = (
+  layout,
+  libraryMap,
+  prevReadyMap = {},
+  buildLocks = {}
+) =>
+  layout.reduce((acc, b) => {
+    const def = libraryMap[b.defId];
+    const allowed =
+      def && (def.category === "housing" || def.category === "production");
+    const prev = prevReadyMap[b.id] ?? false;
+    if (buildLocks[b.id]) {
+      acc[b.id] = true;
+    } else {
+      acc[b.id] = allowed ? true : prev;
+    }
+    // keep locked flag implied via buildLocks map; ready state still true for housing/production
+    return acc;
+  }, {});
 
 export const buildHarvestResult = ({ total, resources }) => ({
   coins: (resources.coins ?? 0) + total.coins,

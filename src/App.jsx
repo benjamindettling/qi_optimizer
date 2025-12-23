@@ -9,6 +9,7 @@ import { REGION_MASK, REGION_COLS } from "./config/boardConfig";
 import { UnlockRegionModal } from "./components/modals/UnlockRegionModal";
 import { ChooseGoodModal } from "./components/modals/ChooseGoodModal";
 import { GoodsPurchaseModal } from "./components/modals/GoodsPurchaseModal";
+import { UnitsPurchaseModal } from "./components/modals/UnitsPurchaseModal";
 import { FastBuyModal } from "./components/modals/FastBuyModal";
 import { HarvestModal } from "./components/modals/HarvestModal";
 import { HelpModal } from "./components/modals/HelpModal";
@@ -31,6 +32,8 @@ function App() {
     shardUnlocks,
     goodsModal,
     setGoodsModal,
+    unitModal,
+    setUnitModal,
     fastBuyModal,
     setFastBuyModal,
     setFastBuyTarget,
@@ -45,6 +48,7 @@ function App() {
     status,
     carried,
     readyMap,
+    buildLocks,
     setHoverCell,
     moveMode,
     sellMode,
@@ -94,6 +98,7 @@ function App() {
     handleLoadState,
     deleteSave,
     handleGoodsPurchase,
+    handleUnitPurchase,
     handleFastBuy,
     resetModes,
     handleEditResource,
@@ -179,8 +184,9 @@ function App() {
           libraryMap={libraryMap}
           categoryColors={categoryColors}
           boardTransformClass={boardTransformClass}
-              readyMap={readyMap}
-            />
+          buildLocks={buildLocks}
+          readyMap={readyMap}
+        />
             {status && (
               <div
                 className="status"
@@ -258,6 +264,11 @@ function App() {
         goodsModal={goodsModal}
         onPurchase={handleGoodsPurchase}
         onClose={() => setGoodsModal(null)}
+      />
+      <UnitsPurchaseModal
+        unitModal={unitModal}
+        onPurchase={handleUnitPurchase}
+        onClose={() => setUnitModal(null)}
       />
       <EditGoodModal
         modal={editGoodModal}

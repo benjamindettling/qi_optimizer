@@ -1,3 +1,5 @@
+import military from "../data/military.json";
+
 export const REGION_SIZE = 4;
 export const REGION_COLS = 7;
 export const REGION_ROWS = 7;
@@ -23,6 +25,9 @@ export const GOODS_TYPES = [
   "Seil",
   "Schiesspulver",
 ];
+export const UNIT_TYPES = Array.from(
+  new Set((military || []).map((m) => m.produces).filter(Boolean))
+);
 
 export const REGION_MASK = [
   ["N", "N", "U", "U", "U", "U", "N"],
@@ -39,3 +44,5 @@ export const initialRegions = () =>
 
 export const initialGoods = () =>
   GOODS_TYPES.reduce((acc, key) => ({ ...acc, [key]: 20 }), {});
+export const initialUnits = () =>
+  UNIT_TYPES.reduce((acc, key) => ({ ...acc, [key]: 0 }), {});
