@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 export function Board({
   viewRotation,
   boardTransform,
@@ -18,6 +20,20 @@ export function Board({
   readyMap = {},
   buildLocks = {},
 }) {
+  const titleMap = useMemo(() => {
+    const map = {};
+    layout.forEach((b) => {
+      const name = libraryMap[b.defId]?.name;
+      if (!name) return;
+      for (let yy = b.y; yy < b.y + b.height; yy += 1) {
+        for (let xx = b.x; xx < b.x + b.width; xx += 1) {
+          map[`${xx}-${yy}`] = name;
+        }
+      }
+    });
+    return map;
+  }, [layout, libraryMap]);
+
   return (
     <div className="board-wrapper">
       <div
@@ -48,9 +64,10 @@ export function Board({
                 return (
                   <div
                     key={`${globalCol}-${globalRow}`}
-                  className={`cell ${cellLocked ? "locked" : ""} ${
+                    className={`cell ${cellLocked ? "locked" : ""} ${
                     inPreview ? "preview" : ""
                   }`}
+                    title={titleMap[`${globalCol}-${globalRow}`] || undefined}
                     onMouseEnter={() =>
                       setHoverCell({ x: globalCol, y: globalRow })
                     }
@@ -82,9 +99,10 @@ export function Board({
             {layout.map((b) => (
               <div
                 key={b.id}
-                  className={`building-rect ${
-                    buildLocks[b.id] ? "building-locked" : ""
-                  }`}
+                className={`building-rect ${
+                  buildLocks[b.id] ? "building-locked" : ""
+                }`}
+                title={libraryMap[b.defId]?.name || ""}
                 style={{
                   left: `calc(var(--cell-size) * ${b.x - viewColStart})`,
                   top: `calc(var(--cell-size) * ${b.y - viewRowStart})`,

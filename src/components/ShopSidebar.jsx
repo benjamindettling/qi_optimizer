@@ -64,6 +64,8 @@ export function ShopSidebar({
   onDebugUnlockRegion,
   onDebugLockRegion,
 }) {
+  const isTouchDevice =
+    typeof window !== "undefined" && "ontouchstart" in window;
   const visibleCategories = categories.filter((c) => !c.hidden);
   const selectedCat =
     visibleCategories.find((c) => c.key === selectedCategory) ||
@@ -290,6 +292,7 @@ export function ShopSidebar({
             <button
               key={defId}
               className={`card card-grid ${!buildable ? "disabled" : ""}`}
+              style={{ touchAction: "none" }}
               onClick={() => {
                 if (!buildable) return;
                 if (dragMoved) {
@@ -299,7 +302,7 @@ export function ShopSidebar({
                 if (onResetModes) onResetModes();
                 setSelectedBuildingId(defId);
               }}
-              draggable
+              draggable={!isTouchDevice}
               onDragStart={(e) => {
                 dragMoved = false;
                 if (onResetModes) onResetModes();
@@ -321,11 +324,13 @@ export function ShopSidebar({
               }}
               onTouchStart={() => {
                 touchMoved = false;
+                dragMoved = false;
                 if (onResetModes) onResetModes();
                 setSelectedBuildingId(defId);
               }}
               onTouchMove={() => {
                 touchMoved = true;
+                dragMoved = true;
               }}
               onTouchEnd={(e) => {
                 if (!touchMoved) {
@@ -333,6 +338,7 @@ export function ShopSidebar({
                   setSelectedBuildingId(defId);
                 }
                 touchMoved = false;
+                dragMoved = false;
               }}
             >
               <div className="card-header">

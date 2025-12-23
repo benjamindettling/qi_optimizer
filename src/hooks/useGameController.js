@@ -556,21 +556,29 @@ export const useGameController = () => {
 
   // Collect production for a set of buildings and update readiness.
   const harvestBuildings = useCallback(
-    (instances, label = "Harvest", skipPopup = false, skipHistory = false) => {
+    (
+      instances,
+      label = "Harvest",
+      skipPopup = false,
+      skipHistory = false,
+      options = {}
+    ) => {
       if (!instances.length) return;
       const snapshot = skipHistory ? null : buildSnapshot();
       if (!skipHistory) pushHistory(snapshot);
 
+      const locks = options.buildLocksOverride ?? buildLocks;
+      const useStats = options.statsOverride ?? stats;
       const lockedIds = [];
       const harvestable = [];
       instances.forEach((inst) => {
-        if (buildLocks[inst.id]) lockedIds.push(inst.id);
+        if (locks[inst.id]) lockedIds.push(inst.id);
         else harvestable.push(inst);
       });
 
       const total =
         harvestable.length > 0
-          ? aggregateHarvest(harvestable, libraryMap, stats)
+          ? aggregateHarvest(harvestable, libraryMap, useStats)
           : { coins: 0, supplies: 0, chronos: 0, goods: {} };
 
       if (!infiniteResources) {
@@ -975,13 +983,43 @@ export const useGameController = () => {
 
   // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
+    const snapshot = buildSnapshot();
+    pushHistory(snapshot);
+
+    const buildLocksAfter = { ...buildLocks };
+    let unlockedAny = false;
+    Object.keys(buildLocksAfter).forEach((key) => {
+      if (buildLocksAfter[key]) {
+        buildLocksAfter[key] = false;
+        unlockedAny = true;
+      }
+    });
+    if (unlockedAny) setBuildLocks(buildLocksAfter);
+
+    const effectiveStats = computeStats(layout, libraryMap);
     const readyOnes = layout.filter((b) => readyMap[b.id] === true);
     if (readyOnes.length > 0) {
-      harvestBuildings(readyOnes, "Partial Harvest");
+      harvestBuildings(readyOnes, "Partial Harvest", false, true, {
+        statsOverride: effectiveStats,
+        buildLocksOverride: buildLocksAfter,
+      });
     } else {
-      harvestBuildings(layout, "Full Harvest");
+      harvestBuildings(layout, "Full Harvest", false, true, {
+        statsOverride: effectiveStats,
+        buildLocksOverride: buildLocksAfter,
+      });
     }
-  }, [layout, readyMap, harvestBuildings]);
+  }, [
+    layout,
+    readyMap,
+    harvestBuildings,
+    buildLocks,
+    setBuildLocks,
+    computeStats,
+    libraryMap,
+    buildSnapshot,
+    pushHistory,
+  ]);
 
   // Close harvest modal after acknowledgment.
   const confirmHarvest = useCallback(() => {
