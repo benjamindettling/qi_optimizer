@@ -36,11 +36,6 @@ export const computeBuildingHarvest = (inst, libraryMap, stats) => {
       };
     }
     case "goods": {
-      const amounts = def.goodsCost
-        ? Object.keys(def.goodsCost).map((k) => Number(k))
-        : [];
-      const best = amounts.length ? Math.max(...amounts) : 0;
-      if (def.produces && best) goods[def.produces] = best;
       return { coins: 0, supplies: 0, chronos: 0, goods };
     }
     case "townhall": {
@@ -80,7 +75,10 @@ export const finishProductionsReadyMap = (
   layout.reduce((acc, b) => {
     const def = libraryMap[b.defId];
     const allowed =
-      def && (def.category === "housing" || def.category === "production");
+      def &&
+      (def.category === "housing" ||
+        def.category === "production" ||
+        def.category === "townhall");
     const prev = prevReadyMap[b.id] ?? false;
     if (buildLocks[b.id]) {
       acc[b.id] = true;

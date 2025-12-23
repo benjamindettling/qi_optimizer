@@ -1006,6 +1006,7 @@ export const useGameController = () => {
     const snapshot = buildSnapshot();
     pushHistory(snapshot);
 
+    const locksBefore = { ...buildLocks };
     const buildLocksAfter = { ...buildLocks };
     let unlockedAny = false;
     Object.keys(buildLocksAfter).forEach((key) => {
@@ -1021,12 +1022,12 @@ export const useGameController = () => {
     if (readyOnes.length > 0) {
       harvestBuildings(readyOnes, "Partial Harvest", false, true, {
         statsOverride: effectiveStats,
-        buildLocksOverride: buildLocksAfter,
+        buildLocksOverride: locksBefore,
       });
     } else {
       harvestBuildings(layout, "Full Harvest", false, true, {
         statsOverride: effectiveStats,
-        buildLocksOverride: buildLocksAfter,
+        buildLocksOverride: locksBefore,
       });
     }
   }, [
