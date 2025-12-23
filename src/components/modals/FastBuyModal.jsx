@@ -22,6 +22,8 @@
  *   }) => void
  * - onCancel: () => void
  */
+import { formatNumber } from "../../utils/formatNumber";
+
 export function FastBuyModal({ fastBuyModal, onFastBuy, onCancel }) {
   if (!fastBuyModal) return null;
 
@@ -33,7 +35,7 @@ export function FastBuyModal({ fastBuyModal, onFastBuy, onCancel }) {
         <h3>Fast buy {goodKey}</h3>
         <div className="modal-body">
           <div>
-            Need: {goodsCost} {goodKey}
+            Need: {formatNumber(goodsCost)} {goodKey}
           </div>
           {options.map((opt, idx) => {
             const coins = opt.plan.reduce((s, p) => s + (p.cost.coins ?? 0), 0);
@@ -47,8 +49,8 @@ export function FastBuyModal({ fastBuyModal, onFastBuy, onCancel }) {
                 onClick={() => onFastBuy(opt)}
                 style={{ width: "100%", marginBottom: 6 }}
               >
-                {opt.label}: buy {opt.totalAmount} for {coins} coins /{" "}
-                {supplies} supplies
+                {opt.label}: buy {formatNumber(opt.totalAmount)} for {formatNumber(coins)} coins /{" "}
+                {formatNumber(supplies)} supplies
               </button>
             );
           })}

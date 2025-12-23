@@ -46,13 +46,14 @@ export const computeViewTransforms = (
   viewHeight,
   boardScale = 1
 ) => {
-  const CELL_SIZE_PX = 36;
+  const BASE_CELL_PX = 36;
   const s = boardScale ?? 1;
-  const cellSizePx = CELL_SIZE_PX;
-  const layoutWidthPx = viewWidth * CELL_SIZE_PX;
-  const layoutHeightPx = viewHeight * CELL_SIZE_PX;
-  const scaledWidthPx = layoutWidthPx * s;
-  const scaledHeightPx = layoutHeightPx * s;
+  // Scale the logical cell size directly to avoid sub-pixel border loss on rotation.
+  const cellSizePx = BASE_CELL_PX * s;
+  const layoutWidthPx = viewWidth * cellSizePx;
+  const layoutHeightPx = viewHeight * cellSizePx;
+  const scaledWidthPx = layoutWidthPx;
+  const scaledHeightPx = layoutHeightPx;
 
   const theta = viewMode === "right" ? -90 : viewMode === "diagonal" ? -45 : 0;
   const rad = (theta * Math.PI) / 180;
@@ -82,7 +83,7 @@ export const computeViewTransforms = (
   const toolbarOffsetPx = rotatedWidthPx - layoutWidthPx;
   const statusOffsetPx = rotatedHeightPx - layoutHeightPx;
 
-  const boardTransform = `translate(${translateX}px, ${translateY}px) rotate(${theta}deg) scale(${s})`;
+  const boardTransform = `translate(${translateX}px, ${translateY}px) rotate(${theta}deg)`;
 
   const regionTransform =
     viewMode === "right"

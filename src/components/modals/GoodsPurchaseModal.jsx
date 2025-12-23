@@ -1,4 +1,5 @@
 // src/components/modals/GoodsPurchaseModal.jsx
+import { formatNumber } from "../../utils/formatNumber";
 
 /**
  * Modal for buying goods for a specific goods building.
@@ -28,7 +29,8 @@ export function GoodsPurchaseModal({ goodsModal, onPurchase, onClose }) {
               onClick={() => onPurchase(def, amt)}
               style={{ width: "100%", marginBottom: 6 }}
             >
-              +{amt} for {cost.coins ?? 0} coins / {cost.supplies ?? 0} supplies
+              +{formatNumber(Number(amt))} for {formatNumber(cost.coins ?? 0)} coins /{" "}
+              {formatNumber(cost.supplies ?? 0)} supplies
             </button>
           ))}
         </div>

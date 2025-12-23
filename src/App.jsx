@@ -13,6 +13,7 @@ import { FastBuyModal } from "./components/modals/FastBuyModal";
 import { HarvestModal } from "./components/modals/HarvestModal";
 import { HelpModal } from "./components/modals/HelpModal";
 import { ConfigModal } from "./components/modals/ConfigModal";
+import { EditGoodModal } from "./components/modals/EditGoodModal";
 import { useGameController } from "./hooks/useGameController";
 
 // Entry component that wires controller state into all UI pieces.
@@ -61,6 +62,7 @@ function App() {
     toolbarOffsetPx,
     statusOffsetPx,
     boardTransformClass,
+    cellSizePx,
     viewWidth,
     viewHeight,
     viewColStart,
@@ -107,6 +109,9 @@ function App() {
     setConfigModal,
     config,
     updateConfig,
+    editGoodModal,
+    applyGoodEdit,
+    cancelEditGood,
   } = useGameController();
 
   return (
@@ -158,12 +163,13 @@ function App() {
         <div className="workspace">
           <div className="board-area">
             <Board
-              viewRotation={viewRotation}
-              boardTransform={boardTransform}
-              viewWidth={viewWidth}
-              viewHeight={viewHeight}
-              viewColStart={viewColStart}
-              viewRowStart={viewRowStart}
+          viewRotation={viewRotation}
+          boardTransform={boardTransform}
+          viewWidth={viewWidth}
+          viewHeight={viewHeight}
+          viewColStart={viewColStart}
+          viewRowStart={viewRowStart}
+          cellSizePx={cellSizePx}
           previewOrigin={previewOrigin}
           isCellUnlocked={isCellUnlocked}
           handleCellClick={handleCellClick}
@@ -252,6 +258,12 @@ function App() {
         goodsModal={goodsModal}
         onPurchase={handleGoodsPurchase}
         onClose={() => setGoodsModal(null)}
+      />
+      <EditGoodModal
+        modal={editGoodModal}
+        onSave={(val) => applyGoodEdit(val, false)}
+        onSaveAll={(val) => applyGoodEdit(val, true)}
+        onClose={cancelEditGood}
       />
 
       <FastBuyModal

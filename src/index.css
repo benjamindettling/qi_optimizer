@@ -132,6 +132,13 @@ button.active {
   height: 22px;
 }
 
+.inline-icon {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
 .resource-line .small {
   font-size: 12px;
   display: block;
@@ -547,7 +554,7 @@ button.active {
 
 .board-frame.view-right {
   --view-rotation: 90deg;
-  transform: rotate(90deg) translate(-100%, 0) scale(0.8);
+  transform: rotate(90deg) translate(-100%, 0);
 }
 
 .board-frame.view-diagonal {
@@ -702,6 +709,23 @@ button.active {
   gap: 8px;
   justify-content: flex-end;
   margin-top: 12px;
+}
+
+.harvest-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.harvest-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.harvest-heading {
+  font-weight: 700;
+  color: #e9ecf1;
 }
 
 @media (max-width: 1100px) {
@@ -891,6 +915,12 @@ button.active {
 
 .config-row input {
   width: 140px;
+}
+
+.config-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .config-input::-webkit-outer-spin-button,

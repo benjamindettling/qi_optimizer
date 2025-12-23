@@ -10,6 +10,7 @@ import armyRedIcon from "/red_both_qi.webp";
 import armyBlueIcon from "/blue_both_qi.webp";
 import troopIcon from "/troop.webp";
 import { GOODS_TYPES } from "../config/boardConfig";
+import { formatNumber } from "../utils/formatNumber";
 
 const CostRow = ({ icon, label, danger }) => (
   <div className={`cost-row ${danger ? "cost" : ""}`}>
@@ -77,13 +78,25 @@ export function ShopSidebar({
 
   const renderCostColumn = (item) => (
     <div className="card-cost-col cost">
-      <CostRow icon={moneyIcon} label={item.cost.coins ?? 0} danger />
-      <CostRow icon={suppliesIcon} label={item.cost.supplies ?? 0} danger />
-      <CostRow icon={chronosIcon} label={item.cost.chronos ?? 0} danger />
+      <CostRow
+        icon={moneyIcon}
+        label={formatNumber(item.cost.coins ?? 0)}
+        danger
+      />
+      <CostRow
+        icon={suppliesIcon}
+        label={formatNumber(item.cost.supplies ?? 0)}
+        danger
+      />
+      <CostRow
+        icon={chronosIcon}
+        label={formatNumber(item.cost.chronos ?? 0)}
+        danger
+      />
       {item.requiresPeople ? (
         <CostRow
           icon={populationIcon}
-          label={`-${item.requiresPeople}`}
+          label={`-${formatNumber(item.requiresPeople)}`}
           danger
         />
       ) : null}
@@ -95,24 +108,42 @@ export function ShopSidebar({
     const rows = [];
     if (item.people)
       rows.push(
-        <StatRow key="people" icon={populationIcon} label={`+${item.people}`} />
+        <StatRow
+          key="people"
+          icon={populationIcon}
+          label={`+${formatNumber(item.people)}`}
+        />
       );
     if (prod.coins)
-      rows.push(<StatRow key="coins" icon={moneyIcon} label={prod.coins} />);
+      rows.push(
+        <StatRow
+          key="coins"
+          icon={moneyIcon}
+          label={formatNumber(prod.coins)}
+        />
+      );
     if (prod.supplies)
       rows.push(
-        <StatRow key="supplies" icon={suppliesIcon} label={prod.supplies} />
+        <StatRow
+          key="supplies"
+          icon={suppliesIcon}
+          label={formatNumber(prod.supplies)}
+        />
       );
     if (prod.chronos)
       rows.push(
-        <StatRow key="chronos" icon={chronosIcon} label={prod.chronos} />
+        <StatRow
+          key="chronos"
+          icon={chronosIcon}
+          label={formatNumber(prod.chronos)}
+        />
       );
     if (item.coinBoost)
       rows.push(
         <StatRow
           key="coinBoost"
           icon={moneyIcon}
-          label={`+${Math.round((item.coinBoost ?? 0) * 100)}%`}
+          label={`+${formatNumber(Math.round((item.coinBoost ?? 0) * 100))}%`}
         />
       );
     if (item.supplyBoost)
@@ -120,27 +151,43 @@ export function ShopSidebar({
         <StatRow
           key="supplyBoost"
           icon={suppliesIcon}
-          label={`+${Math.round((item.supplyBoost ?? 0) * 100)}%`}
+          label={`+${formatNumber(
+            Math.round((item.supplyBoost ?? 0) * 100)
+          )}%`}
         />
       );
     if (item.happiness)
       rows.push(
-        <StatRow key="happy" icon={happinessIcon} label={item.happiness} />
+        <StatRow
+          key="happy"
+          icon={happinessIcon}
+          label={formatNumber(item.happiness)}
+        />
       );
     if (item.happinessCost)
       rows.push(
         <CostRow
           key="happyCost"
           icon={happinessIcon}
-          label={`-${item.happinessCost}`}
+          label={`-${formatNumber(item.happinessCost)}`}
           danger
         />
       );
     if (item.qunatumActions)
-      rows.push(<StatRow key="qa" icon={qaIcon} label={`${item.qunatumActions}`} />);
+      rows.push(
+        <StatRow
+          key="qa"
+          icon={qaIcon}
+          label={`${formatNumber(item.qunatumActions)}`}
+        />
+      );
     if (item.attack)
       rows.push(
-        <StatRow key="atk" icon={null} label={`Attack +${item.attack}%`} />
+        <StatRow
+          key="atk"
+          icon={null}
+          label={`Attack +${formatNumber(item.attack)}%`}
+        />
       );
     if (item.armyBoost) {
       Object.entries(item.armyBoost).forEach(([type, val]) => {
@@ -148,7 +195,7 @@ export function ShopSidebar({
           <StatRow
             key={`army-${type}`}
             icon={type === "red" ? armyRedIcon : armyBlueIcon}
-            label={`+${Math.round((val ?? 0) * 100)}%`}
+            label={`+${formatNumber(Math.round((val ?? 0) * 100))}%`}
           />
         );
       });
@@ -172,9 +219,13 @@ export function ShopSidebar({
           </div>
           {Object.entries(item.goodsCost).map(([amt, cost]) => (
             <div key={amt} className="goods-row">
-              <span className="goods-amount">{amt}</span>
-              <span className="goods-cost">{cost.coins ?? 0}</span>
-              <span className="goods-cost">{cost.supplies ?? 0}</span>
+            <span className="goods-amount">{formatNumber(Number(amt))}</span>
+            <span className="goods-cost">
+              {formatNumber(cost.coins ?? 0)}
+            </span>
+            <span className="goods-cost">
+              {formatNumber(cost.supplies ?? 0)}
+            </span>
             </div>
           ))}
         </div>
@@ -196,9 +247,13 @@ export function ShopSidebar({
           </div>
           {Object.entries(item.unitCosts).map(([amt, cost]) => (
             <div key={amt} className="goods-row">
-              <span className="goods-amount">{amt}</span>
-              <span className="goods-cost">{cost.coins ?? 0}</span>
-              <span className="goods-cost">{cost.supplies ?? 0}</span>
+            <span className="goods-amount">{formatNumber(Number(amt))}</span>
+            <span className="goods-cost">
+              {formatNumber(cost.coins ?? 0)}
+            </span>
+            <span className="goods-cost">
+              {formatNumber(cost.supplies ?? 0)}
+            </span>
             </div>
           ))}
         </div>

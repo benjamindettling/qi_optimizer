@@ -38,4 +38,4 @@ export const initialRegions = () =>
   REGION_MASK.flatMap((row) => row.map((cell) => cell === "S"));
 
 export const initialGoods = () =>
-  GOODS_TYPES.reduce((acc, key) => ({ ...acc, [key]: 30 }), {});
+  GOODS_TYPES.reduce((acc, key) => ({ ...acc, [key]: 20 }), {});

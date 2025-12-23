@@ -120,6 +120,7 @@ export const useGameController = () => {
   );
   const [helpModal, setHelpModal] = useState(initialState.helpModal);
   const [configModal, setConfigModal] = useState(initialState.configModal);
+  const [editGoodModal, setEditGoodModal] = useState(initialState.editGoodModal);
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
     initialState.unlockGoodSelect
@@ -388,22 +389,40 @@ export const useGameController = () => {
     (goodKey) => {
       if (!goodKey) return;
       const current = resources?.goods?.[goodKey] ?? 0;
-      const raw = prompt(
-        `Set good "${goodKey}" (current: ${current})`,
-        String(current)
-      );
-      if (raw == null) return;
-      const nextVal = Math.max(0, Number.parseInt(String(raw), 10));
-      if (Number.isNaN(nextVal)) return;
-      pushHistory(buildSnapshot());
-      setResources((prev) => ({
-        ...prev,
-        goods: { ...prev.goods, [goodKey]: nextVal },
-      }));
-      updateStatus(`Good "${goodKey}" set to ${nextVal}`);
+      setEditGoodModal({ goodKey, value: current });
     },
-    [resources, pushHistory, buildSnapshot, setResources, updateStatus]
+    [resources]
   );
+
+  const applyGoodEdit = useCallback(
+    (amount, applyAll = false) => {
+      if (!editGoodModal?.goodKey && !applyAll) return;
+      const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
+      const snapshot = buildSnapshot();
+      pushHistory(snapshot);
+      setResources((prev) => {
+        const goods = { ...(prev.goods ?? {}) };
+        if (applyAll) {
+          GOODS_TYPES.forEach((g) => {
+            goods[g] = nextVal;
+          });
+        } else if (editGoodModal?.goodKey) {
+          goods[editGoodModal.goodKey] = nextVal;
+        }
+        return { ...prev, goods };
+      });
+      const label = applyAll
+        ? `Alle Gueter auf ${nextVal} gesetzt`
+        : `${editGoodModal?.goodKey} auf ${nextVal} gesetzt`;
+      updateStatus(label);
+      setEditGoodModal(null);
+    },
+    [buildSnapshot, editGoodModal, pushHistory, setResources, updateStatus]
+  );
+
+  const cancelEditGood = useCallback(() => {
+    setEditGoodModal(null);
+  }, []);
 
   // Undo while clearing any carried building context.
   const undoWithCleanup = useCallback(() => {
@@ -471,10 +490,12 @@ export const useGameController = () => {
   }, [moveSnapshot, applySnapshot]);
 
   const baseStats = computeStats(layout, libraryMap);
+  const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
+  const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
   const statsWithConfig = {
     ...baseStats,
-    coinBoost: (baseStats.coinBoost ?? 0) + (config.coinBoost / 100 ?? 0),
-    supplyBoost: (baseStats.supplyBoost ?? 0) + (config.supplyBoost / 100 ?? 0),
+    coinBoost: (baseStats.coinBoost ?? 0) + coinBoostCfg,
+    supplyBoost: (baseStats.supplyBoost ?? 0) + supplyBoostCfg,
   };
   const stats = statsWithConfig;
   const happyInfo = happinessTier(
@@ -1083,9 +1104,7 @@ export const useGameController = () => {
     fastBuyTarget,
     unlockChoice,
     unlockGoodSelect,
-    helpModal,
     configModal,
-    helpModal,
     viewMode,
     setViewMode,
     boardScale,
@@ -1159,9 +1178,13 @@ export const useGameController = () => {
     handleToggleInfinite,
     helpModal,
     setHelpModal,
+    editGoodModal,
+    setEditGoodModal,
     configModal,
     setConfigModal,
     config,
     updateConfig,
+    applyGoodEdit,
+    cancelEditGood,
   };
 };

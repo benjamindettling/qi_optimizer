@@ -1,4 +1,5 @@
 // src/components/modals/UnlockRegionModal.jsx
+import { formatNumber } from "../../utils/formatNumber";
 
 /**
  * Modal for choosing how to unlock a region (goods vs shards).
@@ -24,6 +25,8 @@ export function UnlockRegionModal({
   if (!unlockChoice) return null;
 
   const { idx, goodsCost, shardCost, allowGoods, allowShards } = unlockChoice;
+  const goodsIcon = "/menu/goods.png";
+  const shardsIcon = "/shards.webp";
 
   return (
     <div className="modal">
@@ -37,13 +40,15 @@ export function UnlockRegionModal({
             }}
             disabled={!allowGoods}
           >
-            Goods ({goodsCost})
+            <img src={goodsIcon} alt="Goods" className="inline-icon" />
+            {formatNumber(goodsCost)}
           </button>
           <button
             onClick={() => onUnlockWithShards(idx)}
             disabled={!allowShards}
           >
-            Shards ({shardCost})
+            <img src={shardsIcon} alt="Shards" className="inline-icon" />
+            {formatNumber(shardCost)}
           </button>
         </div>
         <div className="modal-actions">

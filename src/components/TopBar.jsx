@@ -9,6 +9,7 @@ import {
   BOARD_SCALE_MAX,
 } from "../config/boardConfig";
 import { HAPPINESS_TIERS } from "../utils/gameMath";
+import { formatNumber } from "../utils/formatNumber";
 
 export function TopBar({
   resources,
@@ -79,7 +80,9 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("coins")}
         >
           <img src={moneyIcon} alt="coins" />
-          <span>{infiniteResources ? "\u221e" : resources.coins}</span>
+          <span>
+            {infiniteResources ? "\u221e" : formatNumber(resources.coins ?? 0)}
+          </span>
         </div>
         <div
           className="resource-line"
@@ -87,7 +90,11 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("supplies")}
         >
           <img src={suppliesIcon} alt="supplies" />
-          <span>{infiniteResources ? "\u221e" : resources.supplies}</span>
+          <span>
+            {infiniteResources
+              ? "\u221e"
+              : formatNumber(resources.supplies ?? 0)}
+          </span>
         </div>
         <div
           className="resource-line"
@@ -95,12 +102,16 @@ export function TopBar({
           onDoubleClick={() => onEditResource?.("chronos")}
         >
           <img src={chronosIcon} alt="chronos" />
-          <span>{infiniteResources ? "\u221e" : resources.chronos}</span>
+          <span>
+            {infiniteResources
+              ? "\u221e"
+              : formatNumber(resources.chronos ?? 0)}
+          </span>
         </div>
         <div className="resource-line" title="Scherben">
           <img src={shardsIcon} alt="shards" />
           <span onDoubleClick={() => onEditResource?.("shards")}>
-            {infiniteResources ? "\u221e" : resources.shards}
+            {infiniteResources ? "\u221e" : formatNumber(resources.shards ?? 0)}
           </span>
         </div>
       </div>
@@ -117,7 +128,9 @@ export function TopBar({
               alt={g}
             />
             <span>
-              {infiniteResources ? "\u221e" : resources.goods[g] ?? 0}
+              {infiniteResources
+                ? "\u221e"
+                : formatNumber(resources.goods[g] ?? 0)}
             </span>
           </div>
         ))}
@@ -162,11 +175,11 @@ export function TopBar({
           <img src={populationIcon} alt="population" />
           <div>
             <span className="total-pop" title="Totale Bevölkerung">
-              tot: {stats.people}
+              tot: {formatNumber(stats.people ?? 0)}
             </span>
             <br></br>
             <span title="Freie Bevölkerung">
-              free: {Math.max(0, stats.people - stats.peopleReq)}
+              free: {formatNumber(Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0)))}
             </span>
           </div>
         </div>
@@ -194,8 +207,8 @@ export function TopBar({
                         color: row.delta < 0 ? "#6de38f" : "#ff7676",
                       }}
                     >
-                      {row.delta > 0 ? "+" : ""}
-                      {row.delta}
+                      {row.delta > 0 ? "+" : row.delta < 0 ? "-" : ""}
+                      {formatNumber(Math.abs(row.delta))}
                     </span>
                   </div>
                 ))}
@@ -264,5 +277,7 @@ export function TopBar({
     </header>
   );
 }
+
+
 
 

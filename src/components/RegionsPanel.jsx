@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { RegionBadge } from "./RegionBadge";
 import { REGION_GOODS_COSTS, REGION_SHARD_COSTS } from "../config/boardConfig";
+import { formatNumber } from "../utils/formatNumber";
 
 export function RegionsPanel({
   viewMode,
@@ -101,12 +102,12 @@ export function RegionsPanel({
             >
               {REGION_GOODS_COSTS.map((cost, idx) => (
                 <option key={idx} value={idx}>
-                  {cost}
+                  {formatNumber(cost)}
                 </option>
               ))}
             </select>
           ) : (
-            `${currentGoodsCost} Güter`
+            `${formatNumber(currentGoodsCost)} Güter`
           )}
         </span>{" "}
         or{" "}
@@ -129,12 +130,12 @@ export function RegionsPanel({
             >
               {REGION_SHARD_COSTS.map((cost, idx) => (
                 <option key={idx} value={idx}>
-                  {cost}
+                  {formatNumber(cost)}
                 </option>
               ))}
             </select>
           ) : (
-            `${currentShardCost} Scherben`
+            `${formatNumber(currentShardCost)} Scherben`
           )}
         </span>
         . <br></br>
@@ -143,3 +144,5 @@ export function RegionsPanel({
     </div>
   );
 }
+
+
