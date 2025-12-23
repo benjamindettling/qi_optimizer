@@ -22,9 +22,13 @@ export function useSaves() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
   };
 
-  const setAllSaves = (next) => {
-    const value = typeof next === "function" ? next(saves) : next;
-    persist(value || {});
+  const setAllSaves = (updater) => {
+    setSaves((prev) => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      const finalObj = next || {};
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalObj));
+      return finalObj;
+    });
   };
 
   const saveSnapshot = (name, snapshot) => {

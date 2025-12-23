@@ -38,10 +38,7 @@ export function ActionToolbar({
   };
 
   const handleSaveClick = () => {
-    let target = loadName;
-    if (!target) {
-      target = promptSaveName();
-    }
+    const target = promptSaveName();
     if (!target) return;
     if (onSave) onSave(target);
   };
@@ -113,18 +110,7 @@ export function ActionToolbar({
         onClick={handleSaveClick}
         title="Speicher aktuellen Stand in deinem Browser. (Hinweis, undo/redo Verlauf wird nicht mitgespeichert)"
       >
-        Save as "
-        <span
-          style={{ textDecoration: "underline", cursor: "pointer" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            promptSaveName();
-          }}
-          title="Name ändern"
-        >
-          {loadName || "neuer Save"}
-        </span>
-        "
+        Save as
       </button>
       <div className="save-control" ref={saveMenuRef}>
         <button

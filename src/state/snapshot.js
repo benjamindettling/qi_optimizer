@@ -3,8 +3,6 @@ import { serializeState } from "../utils/stateUtils";
 export const buildSnapshot = (state) =>
   serializeState({
     resources: state.resources,
-    saves: state.saves,
-    loadName: state.loadName,
     layout: state.layout,
     unlockedRegions: state.unlockedRegions,
     goodsUnlocks: state.goodsUnlocks,
@@ -24,7 +22,6 @@ export const buildSnapshot = (state) =>
 export const applySnapshot = (snapshot, setters) => {
   const {
     setResources,
-    setSaves,
     setLayout,
     setUnlockedRegions,
     setGoodsUnlocks,
@@ -43,7 +40,6 @@ export const applySnapshot = (snapshot, setters) => {
   } = setters;
 
   setResources(snapshot.resources);
-  if (setSaves && snapshot.saves) setSaves(snapshot.saves);
   setLayout(snapshot.layout);
   setUnlockedRegions(snapshot.unlockedRegions);
   if (snapshot.goodsUnlocks !== undefined) setGoodsUnlocks(snapshot.goodsUnlocks);
@@ -63,9 +59,6 @@ export const applySnapshot = (snapshot, setters) => {
   }
   if (setBuildLocks) {
     setBuildLocks(snapshot.buildLocks ?? {});
-  }
-  if (setters.setLoadName && snapshot.loadName !== undefined) {
-    setters.setLoadName(snapshot.loadName);
   }
   if (
     townhallDef &&

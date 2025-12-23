@@ -214,7 +214,6 @@ export const useGameController = () => {
     saves,
     loadName,
     setLoadName,
-    setAllSaves,
     saveSnapshot,
     loadSnapshot,
     deleteSave,
@@ -316,8 +315,6 @@ export const useGameController = () => {
     () =>
       buildSnapshotState({
         resources,
-        saves,
-        loadName,
         layout,
         unlockedRegions,
         goodsUnlocks,
@@ -356,7 +353,6 @@ export const useGameController = () => {
     (snapshot) =>
       applySnapshotState(snapshot, {
     setResources,
-    setSaves: setAllSaves,
     setLayout,
     setUnlockedRegions,
     setGoodsUnlocks,
