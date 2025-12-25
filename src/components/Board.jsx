@@ -21,6 +21,13 @@ export function Board({
   buildLocks = {},
   useShortNames = false,
 }) {
+  const safeCols = Math.max(1, Math.floor(viewWidth || 0));
+  const safeRows = Math.max(1, Math.floor(viewHeight || 0));
+
+  if (!Number.isFinite(viewColStart) || !Number.isFinite(viewRowStart)) {
+    return null;
+  }
+
   const titleMap = useMemo(() => {
     const map = {};
     layout.forEach((b) => {
@@ -45,14 +52,14 @@ export function Board({
           transform: boardTransform,
         }}
       >
-        <div className="board" style={{ "--board-cols": viewWidth }}>
-          {Array.from({ length: viewHeight }).map((_, row) => (
+        <div className="board" style={{ "--board-cols": safeCols }}>
+          {Array.from({ length: safeRows }).map((_, row) => (
             <div
               key={row}
               className="board-row"
-              style={{ "--board-cols": viewWidth }}
+              style={{ "--board-cols": safeCols }}
             >
-              {Array.from({ length: viewWidth }).map((_, col) => {
+              {Array.from({ length: safeCols }).map((_, col) => {
                 const globalCol = viewColStart + col;
                 const globalRow = viewRowStart + row;
                 const inPreview =
@@ -66,8 +73,8 @@ export function Board({
                   <div
                     key={`${globalCol}-${globalRow}`}
                     className={`cell ${cellLocked ? "locked" : ""} ${
-                    inPreview ? "preview" : ""
-                  }`}
+                      inPreview ? "preview" : ""
+                    }`}
                     title={titleMap[`${globalCol}-${globalRow}`] || undefined}
                     onMouseEnter={() =>
                       setHoverCell({ x: globalCol, y: globalRow })
@@ -115,25 +122,25 @@ export function Board({
                   borderColor: categoryColors[libraryMap[b.defId].category],
                   pointerEvents: "none",
                 }}
-                >
-                  <div className="building-subgrid" />
-                  <div
-                    className="building-label"
-                    style={{
-                      color: buildLocks[b.id]
-                        ? readyMap[b.id]
-                          ? "#ffeb3b"
-                          : "#9aa3b5"
-                        : readyMap[b.id]
+              >
+                <div className="building-subgrid" />
+                <div
+                  className="building-label"
+                  style={{
+                    color: buildLocks[b.id]
+                      ? readyMap[b.id]
                         ? "#ffeb3b"
-                        : "#ffffff",
-                    }}
-                  >
+                        : "#9aa3b5"
+                      : readyMap[b.id]
+                      ? "#ffeb3b"
+                      : "#ffffff",
+                  }}
+                >
                   {useShortNames && libraryMap[b.defId]?.short
                     ? libraryMap[b.defId].short
                     : libraryMap[b.defId].name}
-                  </div>
                 </div>
+              </div>
             ))}
           </div>
         </div>

@@ -48,6 +48,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     moveMode: false,
     sellMode: false,
     refundMode: false,
+    boostMode: false,
     carried: null,
     moveSnapshot: null,
     harvestModal: null,

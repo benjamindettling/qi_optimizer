@@ -1,5 +1,6 @@
 // Top-level app composition: assembles board, sidebar, toolbars, and modals.
 
+import { useEffect, useRef, useState } from "react";
 import "./index.css";
 import { Board } from "./components/Board";
 import { TopBar } from "./components/TopBar";
@@ -19,6 +20,10 @@ import { useGameController } from "./hooks/useGameController";
 
 // Entry component that wires controller state into all UI pieces.
 function App() {
+  const [holdTooltip, setHoldTooltip] = useState(null);
+  const holdTimerRef = useRef(null);
+  const suppressClickRef = useRef(false);
+  const holdTriggeredRef = useRef(false);
   const {
     resources,
     layout,
@@ -53,6 +58,7 @@ function App() {
     moveMode,
     sellMode,
     refundMode,
+    boostMode,
     saves,
     loadName,
     setLoadName,
@@ -91,6 +97,7 @@ function App() {
     undoWithCleanup,
     redoWithCleanup,
     finishProductions,
+    toggleBoost,
     harvestAll,
     confirmHarvest,
     cancelHarvest,
@@ -120,6 +127,64 @@ function App() {
     applyGoodEdit,
     cancelEditGood,
   } = useGameController();
+
+  useEffect(() => {
+    const clearTimer = () => {
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+
+    const onPointerDown = (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      const title = btn.getAttribute("title");
+      if (!title) return;
+      clearTimer();
+      holdTriggeredRef.current = false;
+      const { clientX, clientY } = e;
+      holdTimerRef.current = setTimeout(() => {
+        holdTriggeredRef.current = true;
+        suppressClickRef.current = true;
+        setHoldTooltip({ text: title, x: clientX, y: clientY });
+      }, 700);
+    };
+
+    const onPointerUp = () => {
+      clearTimer();
+    };
+
+    const onClickCapture = (e) => {
+      if (suppressClickRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressClickRef.current = false;
+        return;
+      }
+      if (holdTriggeredRef.current) {
+        holdTriggeredRef.current = false;
+      }
+      if (holdTooltip) {
+        setHoldTooltip(null);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("pointercancel", onPointerUp, true);
+    document.addEventListener("click", onClickCapture, true);
+
+    return () => {
+      clearTimer();
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerUp, true);
+      document.removeEventListener("click", onClickCapture, true);
+    };
+  }, [holdTooltip]);
+
+  const harvestIsPartial = Object.values(readyMap || {}).some(Boolean);
 
   return (
     <div className="page layout-row">
@@ -217,9 +282,12 @@ function App() {
             refundMode={refundMode}
             onToggleSell={toggleSell}
             onToggleRefund={toggleRefund}
+            onToggleBoost={toggleBoost}
             onUndo={undoWithCleanup}
             onRedo={redoWithCleanup}
             finishProductions={finishProductions}
+            harvestIsPartial={harvestIsPartial}
+            boostMode={boostMode}
             harvestAll={harvestAll}
             canUndo={!!undoStack.length}
             canRedo={!!redoStack.length}
@@ -238,6 +306,29 @@ function App() {
           />
         </div>
       </div>
+      {holdTooltip && (
+        <div
+          className="hold-tooltip"
+          style={{
+            position: "fixed",
+            left: holdTooltip.x + 12,
+            top: holdTooltip.y + 12,
+            zIndex: 9999,
+            pointerEvents: "none",
+            background: "#1f3e63",
+            color: "#e9f1ff",
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #4f7dbd",
+            boxShadow: "0 6px 12px rgba(0,0,0,0.35)",
+            whiteSpace: "nowrap",
+            fontSize: "12px",
+            fontWeight: 700,
+          }}
+        >
+          {holdTooltip.text}
+        </div>
+      )}
       <UnlockRegionModal
         unlockChoice={unlockChoice}
         onChooseGoods={(idx, goodsCost) => {

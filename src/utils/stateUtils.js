@@ -19,6 +19,7 @@ export const serializeState = (state) => ({
   shardUnlocks: state.shardUnlocks,
   nextId: state.nextId,
   readyMap: { ...(state.readyMap ?? {}) },
+  boostMode: state.boostMode ?? false,
   moveMode: state.moveMode,
   sellMode: state.sellMode,
   refundMode: state.refundMode,

@@ -1,16 +1,21 @@
 import { useDropdownMenu } from "../hooks/useDropdownMenu";
+import { Redo } from "lucide-react";
+import { Undo } from "lucide-react";
 
 export function ActionToolbar({
   moveMode,
   sellMode,
   refundMode,
+  boostMode,
   onToggleMove,
   onToggleSell,
   onToggleRefund,
+  onToggleBoost,
   onUndo,
   onRedo,
   finishProductions,
   harvestAll,
+  harvestIsPartial = false,
   canUndo,
   canRedo,
   onSave,
@@ -52,16 +57,16 @@ export function ActionToolbar({
         <button
           onClick={onToggleMove}
           className={`mode-button move ${moveMode ? "active-mode" : ""}`}
-          title="Move"
+          title="Bewege oder tausche Gebäude nach Belieben"
         >
-          ↕↔
+          Bewegen
         </button>
         <button
           onClick={onToggleSell}
           className={`mode-button sell ${sellMode ? "active-mode" : ""}`}
           title="Verkauf Gebäude. Erhalte 1/4 des gezahlten Werts zurück"
         >
-          🗑
+          Verkaufen
         </button>
       </div>
 
@@ -69,18 +74,18 @@ export function ActionToolbar({
         <button
           onClick={onUndo}
           className="action-button undo"
-          title="Undo"
+          title="Undo. Kehre zu voherigen Schritten zurück"
           disabled={!canUndo}
         >
-          Undo
+          <Undo />
         </button>
         <button
           onClick={onRedo}
           className="action-button redo"
-          title="Redo"
+          title="Redo. Kehre zu späteren Schritten zurück"
           disabled={!canRedo}
         >
-          Redo
+          <Redo />
         </button>
       </div>
 
@@ -89,28 +94,39 @@ export function ActionToolbar({
         className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
         title="DEBUG: Erhalte den VOLLEN Wert des Gebäudes zurück"
       >
-        Full Refund
+        Volle Erstattung
       </button>
 
-      <button
-        onClick={finishProductions}
-        className="action-button finish"
-        title="Beendet alle Produktion. Gebäude können dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
-      >
-        Finish Productions
-      </button>
+      <div className="actions-row">
+        <button
+          onClick={finishProductions}
+          className="action-button finish"
+          title="Beendet alle Produktion. Gebäude kБnnen dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
+        >
+          Beende alle Prod.
+        </button>
+        <button
+          onClick={onToggleBoost}
+          className={`action-button finish ${boostMode ? "active-mode" : ""}`}
+          title="Boost-Modus: Klick auf Gebäude um zu entsperren/fertigzustellen/ernten"
+        >
+          Boost einzelne Gebäude
+        </button>
+      </div>
+
       <button
         onClick={harvestAll}
+        className="action-button harvest"
         title="Sammle alle noch nicht eingesammelten Produktionen ein, oder, falls keine Produktionen offen, erntet es die ganze Stadt"
       >
-        Harvest All
+        {harvestIsPartial ? "Rest einsammeln" : "Volle Ernte"}
       </button>
 
       <button
         onClick={handleSaveClick}
         title="Speicher aktuellen Stand in deinem Browser. (Hinweis, undo/redo Verlauf wird nicht mitgespeichert)"
       >
-        Save as
+        Speichern als
       </button>
       <div className="save-control" ref={saveMenuRef}>
         <button
@@ -155,17 +171,12 @@ export function ActionToolbar({
                     className="save-delete"
                     title={`Delete save ${k}`}
                     onClick={(e) => {
-                      e.stopPropagation(); // do not select when deleting
+                      e.stopPropagation();
                       if (onDeleteSave) onDeleteSave(k);
-
-                      // If you deleted the currently selected save, clear selection
                       if (loadName === k) setLoadName("");
-
-                      // Keep menu open so user can delete multiple quickly (optional)
-                      // setIsSaveMenuOpen(false);
                     }}
                   >
-                    ×
+                    x
                   </button>
                 </div>
               ))
@@ -180,17 +191,17 @@ export function ActionToolbar({
           disabled={!loadName}
           style={{ marginTop: 4, width: "100%" }}
         >
-          Load
+          Spielstand laden
         </button>
       </div>
       <div className="notes-card">
         <label className="notes-label" htmlFor="city-notes">
-          Notes
+          Notizen
         </label>
         <textarea
           id="city-notes"
           className="notes-input"
-          placeholder="Add notes about this setup..."
+          placeholder="Füge Notizen hinzu"
           value={notes}
           onChange={(e) => onChangeNotes?.(e.target.value)}
           rows={6}

@@ -10,6 +10,8 @@ import {
   GOODS_TYPES,
   UNIT_TYPES,
   BOARD_SCALE_DEFAULT,
+  BOARD_SCALE_MIN,
+  BOARD_SCALE_MAX,
 } from "../config/boardConfig";
 import { buildInitialGameState, buildLibrary } from "../state/initialState";
 import {
@@ -53,6 +55,11 @@ import {
   computeSaleOrRefund,
   totalFastBuyCost,
 } from "../domain/economy/resourceTransactions";
+
+const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
+const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
+const INFINITE_STORAGE_KEY = "qi_infiniteResources";
+const SHORTNAME_STORAGE_KEY = "qi_useShortNames";
 
 // Primary controller that exposes all state and actions for the app.
 export const useGameController = () => {
@@ -106,10 +113,17 @@ export const useGameController = () => {
   const [moveMode, setMoveMode] = useState(initialState.moveMode);
   const [sellMode, setSellMode] = useState(initialState.sellMode);
   const [refundMode, setRefundMode] = useState(initialState.refundMode);
+  const [boostMode, setBoostMode] = useState(initialState.boostMode);
   const [notes, setNotes] = useState(initialState.notes);
-  const [infiniteResources, setInfiniteResources] = useState(
-    initialState.infiniteResources
-  );
+  const [infiniteResources, setInfiniteResources] = useState(() => {
+    if (typeof window === "undefined") return initialState.infiniteResources;
+    try {
+      const raw = localStorage.getItem(INFINITE_STORAGE_KEY);
+      if (raw === "true") return true;
+      if (raw === "false") return false;
+    } catch {}
+    return initialState.infiniteResources;
+  });
   const [infiniteBackup, setInfiniteBackup] = useState(
     initialState.infiniteBackup
   );
@@ -124,20 +138,90 @@ export const useGameController = () => {
   );
   const [helpModal, setHelpModal] = useState(initialState.helpModal);
   const [configModal, setConfigModal] = useState(initialState.configModal);
-  const [editGoodModal, setEditGoodModal] = useState(initialState.editGoodModal);
+  const [editGoodModal, setEditGoodModal] = useState(
+    initialState.editGoodModal
+  );
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
     initialState.unlockGoodSelect
   );
-  const [viewMode, setViewMode] = useState(initialState.viewMode);
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === "undefined") return initialState.viewMode;
+    try {
+      const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+      const allowed = ["down", "diagonal", "right"];
+      return saved && allowed.includes(saved) ? saved : initialState.viewMode;
+    } catch {
+      return initialState.viewMode;
+    }
+  });
   // UI only: scaling of the main board (does not affect regions panel).
-  const [boardScale, setBoardScale] = useState(BOARD_SCALE_DEFAULT);
+  const [boardScale, setBoardScale] = useState(() => {
+    if (typeof window === "undefined") return BOARD_SCALE_DEFAULT;
+    const raw = parseFloat(localStorage.getItem(BOARD_SCALE_STORAGE_KEY));
+    if (
+      !Number.isNaN(raw) &&
+      raw >= BOARD_SCALE_MIN &&
+      raw <= BOARD_SCALE_MAX
+    ) {
+      return raw;
+    }
+    return BOARD_SCALE_DEFAULT;
+  });
   const [status, setStatus] = useState(initialState.status);
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
   const [buildLocks, setBuildLocks] = useState(initialState.buildLocks || {});
-  const [useShortNames, setUseShortNames] = useState(false);
+  const [useShortNames, setUseShortNames] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(SHORTNAME_STORAGE_KEY);
+      return raw === "true";
+    } catch {
+      return false;
+    }
+  });
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
   const [debugRegions, setDebugRegions] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    } catch (e) {
+      console.error("Failed to persist view mode", e);
+    }
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(BOARD_SCALE_STORAGE_KEY, String(boardScale));
+    } catch (e) {
+      console.error("Failed to persist board scale", e);
+    }
+  }, [boardScale]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        INFINITE_STORAGE_KEY,
+        infiniteResources ? "true" : "false"
+      );
+    } catch (e) {
+      console.error("Failed to persist infinite toggle", e);
+    }
+  }, [infiniteResources]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(SHORTNAME_STORAGE_KEY, useShortNames ? "true" : "false");
+    } catch (e) {
+      console.error("Failed to persist short-names toggle", e);
+    }
+  }, [useShortNames]);
+
   const cloneResources = useCallback(
     (obj) => ({
       ...obj,
@@ -196,6 +280,12 @@ export const useGameController = () => {
     },
     [infiniteResources, adjustUnits]
   );
+
+  useEffect(() => {
+    if (infiniteResources && !infiniteBackup) {
+      setInfiniteBackup(cloneResources(resources));
+    }
+  }, [cloneResources, infiniteBackup, infiniteResources, resources]);
 
   const handleToggleInfinite = useCallback(
     (checked) => {
@@ -277,7 +367,10 @@ export const useGameController = () => {
         height: townhallDef.height,
       };
       setReadyMap((prev) => ({ ...prev, [id]: false }));
-      setBuildLocks((prev) => ({ ...prev, [id]: townhallDef.buildTime === 10 }));
+      setBuildLocks((prev) => ({
+        ...prev,
+        [id]: townhallDef.buildTime === 10,
+      }));
       return [...prevLayout, instance];
     });
   }, [townhallDef, carried, unlockedRegions, layout]);
@@ -323,6 +416,7 @@ export const useGameController = () => {
         nextId: nextId.current,
         readyMap,
         buildLocks,
+        boostMode,
         moveMode,
         sellMode,
         refundMode,
@@ -339,6 +433,7 @@ export const useGameController = () => {
       shardUnlocks,
       readyMap,
       buildLocks,
+      boostMode,
       moveMode,
       sellMode,
       refundMode,
@@ -353,21 +448,22 @@ export const useGameController = () => {
   const applySnapshot = useCallback(
     (snapshot) =>
       applySnapshotState(snapshot, {
-    setResources,
-    setLayout,
-    setUnlockedRegions,
-    setGoodsUnlocks,
-    setShardUnlocks,
-    setReadyMap,
+        setResources,
+        setLayout,
+        setUnlockedRegions,
+        setGoodsUnlocks,
+        setShardUnlocks,
+        setReadyMap,
         setBuildLocks,
+        setBoostMode,
         setMoveMode,
         setSellMode,
-    setRefundMode,
-    setSelectedCategory,
-    setLoadName,
-    setNotes,
-    setInfiniteResources,
-    setInfiniteBackup,
+        setRefundMode,
+        setSelectedCategory,
+        setLoadName,
+        setNotes,
+        setInfiniteResources,
+        setInfiniteBackup,
         nextIdRef: nextId,
         townhallDef,
       }),
@@ -379,6 +475,7 @@ export const useGameController = () => {
       setShardUnlocks,
       setReadyMap,
       setBuildLocks,
+      setBoostMode,
       setMoveMode,
       setSellMode,
       setRefundMode,
@@ -398,6 +495,7 @@ export const useGameController = () => {
     setMoveMode(false);
     setSellMode(false);
     setRefundMode(false);
+    setBoostMode(false);
     setSelectedBuildingId(null);
   }, []);
 
@@ -524,7 +622,14 @@ export const useGameController = () => {
       setLoadName(name);
       updateStatus(`Loaded state "${name}"`);
     },
-    [applySnapshot, loadSnapshot, updateStatus, buildSnapshot, pushHistory, setLoadName]
+    [
+      applySnapshot,
+      loadSnapshot,
+      updateStatus,
+      buildSnapshot,
+      pushHistory,
+      setLoadName,
+    ]
   );
 
   useEffect(() => {
@@ -853,6 +958,7 @@ export const useGameController = () => {
       if (next) {
         setSellMode(false);
         setRefundMode(false);
+        setBoostMode(false);
         setSelectedBuildingId(null);
       }
       if (!next) {
@@ -871,6 +977,7 @@ export const useGameController = () => {
       if (next) {
         setMoveMode(false);
         setRefundMode(false);
+        setBoostMode(false);
         setSelectedBuildingId(null);
       }
       return next;
@@ -885,11 +992,38 @@ export const useGameController = () => {
       if (next) {
         setMoveMode(false);
         setSellMode(false);
+        setBoostMode(false);
         setSelectedBuildingId(null);
       }
       return next;
     });
   }, [buildSnapshot, pushHistory]);
+
+  const toggleBoost = useCallback(() => {
+    pushHistory(buildSnapshot());
+    setBoostMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setMoveMode(false);
+        setSellMode(false);
+        setRefundMode(false);
+        setSelectedBuildingId(null);
+      }
+      return next;
+    });
+  }, [buildSnapshot, pushHistory]);
+
+  const handleSelectBuilding = useCallback(
+    (defId) => {
+      if (!defId) return;
+      setMoveMode(false);
+      setSellMode(false);
+      setRefundMode(false);
+      setBoostMode(false);
+      setSelectedBuildingId(defId);
+    },
+    [setBoostMode, setMoveMode, setRefundMode, setSellMode]
+  );
 
   // Execute a goods purchase for a producer building.
   const handleGoodsPurchase = useCallback(
@@ -999,12 +1133,14 @@ export const useGameController = () => {
     setReadyMap((prev) =>
       finishProductionsReadyMap(layout, libraryMap, prev, buildLocks)
     );
+    setBoostMode(false);
   }, [buildSnapshot, pushHistory, layout, libraryMap, buildLocks]);
 
   // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
     const snapshot = buildSnapshot();
     pushHistory(snapshot);
+    setBoostMode(false);
 
     const locksBefore = { ...buildLocks };
     const buildLocksAfter = { ...buildLocks };
@@ -1113,6 +1249,23 @@ export const useGameController = () => {
         return;
       }
 
+      if (boostMode && target) {
+        if (buildLocks[target.id]) {
+          const snapshot = buildSnapshot();
+          pushHistory(snapshot);
+          setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
+          updateStatus(`Unlocked ${libraryMap[target.defId].name}`);
+        } else if (readyMap[target.id] === true) {
+          // Do nothing for harvestable buildings in boost mode.
+        } else {
+          const snapshot = buildSnapshot();
+          pushHistory(snapshot);
+          setReadyMap((prev) => ({ ...prev, [target.id]: true }));
+          updateStatus(`Boosted ${libraryMap[target.defId].name}`);
+        }
+        return;
+      }
+
       if (selectedDef) {
         if (!hasPopulationForDef(stats, selectedDef)) {
           updateStatus("Not enough free population.");
@@ -1166,14 +1319,14 @@ export const useGameController = () => {
         const snapshot = buildSnapshot();
         setMoveSnapshot(snapshot);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
-      setCarried({
-        instance: {
-          ...target,
-          ready: readyMap[target.id],
-          locked: buildLocks[target.id],
-        },
-        def: libraryMap[target.defId],
-      });
+        setCarried({
+          instance: {
+            ...target,
+            ready: readyMap[target.id],
+            locked: buildLocks[target.id],
+          },
+          def: libraryMap[target.defId],
+        });
         updateStatus(`Picked up ${libraryMap[target.defId].name}`);
         return;
       }
@@ -1292,13 +1445,12 @@ export const useGameController = () => {
     carried,
     readyMap,
     buildLocks,
-    useShortNames,
-    setUseShortNames,
     hoverCell,
     setHoverCell,
     moveMode,
     sellMode,
     refundMode,
+    boostMode,
     saves,
     loadName,
     setLoadName,
@@ -1332,6 +1484,8 @@ export const useGameController = () => {
     toggleMove,
     toggleSell,
     toggleRefund,
+    toggleBoost,
+    handleSelectBuilding,
     undoWithCleanup,
     redoWithCleanup,
     finishProductions,

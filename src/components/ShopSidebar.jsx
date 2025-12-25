@@ -1,4 +1,5 @@
 ﻿import { categories } from "../config/categories";
+import { useEffect, useState } from "react";
 import { RegionsPanel } from "./RegionsPanel";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
@@ -36,6 +37,7 @@ const TRANSPARENT_IMG = (() => {
 
 let dragMoved = false;
 let touchMoved = false;
+const SHOP_COLLAPSE_KEY = "qi_shopCollapsed";
 
 export function ShopSidebar({
   selectedCategory,
@@ -64,6 +66,25 @@ export function ShopSidebar({
   onDebugUnlockRegion,
   onDebugLockRegion,
 }) {
+  const [collapsedCards, setCollapsedCards] = useState(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = localStorage.getItem(SHOP_COLLAPSE_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      console.error("Failed to read shop collapse state", e);
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SHOP_COLLAPSE_KEY, JSON.stringify(collapsedCards));
+    } catch (e) {
+      console.error("Failed to persist shop collapse state", e);
+    }
+  }, [collapsedCards]);
+
   const isTouchDevice =
     typeof window !== "undefined" && "ontouchstart" in window;
   const visibleCategories = categories.filter((c) => !c.hidden);
@@ -287,6 +308,7 @@ export function ShopSidebar({
         {selectedCat?.data.map((item) => {
           const defId = `${selectedCat.key}:${item.id}`;
           const buildable = canBuild(item);
+          const isCollapsed = !!collapsedCards[defId];
 
           return (
             <button
@@ -300,13 +322,17 @@ export function ShopSidebar({
                   return;
                 }
                 if (onResetModes) onResetModes();
-                setSelectedBuildingId(defId);
+                setSelectedBuildingId?.(defId);
               }}
               draggable={!isTouchDevice}
               onDragStart={(e) => {
+                if (!buildable) {
+                  e.preventDefault();
+                  return;
+                }
                 dragMoved = false;
                 if (onResetModes) onResetModes();
-                setSelectedBuildingId(defId);
+                setSelectedBuildingId?.(defId);
                 // Indicate a move operation for compatibility with browsers
                 try {
                   e.dataTransfer.effectAllowed = "move";
@@ -315,6 +341,7 @@ export function ShopSidebar({
                 } catch {}
               }}
               onDrag={(e) => {
+                if (!buildable) return;
                 dragMoved = true;
                 // keep selection while dragging
                 setSelectedBuildingId(defId);
@@ -323,19 +350,21 @@ export function ShopSidebar({
                 dragMoved = false;
               }}
               onTouchStart={() => {
+                if (!buildable) return;
                 touchMoved = false;
                 dragMoved = false;
                 if (onResetModes) onResetModes();
-                setSelectedBuildingId(defId);
+                setSelectedBuildingId?.(defId);
               }}
               onTouchMove={() => {
                 touchMoved = true;
                 dragMoved = true;
               }}
               onTouchEnd={(e) => {
+                if (!buildable) return;
                 if (!touchMoved) {
                   // treat as tap to select
-                  setSelectedBuildingId(defId);
+                  setSelectedBuildingId?.(defId);
                 }
                 touchMoved = false;
                 dragMoved = false;
@@ -346,11 +375,39 @@ export function ShopSidebar({
                 <div className="card-meta">
                   {item.size[0]}x{item.size[1]}
                 </div>
+                <span
+                  role="button"
+                  className={`card-collapse ${isCollapsed ? "collapsed" : ""}`}
+                  aria-label={isCollapsed ? "Expand details" : "Collapse details"}
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCollapsedCards((prev) => ({
+                      ...prev,
+                      [defId]: !isCollapsed,
+                    }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setCollapsedCards((prev) => ({
+                        ...prev,
+                        [defId]: !isCollapsed,
+                      }));
+                    }
+                  }}
+                >
+                  {isCollapsed ? "▸" : "▾"}
+                </span>
               </div>
-              <div className="card-body">
-                {renderCostColumn(item)}
-                {renderBenefits(item)}
-              </div>
+              {!isCollapsed && (
+                <div className="card-body">
+                  {renderCostColumn(item)}
+                  {renderBenefits(item)}
+                </div>
+              )}
             </button>
           );
         })}

@@ -291,6 +291,11 @@ button.active {
   border-color: #d7a214;
 }
 
+.action-button.harvest {
+  background: #075fa7;
+  border-color: #0d5fa7;
+}
+
 .notes-card {
   display: flex;
   flex-direction: column;
@@ -367,6 +372,24 @@ button.active {
   justify-content: space-between;
 }
 
+.card-collapse {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  transition: transform 0.5s ease;
+}
+
+.card-collapse:focus {
+  outline: none;
+}
+
+.card-collapse.collapsed {
+  transform: rotate(-90deg);
+}
+
 .card-body {
   display: flex;
   gap: 10px;
@@ -423,8 +446,23 @@ button.active {
 }
 
 .card.disabled {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card.disabled .card-body,
+.card.disabled .card-title,
+.card.disabled .card-meta,
+.card.disabled .card-cost-col,
+.card.disabled .card-benefits {
   opacity: 0.45;
-  pointer-events: none;
+}
+
+.card.disabled .card-collapse {
+  opacity: 1;
+  pointer-events: auto;
+  filter: none;
+  cursor: pointer;
 }
 
 .card.selected {

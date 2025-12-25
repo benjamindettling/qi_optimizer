@@ -10,6 +10,7 @@ export const buildSnapshot = (state) =>
     nextId: state.nextId,
     readyMap: state.readyMap,
     buildLocks: state.buildLocks,
+    boostMode: state.boostMode,
     moveMode: state.moveMode,
     sellMode: state.sellMode,
     refundMode: state.refundMode,
@@ -27,6 +28,7 @@ export const applySnapshot = (snapshot, setters) => {
     setGoodsUnlocks,
     setShardUnlocks,
     setReadyMap,
+    setBoostMode,
     setMoveMode,
     setSellMode,
     setRefundMode,
@@ -46,6 +48,8 @@ export const applySnapshot = (snapshot, setters) => {
   if (snapshot.shardUnlocks !== undefined) setShardUnlocks(snapshot.shardUnlocks);
   if (snapshot.nextId !== undefined && nextIdRef) nextIdRef.current = snapshot.nextId;
   if (snapshot.readyMap) setReadyMap(snapshot.readyMap);
+  if (setBoostMode && snapshot.boostMode !== undefined)
+    setBoostMode(snapshot.boostMode);
   if (snapshot.moveMode !== undefined) setMoveMode(snapshot.moveMode);
   if (snapshot.sellMode !== undefined) setSellMode(snapshot.sellMode);
   if (snapshot.refundMode !== undefined) setRefundMode(snapshot.refundMode);
