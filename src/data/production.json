@@ -82,7 +82,7 @@
     "short": "Gew",
     "size": [3, 3],
     "cost": { "coins": 57600, "supplies": 70000, "chronos": 200 },
-    "buildTime": 10,
+    "buildTime": 1,
     "requiresPeople": 60,
     "supplyBoost": 0.2,
     "production": { "coins": 0, "supplies": 9600, "chronos": 75 }
