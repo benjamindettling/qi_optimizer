@@ -23,15 +23,15 @@ export function Board({
 }) {
   // Hue shift tiers by buildTime; edit to adjust look.
   const BUILD_TIME_HUE_SHIFT = {
-    0: 10,
+    0: 0,
     1: 0,
-    10: -10,
+    10: 0,
   };
 
   const HUE_SHIFT_PRODUCTION = {
-    0: -30,
+    0: 0,
     1: 0,
-    10: 30,
+    10: 0,
   };
 
   const clamp01 = (v) => Math.min(1, Math.max(0, v));
