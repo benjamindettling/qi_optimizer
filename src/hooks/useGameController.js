@@ -962,16 +962,28 @@ export const useGameController = () => {
         setSelectedBuildingId(null);
       }
       if (!next) {
+        if (moveSnapshot) {
+          applySnapshot(moveSnapshot);
+        }
         setCarried(null);
         setMoveSnapshot(null);
       }
       return next;
     });
-  }, [buildSnapshot, pushHistory]);
+  }, [applySnapshot, buildSnapshot, moveSnapshot, pushHistory]);
+
+  const resetMoveIfActive = useCallback(() => {
+    if (moveMode && moveSnapshot) {
+      applySnapshot(moveSnapshot);
+    }
+    setCarried(null);
+    setMoveSnapshot(null);
+  }, [applySnapshot, moveMode, moveSnapshot]);
 
   // Toggle sell mode (coin return).
   const toggleSell = useCallback(() => {
     pushHistory(buildSnapshot());
+    resetMoveIfActive();
     setSellMode((prev) => {
       const next = !prev;
       if (next) {
@@ -987,6 +999,7 @@ export const useGameController = () => {
   // Toggle refund mode (full cost return).
   const toggleRefund = useCallback(() => {
     pushHistory(buildSnapshot());
+    resetMoveIfActive();
     setRefundMode((prev) => {
       const next = !prev;
       if (next) {
@@ -1001,6 +1014,7 @@ export const useGameController = () => {
 
   const toggleBoost = useCallback(() => {
     pushHistory(buildSnapshot());
+    resetMoveIfActive();
     setBoostMode((prev) => {
       const next = !prev;
       if (next) {
