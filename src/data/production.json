@@ -52,7 +52,7 @@
     "buildTime": 1,
     "requiresPeople": 60,
     "supplyBoost": 0.1,
-    "production": { "coins": 0, "supplies": 14000, "chronos": 75 }
+    "production": { "coins": 0, "supplies": 14400, "chronos": 75 }
   },
   {
     "id": "windmuehle",
