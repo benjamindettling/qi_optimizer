@@ -27,6 +27,9 @@ export function ActionToolbar({
   onDeleteSave,
   notes,
   onChangeNotes,
+  selectMode,
+  onToggleSelectMode,
+  onPrintBoard,
 }) {
   const saveKeys = Object.keys(saves).sort((a, b) => a.localeCompare(b));
   const {
@@ -206,6 +209,22 @@ export function ActionToolbar({
           onChange={(e) => onChangeNotes?.(e.target.value)}
           rows={6}
         />
+      </div>
+      <div className="actions-row">
+        <button
+          className={`mode-button select ${selectMode ? "active-mode" : ""}`}
+          onClick={onToggleSelectMode}
+          title="Markiere GebÇÏude rot, ohne sie zu ¸ndern"
+        >
+          Select
+        </button>
+        <button
+          className="action-button print"
+          onClick={onPrintBoard}
+          title="Screenshot des aktuellen Aufbaus herunterladen"
+        >
+          Print
+        </button>
       </div>
     </div>
   );

@@ -24,6 +24,9 @@ function App() {
   const holdTimerRef = useRef(null);
   const suppressClickRef = useRef(false);
   const holdTriggeredRef = useRef(false);
+  const boardRef = useRef(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const {
     resources,
     layout,
@@ -186,6 +189,99 @@ function App() {
 
   const harvestIsPartial = Object.values(readyMap || {}).some(Boolean);
 
+  const findTargetInstance = (x, y) =>
+    layout.find(
+      (b) => x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height
+    );
+
+  const toggleSelectMode = () => {
+    setSelectMode((prev) => {
+      const next = !prev;
+      if (next) {
+        resetModes();
+        setSelectedBuildingId(null);
+      }
+      return next;
+    });
+  };
+
+  const handleBoardClick = (x, y) => {
+    if (selectMode) {
+      const target = findTargetInstance(x, y);
+      if (target) {
+        setSelectedIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(target.id)) {
+            next.delete(target.id);
+          } else {
+            next.add(target.id);
+          }
+          return next;
+        });
+      }
+      return;
+    }
+    handleCellClick(x, y);
+  };
+
+  const handlePrint = async () => {
+    // We temporarily tweak styles for export to counteract html2canvas' rendering,
+    // then restore them no matter what happens.
+    const body = document.body;
+    body.classList.add("print-mode");
+
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const target = boardRef.current; // board only
+      if (!target) return;
+
+      // Using scale = 1 keeps the capture on the same pixel grid as your UI.
+      const scale = 1;
+
+      // Capture full page to avoid black screens from transforms, then crop.
+      const fullCanvas = await html2canvas(document.body, {
+        backgroundColor: null,
+        scale,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      });
+
+      const rect = target.getBoundingClientRect();
+      const cropCanvas = document.createElement("canvas");
+      const cropWidth = Math.max(1, Math.round(rect.width * scale));
+      const cropHeight = Math.max(1, Math.round(rect.height * scale));
+      cropCanvas.width = cropWidth;
+      cropCanvas.height = cropHeight;
+
+      const ctx = cropCanvas.getContext("2d");
+      const offsetX = (rect.left + window.scrollX) * scale;
+      const offsetY = (rect.top + window.scrollY) * scale;
+
+      ctx.drawImage(
+        fullCanvas,
+        offsetX,
+        offsetY,
+        rect.width * scale,
+        rect.height * scale,
+        0,
+        0,
+        cropWidth,
+        cropHeight
+      );
+
+      const dataUrl = cropCanvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `${loadName || "current_setup"}.png`;
+      a.click();
+    } catch (e) {
+      console.error("Failed to print board", e);
+    } finally {
+      body.classList.remove("print-mode");
+    }
+  };
+
   return (
     <div className="page layout-row">
       <ShopSidebar
@@ -246,9 +342,11 @@ function App() {
               cellSizePx={cellSizePx}
               previewOrigin={previewOrigin}
               isCellUnlocked={isCellUnlocked}
-              handleCellClick={handleCellClick}
+              handleCellClick={handleBoardClick}
               setHoverCell={setHoverCell}
               onDropComplete={() => setSelectedBuildingId(null)}
+              boardRef={boardRef}
+              selectedIds={selectedIds}
               layout={layout}
               libraryMap={libraryMap}
               categoryColors={categoryColors}
@@ -277,12 +375,24 @@ function App() {
           </div>
           <ActionToolbar
             moveMode={moveMode}
-            onToggleMove={toggleMove}
+            onToggleMove={() => {
+              setSelectMode(false);
+              toggleMove();
+            }}
             sellMode={sellMode}
             refundMode={refundMode}
-            onToggleSell={toggleSell}
-            onToggleRefund={toggleRefund}
-            onToggleBoost={toggleBoost}
+            onToggleSell={() => {
+              setSelectMode(false);
+              toggleSell();
+            }}
+            onToggleRefund={() => {
+              setSelectMode(false);
+              toggleRefund();
+            }}
+            onToggleBoost={() => {
+              setSelectMode(false);
+              toggleBoost();
+            }}
             onUndo={undoWithCleanup}
             onRedo={redoWithCleanup}
             finishProductions={finishProductions}
@@ -299,6 +409,9 @@ function App() {
             toolbarOffset={toolbarOffsetPx}
             notes={notes}
             onChangeNotes={handleChangeNotes}
+            selectMode={selectMode}
+            onToggleSelectMode={toggleSelectMode}
+            onPrintBoard={handlePrint}
             onDeleteSave={(name) => {
               deleteSave(name);
               setLoadName((prev) => (prev === name ? "" : prev));

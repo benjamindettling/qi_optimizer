@@ -20,6 +20,8 @@ export function Board({
   readyMap = {},
   buildLocks = {},
   useShortNames = false,
+  selectedIds = new Set(),
+  boardRef,
 }) {
   // Hue shift tiers by buildTime; edit to adjust look.
   const BUILD_TIME_HUE_SHIFT = {
@@ -147,7 +149,11 @@ export function Board({
           transform: boardTransform,
         }}
       >
-        <div className="board" style={{ "--board-cols": safeCols }}>
+        <div
+          className="board"
+          style={{ "--board-cols": safeCols }}
+          ref={boardRef}
+        >
           {Array.from({ length: safeRows }).map((_, row) => (
             <div
               key={row}
@@ -204,7 +210,7 @@ export function Board({
                 key={b.id}
                 className={`building-rect ${
                   buildLocks[b.id] ? "building-locked" : ""
-                }`}
+                } ${selectedIds.has(b.id) ? "building-selected" : ""}`}
                 title={libraryMap[b.defId]?.name || ""}
                 style={(() => {
                   const baseColor =
