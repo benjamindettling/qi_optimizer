@@ -26,10 +26,10 @@ function App() {
   const holdTriggeredRef = useRef(false);
   const boardRef = useRef(null);
   const [selectMode, setSelectMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
   const {
     resources,
     layout,
+    selectedIds,
     libraryMap,
     categoryColors,
     selectedCategory,
@@ -101,6 +101,8 @@ function App() {
     redoWithCleanup,
     finishProductions,
     toggleBoost,
+    toggleSelectId,
+    clearSelection,
     harvestAll,
     confirmHarvest,
     cancelHarvest,
@@ -209,15 +211,7 @@ function App() {
     if (selectMode) {
       const target = findTargetInstance(x, y);
       if (target) {
-        setSelectedIds((prev) => {
-          const next = new Set(prev);
-          if (next.has(target.id)) {
-            next.delete(target.id);
-          } else {
-            next.add(target.id);
-          }
-          return next;
-        });
+        toggleSelectId(target.id);
       }
       return;
     }

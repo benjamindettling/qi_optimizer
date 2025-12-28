@@ -65,6 +65,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     status: "",
     readyMap,
     buildLocks: {},
+    selectedIds: [],
     infiniteResources: false,
     infiniteBackup: null,
     notes: "",

@@ -18,6 +18,7 @@ export const buildSnapshot = (state) =>
     infiniteResources: state.infiniteResources,
     infiniteBackup: state.infiniteBackup,
     notes: state.notes,
+    selectedIds: Array.from(state.selectedIds ?? []),
   });
 
 export const applySnapshot = (snapshot, setters) => {
@@ -37,6 +38,7 @@ export const applySnapshot = (snapshot, setters) => {
     setInfiniteResources,
     setInfiniteBackup,
     setBuildLocks,
+    setSelectedIds,
     nextIdRef,
     townhallDef,
   } = setters;
@@ -63,6 +65,10 @@ export const applySnapshot = (snapshot, setters) => {
   }
   if (setBuildLocks) {
     setBuildLocks(snapshot.buildLocks ?? {});
+  }
+  if (setSelectedIds) {
+    const incoming = snapshot.selectedIds ?? [];
+    setSelectedIds(new Set(incoming));
   }
   if (
     townhallDef &&

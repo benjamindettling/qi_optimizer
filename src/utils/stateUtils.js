@@ -34,6 +34,7 @@ export const serializeState = (state) => ({
     : null,
   notes: state.notes ?? "",
   buildLocks: { ...(state.buildLocks ?? {}) },
+  selectedIds: Array.from(state.selectedIds ?? []),
 });
 
 /**

@@ -109,6 +109,10 @@ export const useGameController = () => {
   const [selectedBuildingId, setSelectedBuildingId] = useState(
     initialState.selectedBuildingId
   );
+  const [selectedIds, setSelectedIds] = useState(
+    () => new Set(initialState.selectedIds || [])
+  );
+
   const [hoverCell, setHoverCell] = useState(initialState.hoverCell);
   const [moveMode, setMoveMode] = useState(initialState.moveMode);
   const [sellMode, setSellMode] = useState(initialState.sellMode);
@@ -216,7 +220,10 @@ export const useGameController = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem(SHORTNAME_STORAGE_KEY, useShortNames ? "true" : "false");
+      localStorage.setItem(
+        SHORTNAME_STORAGE_KEY,
+        useShortNames ? "true" : "false"
+      );
     } catch (e) {
       console.error("Failed to persist short-names toggle", e);
     }
@@ -424,6 +431,7 @@ export const useGameController = () => {
         infiniteResources,
         infiniteBackup,
         notes,
+        selectedIds,
       }),
     [
       resources,
@@ -441,6 +449,7 @@ export const useGameController = () => {
       infiniteResources,
       infiniteBackup,
       notes,
+      selectedIds,
     ]
   );
 
@@ -464,6 +473,7 @@ export const useGameController = () => {
         setNotes,
         setInfiniteResources,
         setInfiniteBackup,
+        setSelectedIds,
         nextIdRef: nextId,
         townhallDef,
       }),
@@ -483,6 +493,7 @@ export const useGameController = () => {
       setNotes,
       setInfiniteResources,
       setInfiniteBackup,
+      setSelectedIds,
       townhallDef,
     ]
   );
@@ -676,6 +687,7 @@ export const useGameController = () => {
     shardUnlocks,
     resources: effectiveResources,
     layout,
+    selectedIds,
     libraryMap,
   });
 
@@ -1207,6 +1219,26 @@ export const useGameController = () => {
     setNotes(val ?? "");
   }, []);
 
+  // Selection helpers (undo/redo + save aware).
+  const toggleSelectId = useCallback(
+    (id) => {
+      if (!id) return;
+      pushHistory(buildSnapshot());
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+    },
+    [buildSnapshot, pushHistory]
+  );
+
+  const clearSelection = useCallback(() => {
+    pushHistory(buildSnapshot());
+    setSelectedIds(new Set());
+  }, [buildSnapshot, pushHistory]);
+
   // Core board click handler covering placement, moving, selling, harvesting, and goods modal.
   const handleCellClick = useCallback(
     (x, y) => {
@@ -1425,6 +1457,7 @@ export const useGameController = () => {
   return {
     resources,
     layout,
+    selectedIds,
     libraryMap,
     categories,
     categoryColors,
@@ -1499,6 +1532,8 @@ export const useGameController = () => {
     toggleSell,
     toggleRefund,
     toggleBoost,
+    toggleSelectId,
+    clearSelection,
     handleSelectBuilding,
     undoWithCleanup,
     redoWithCleanup,
