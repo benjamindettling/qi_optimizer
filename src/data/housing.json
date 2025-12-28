@@ -59,7 +59,7 @@
     "name": "Stadthaus",
     "short": "St",
     "size": [2, 2],
-    "cost": { "coins": 294125, "supplies": 240000, "chronos": 1000 },
+    "cost": { "coins": 294000, "supplies": 240000, "chronos": 1000 },
     "buildTime": 10,
     "people": 130,
     "coinBoost": 0.1,
