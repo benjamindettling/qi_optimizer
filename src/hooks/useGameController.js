@@ -247,6 +247,7 @@ export const useGameController = () => {
       supplies: huge,
       chronos: huge,
       shards: huge,
+      quantumActions: huge,
       goods: GOODS_TYPES.reduce((acc, g) => ({ ...acc, [g]: huge }), {
         ...(resources.goods ?? {}),
       }),
@@ -431,7 +432,7 @@ export const useGameController = () => {
         infiniteResources,
         infiniteBackup,
         notes,
-        selectedIds,
+        selectedIds: Array.from(selectedIds ?? []),
       }),
     [
       resources,
@@ -664,12 +665,23 @@ export const useGameController = () => {
   const baseStats = computeStats(unlockedLayout, libraryMap);
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
   const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
+  const qaBasePerHour = 5000 + Number(config?.qaBaseBonus ?? 0);
+  const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);
+  const qaRateFromBuildings = useMemo(
+    () =>
+      layout.reduce(
+        (acc, b) => acc + (libraryMap[b.defId]?.quantumActions ?? 0),
+        0
+      ),
+    [layout, libraryMap]
+  );
+  const qaPerHour = qaBasePerHour + qaRateFromBuildings;
   const statsWithConfig = {
     ...baseStats,
     coinBoost: (baseStats.coinBoost ?? 0) + coinBoostCfg,
     supplyBoost: (baseStats.supplyBoost ?? 0) + supplyBoostCfg,
   };
-  const stats = statsWithConfig;
+  const stats = { ...statsWithConfig, qaPerHour, qaHoursPerHarvest };
   const happyInfo = happinessTier(
     stats.happinessProvided,
     stats.happinessRequired
@@ -708,15 +720,37 @@ export const useGameController = () => {
       const useStats = options.statsOverride ?? stats;
       const lockedIds = [];
       const harvestable = [];
+      const lockedCulture = [];
       instances.forEach((inst) => {
-        if (locks[inst.id]) lockedIds.push(inst.id);
-        else harvestable.push(inst);
+        if (locks[inst.id]) {
+          const def = libraryMap[inst.defId];
+          if (def?.category === "culture") {
+            lockedCulture.push(inst);
+          } else {
+            lockedIds.push(inst.id);
+          }
+        } else {
+          harvestable.push(inst);
+        }
       });
 
       const total =
         harvestable.length > 0
-          ? aggregateHarvest(harvestable, libraryMap, useStats)
-          : { coins: 0, supplies: 0, chronos: 0, goods: {} };
+          ? aggregateHarvest(harvestable, libraryMap, useStats, {
+              qaHoursPerHarvest,
+            })
+          : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+
+      const qaFromLockedCulture = lockedCulture.reduce(
+        (acc, inst) =>
+          acc +
+          (libraryMap[inst.defId]?.quantumActions ?? 0) * qaHoursPerHarvest,
+        0
+      );
+      total.qa = (total.qa ?? 0) + qaFromLockedCulture;
+
+      const extraQa = options.extraQa ?? 0;
+      total.qa += extraQa;
 
       if (!infiniteResources) {
         setResources((prev) => ({
@@ -724,6 +758,7 @@ export const useGameController = () => {
           coins: prev.coins + (total.coins ?? 0),
           supplies: prev.supplies + (total.supplies ?? 0),
           chronos: prev.chronos + (total.chronos ?? 0),
+          quantumActions: (prev.quantumActions ?? 0) + (total.qa ?? 0),
           goods: GOODS_TYPES.reduce(
             (acc, g) => ({
               ...acc,
@@ -742,10 +777,14 @@ export const useGameController = () => {
         });
         return next;
       });
-      if (lockedIds.length) {
+      const unlockIds = [
+        ...lockedIds,
+        ...lockedCulture.map((inst) => inst.id),
+      ];
+      if (unlockIds.length) {
         setBuildLocks((prev) => {
           const next = { ...prev };
-          lockedIds.forEach((id) => {
+          unlockIds.forEach((id) => {
             next[id] = false;
           });
           return next;
@@ -768,6 +807,8 @@ export const useGameController = () => {
       resources,
       infiniteResources,
       buildLocks,
+      qaHoursPerHarvest,
+      qaBasePerHour,
     ]
   );
 
@@ -1159,8 +1200,27 @@ export const useGameController = () => {
     setReadyMap((prev) =>
       finishProductionsReadyMap(layout, libraryMap, prev, buildLocks)
     );
+    if (!infiniteResources) {
+      const baseQa = qaBasePerHour * qaHoursPerHarvest;
+      if (baseQa > 0) {
+        setResources((prev) => ({
+          ...prev,
+          quantumActions: (prev.quantumActions ?? 0) + baseQa,
+        }));
+      }
+    }
     setBoostMode(false);
-  }, [buildSnapshot, pushHistory, layout, libraryMap, buildLocks]);
+  }, [
+    buildSnapshot,
+    pushHistory,
+    layout,
+    libraryMap,
+    buildLocks,
+    infiniteResources,
+    qaBasePerHour,
+    qaHoursPerHarvest,
+    setResources,
+  ]);
 
   // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
@@ -1181,15 +1241,18 @@ export const useGameController = () => {
 
     const effectiveStats = computeStats(layout, libraryMap);
     const readyOnes = layout.filter((b) => readyMap[b.id] === true);
+    const baseQa = qaBasePerHour * qaHoursPerHarvest;
     if (readyOnes.length > 0) {
       harvestBuildings(readyOnes, "Partial Harvest", false, true, {
         statsOverride: effectiveStats,
         buildLocksOverride: locksBefore,
+        extraQa: baseQa,
       });
     } else {
       harvestBuildings(layout, "Full Harvest", false, true, {
         statsOverride: effectiveStats,
         buildLocksOverride: locksBefore,
+        extraQa: baseQa,
       });
     }
   }, [
@@ -1202,6 +1265,8 @@ export const useGameController = () => {
     libraryMap,
     buildSnapshot,
     pushHistory,
+    qaBasePerHour,
+    qaHoursPerHarvest,
   ]);
 
   // Close harvest modal after acknowledgment.
@@ -1296,18 +1361,24 @@ export const useGameController = () => {
       }
 
       if (boostMode && target) {
+        const def = libraryMap[target.defId];
         if (buildLocks[target.id]) {
-          const snapshot = buildSnapshot();
-          pushHistory(snapshot);
-          setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
-          updateStatus(`Unlocked ${libraryMap[target.defId].name}`);
+          if (def?.category === "culture") {
+            harvestBuildings([target], "Harvest", true);
+            updateStatus(`Unlocked ${def.name}`);
+          } else {
+            const snapshot = buildSnapshot();
+            pushHistory(snapshot);
+            setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
+            updateStatus(`Unlocked ${def.name}`);
+          }
         } else if (readyMap[target.id] === true) {
           // Do nothing for harvestable buildings in boost mode.
         } else {
           const snapshot = buildSnapshot();
           pushHistory(snapshot);
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
-          updateStatus(`Boosted ${libraryMap[target.defId].name}`);
+          updateStatus(`Boosted ${def.name}`);
         }
         return;
       }

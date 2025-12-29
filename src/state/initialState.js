@@ -73,6 +73,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
       coins: 450000,
       supplies: 75000,
       chronos: 0,
+      quantumActions: 0,
       shards: 500,
       goods: initialGoods(),
       units: initialUnits(),

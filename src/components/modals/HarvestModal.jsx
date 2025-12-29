@@ -1,6 +1,7 @@
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
+import qaIcon from "/quantum_actions.webp";
 import { formatNumber } from "../../utils/formatNumber";
 
 export function HarvestModal({ harvestModal, onConfirm, onCancel }) {
@@ -31,6 +32,7 @@ export function HarvestModal({ harvestModal, onConfirm, onCancel }) {
             <Row icon={moneyIcon} value={delta.coins ?? 0} />
             <Row icon={suppliesIcon} value={delta.supplies ?? 0} />
             <Row icon={chronosIcon} value={delta.chronos ?? 0} />
+            <Row icon={qaIcon} value={delta.qa ?? 0} />
           </div>
           <div className="harvest-col">
             <div className="harvest-heading">Neuer Stand</div>
@@ -43,6 +45,11 @@ export function HarvestModal({ harvestModal, onConfirm, onCancel }) {
             <Row
               icon={chronosIcon}
               value={result.chronos ?? 0}
+              withSign={false}
+            />
+            <Row
+              icon={qaIcon}
+              value={result.quantumActions ?? 0}
               withSign={false}
             />
           </div>

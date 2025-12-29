@@ -8,6 +8,8 @@ const defaultConfig = {
   extraSupplies: 0,
   coinBoost: 0,
   supplyBoost: 0,
+  qaBaseBonus: 0,
+  qaHarvestHours: 12,
 };
 
 export function useConfig() {

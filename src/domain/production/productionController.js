@@ -1,12 +1,19 @@
 import { GOODS_TYPES } from "../../config/boardConfig";
 
-export const computeBuildingHarvest = (inst, libraryMap, stats) => {
+export const computeBuildingHarvest = (
+  inst,
+  libraryMap,
+  stats,
+  { qaHoursPerHarvest = 0 } = {}
+) => {
   const def = libraryMap[inst.defId];
-  if (!def) return { coins: 0, supplies: 0, chronos: 0, goods: {} };
+  if (!def)
+    return { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
   const happyMulti = stats.happyMulti ?? 1;
   const coinMulti = 1 + (stats.coinBoost ?? 0) + (happyMulti - 1);
   const supplyMulti = 1 + (stats.supplyBoost ?? 0) + (happyMulti - 1);
   const goods = {};
+  const qaPerHarvest = (def.quantumActions ?? 0) * qaHoursPerHarvest;
   switch (def.category) {
     case "housing": {
       const prod = def.production ?? {};
@@ -15,6 +22,7 @@ export const computeBuildingHarvest = (inst, libraryMap, stats) => {
         supplies: Math.round((prod.supplies ?? 0) * supplyMulti),
         chronos: Math.round((prod.chronos ?? 0) * happyMulti),
         goods,
+        qa: 0,
       };
     }
     case "production": {
@@ -24,6 +32,7 @@ export const computeBuildingHarvest = (inst, libraryMap, stats) => {
         supplies: Math.round((prod.supplies ?? 0) * supplyMulti),
         chronos: Math.round((prod.chronos ?? 0) * happyMulti),
         goods,
+        qa: 0,
       };
     }
     case "culture": {
@@ -33,10 +42,11 @@ export const computeBuildingHarvest = (inst, libraryMap, stats) => {
         supplies: 0,
         chronos: Math.round(chrono * happyMulti),
         goods,
+        qa: qaPerHarvest,
       };
     }
     case "goods": {
-      return { coins: 0, supplies: 0, chronos: 0, goods };
+      return { coins: 0, supplies: 0, chronos: 0, goods, qa: 0 };
     }
     case "townhall": {
       const prod = def.production ?? {};
@@ -45,20 +55,27 @@ export const computeBuildingHarvest = (inst, libraryMap, stats) => {
         supplies: prod.supplies ?? 0,
         chronos: prod.chronos ?? 0,
         goods,
+        qa: 0,
       };
     }
     default:
-      return { coins: 0, supplies: 0, chronos: 0, goods };
+      return { coins: 0, supplies: 0, chronos: 0, goods, qa: 0 };
   }
 };
 
-export const aggregateHarvest = (instances, libraryMap, stats) => {
-  const total = { coins: 0, supplies: 0, chronos: 0, goods: {} };
+export const aggregateHarvest = (
+  instances,
+  libraryMap,
+  stats,
+  options = {}
+) => {
+  const total = { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
   instances.forEach((inst) => {
-    const delta = computeBuildingHarvest(inst, libraryMap, stats);
+    const delta = computeBuildingHarvest(inst, libraryMap, stats, options);
     total.coins += delta.coins ?? 0;
     total.supplies += delta.supplies ?? 0;
     total.chronos += delta.chronos ?? 0;
+    total.qa += delta.qa ?? 0;
     GOODS_TYPES.forEach((g) => {
       total.goods[g] = (total.goods[g] ?? 0) + (delta.goods[g] ?? 0);
     });
@@ -78,7 +95,8 @@ export const finishProductionsReadyMap = (
       def &&
       (def.category === "housing" ||
         def.category === "production" ||
-        def.category === "townhall");
+        def.category === "townhall" ||
+        def.category === "culture");
     const prev = prevReadyMap[b.id] ?? false;
     if (buildLocks[b.id]) {
       acc[b.id] = true;
@@ -93,6 +111,7 @@ export const buildHarvestResult = ({ total, resources }) => ({
   coins: (resources.coins ?? 0) + total.coins,
   supplies: (resources.supplies ?? 0) + total.supplies,
   chronos: (resources.chronos ?? 0) + total.chronos,
+  quantumActions: (resources.quantumActions ?? 0) + (total.qa ?? 0),
   goods: GOODS_TYPES.reduce(
     (acc, g) => ({
       ...acc,

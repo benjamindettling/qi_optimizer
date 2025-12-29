@@ -3,6 +3,7 @@ import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
 import populationIcon from "/population.webp";
 import shardsIcon from "/shards.webp";
+import qaIcon from "/quantum_actions.webp";
 import {
   GOODS_TYPES,
   UNIT_TYPES,
@@ -115,6 +116,18 @@ export function TopBar({
           <img src={shardsIcon} alt="shards" />
           <span onDoubleClick={() => onEditResource?.("shards")}>
             {infiniteResources ? "\u221e" : formatNumber(resources.shards ?? 0)}
+          </span>
+        </div>
+        <div
+          className="resource-line"
+          title={`QA/h: ${formatNumber(stats.qaPerHour ?? 0)}`}
+          onDoubleClick={() => onEditResource?.("quantumActions")}
+        >
+          <img src={qaIcon} alt="quantum actions" />
+          <span>
+            {infiniteResources
+              ? "\u221e"
+              : formatNumber(resources.quantumActions ?? 0)}
           </span>
         </div>
       </div>

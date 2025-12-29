@@ -174,9 +174,7 @@ export function ShopSidebar({
         <StatRow
           key="supplyBoost"
           icon={suppliesIcon}
-          label={`+${formatNumber(
-            Math.round((item.supplyBoost ?? 0) * 100)
-          )}%`}
+          label={`+${formatNumber(Math.round((item.supplyBoost ?? 0) * 100))}%`}
         />
       );
     if (item.happiness)
@@ -196,7 +194,7 @@ export function ShopSidebar({
           danger
         />
       );
-    if (item.qunatumActions)
+    if (item.quantumActions)
       rows.push(
         <StatRow
           key="qa"
@@ -229,7 +227,11 @@ export function ShopSidebar({
           <div className="goods-row header">
             <span className="goods-amount">
               <img
-                src={`/goods/${item.produces === "Stein" ? "Backstein" : item.produces || "Kupfer"}.webp`}
+                src={`/goods/${
+                  item.produces === "Stein"
+                    ? "Backstein"
+                    : item.produces || "Kupfer"
+                }.webp`}
                 alt={item.produces || "goods"}
               />
             </span>
@@ -242,13 +244,13 @@ export function ShopSidebar({
           </div>
           {Object.entries(item.goodsCost).map(([amt, cost]) => (
             <div key={amt} className="goods-row">
-            <span className="goods-amount">{formatNumber(Number(amt))}</span>
-            <span className="goods-cost">
-              {formatNumber(cost.coins ?? 0)}
-            </span>
-            <span className="goods-cost">
-              {formatNumber(cost.supplies ?? 0)}
-            </span>
+              <span className="goods-amount">{formatNumber(Number(amt))}</span>
+              <span className="goods-cost">
+                {formatNumber(cost.coins ?? 0)}
+              </span>
+              <span className="goods-cost">
+                {formatNumber(cost.supplies ?? 0)}
+              </span>
             </div>
           ))}
         </div>
@@ -270,13 +272,13 @@ export function ShopSidebar({
           </div>
           {Object.entries(item.unitCosts).map(([amt, cost]) => (
             <div key={amt} className="goods-row">
-            <span className="goods-amount">{formatNumber(Number(amt))}</span>
-            <span className="goods-cost">
-              {formatNumber(cost.coins ?? 0)}
-            </span>
-            <span className="goods-cost">
-              {formatNumber(cost.supplies ?? 0)}
-            </span>
+              <span className="goods-amount">{formatNumber(Number(amt))}</span>
+              <span className="goods-cost">
+                {formatNumber(cost.coins ?? 0)}
+              </span>
+              <span className="goods-cost">
+                {formatNumber(cost.supplies ?? 0)}
+              </span>
             </div>
           ))}
         </div>
@@ -378,7 +380,9 @@ export function ShopSidebar({
                 <span
                   role="button"
                   className={`card-collapse ${isCollapsed ? "collapsed" : ""}`}
-                  aria-label={isCollapsed ? "Expand details" : "Collapse details"}
+                  aria-label={
+                    isCollapsed ? "Expand details" : "Collapse details"
+                  }
                   tabIndex={0}
                   onClick={(e) => {
                     e.preventDefault();

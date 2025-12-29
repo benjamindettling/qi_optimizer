@@ -7,7 +7,7 @@
     "cost": { "coins": 12000, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
     "happiness": 125,
-    "qunatumActions": 50
+    "quantumActions": 50
   },
   {
     "id": "galgen",
@@ -17,7 +17,7 @@
     "cost": { "coins": 36000, "supplies": 36000, "chronos": 100 },
     "buildTime": 1,
     "happiness": 250,
-    "qunatumActions": 60
+    "quantumActions": 60
   },
   {
     "id": "pranger",
@@ -27,7 +27,7 @@
     "cost": { "coins": 120000, "supplies": 120000, "chronos": 500 },
     "buildTime": 10,
     "happiness": 750,
-    "qunatumActions": 120
+    "quantumActions": 120
   },
   {
     "id": "kirche",
@@ -37,7 +37,7 @@
     "cost": { "coins": 16800, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
     "happiness": 160,
-    "qunatumActions": 50
+    "quantumActions": 50
   },
   {
     "id": "druckerei",
@@ -47,7 +47,7 @@
     "cost": { "coins": 50400, "supplies": 43200, "chronos": 100 },
     "buildTime": 1,
     "happiness": 375,
-    "qunatumActions": 130
+    "quantumActions": 130
   },
   {
     "id": "doktor",
@@ -57,7 +57,7 @@
     "cost": { "coins": 168000, "supplies": 144000, "chronos": 500 },
     "buildTime": 10,
     "happiness": 1125,
-    "qunatumActions": 260
+    "quantumActions": 260
   },
   {
     "id": "palast",
@@ -67,7 +67,7 @@
     "cost": { "coins": 19200, "supplies": 0, "chronos": 0 },
     "buildTime": 0,
     "happiness": 225,
-    "qunatumActions": 90
+    "quantumActions": 90
   },
   {
     "id": "buecherei",
@@ -77,7 +77,7 @@
     "cost": { "coins": 57600, "supplies": 50400, "chronos": 100 },
     "buildTime": 1,
     "happiness": 500,
-    "qunatumActions": 200
+    "quantumActions": 200
   },
   {
     "id": "kartograph",
@@ -87,6 +87,6 @@
     "cost": { "coins": 192000, "supplies": 168000, "chronos": 500 },
     "buildTime": 10,
     "happiness": 900,
-    "qunatumActions": 180
+    "quantumActions": 180
   }
 ]

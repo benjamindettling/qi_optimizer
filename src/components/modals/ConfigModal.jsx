@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
+import qaIcon from "/quantum_actions.webp";
 
 export function ConfigModal({ open, onClose, config, onSave }) {
   const [draft, setDraft] = useState(config);
@@ -92,9 +93,35 @@ export function ConfigModal({ open, onClose, config, onSave }) {
               }
             />
           </label>
+          <label className="config-row">
+            <Label
+              icon={qaIcon}
+              text="QA Basisbonus pro Stunde (zusätzlich zu 5000)"
+            />
+            <input
+              {...numberProps}
+              value={draft.qaBaseBonus ?? 0}
+              onChange={(e) =>
+                updateField("qaBaseBonus", Number(e.target.value) || 0)
+              }
+            />
+          </label>
+          <label className="config-row">
+            <Label icon={qaIcon} text="QA Stunden pro Ernte" />
+            <input
+              {...numberProps}
+              value={draft.qaHarvestHours ?? 12}
+              onChange={(e) =>
+                updateField("qaHarvestHours", Number(e.target.value) || 0)
+              }
+            />
+          </label>
         </div>
         <div className="config-footer">
-          <span>Aenderungen werden erst beim Neuladen der Seite aktiv.</span>
+          <span>
+            QA Einstellungen greifen sofort; alle uebrigen Aenderungen werden
+            beim naechsten Neuladen aktiv.
+          </span>
           <div className="config-actions">
             <button onClick={handleSave}>Speichern</button>
             <button onClick={onClose}>Abbrechen</button>
