@@ -199,7 +199,7 @@ export function ShopSidebar({
         <StatRow
           key="qa"
           icon={qaIcon}
-          label={`${formatNumber(item.qunatumActions)}`}
+          label={`${formatNumber(item.quantumActions)}`}
         />
       );
     if (item.attack)
