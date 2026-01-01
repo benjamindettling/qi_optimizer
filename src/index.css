@@ -908,6 +908,60 @@ button.active {
   border-color: rgba(255, 80, 80, 0.55);
 }
 
+.worst-modal {
+  max-width: 560px;
+}
+
+.worst-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.worst-col {
+  background: #0f1b2f;
+  border: 1px solid #2c3d5a;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.worst-heading {
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #cfe0ff;
+}
+
+.worst-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.worst-row:last-child {
+  border-bottom: none;
+}
+
+.worst-name {
+  font-weight: 600;
+}
+
+.worst-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.worst-top .worst-name,
+.worst-top .worst-value {
+  font-weight: 800;
+  color: #ffd166;
+}
+
+.worst-empty {
+  opacity: 0.7;
+  font-style: italic;
+}
+
 .help-modal {
   width: 540px;
 }

@@ -16,6 +16,7 @@ import { HarvestModal } from "./components/modals/HarvestModal";
 import { HelpModal } from "./components/modals/HelpModal";
 import { ConfigModal } from "./components/modals/ConfigModal";
 import { EditGoodModal } from "./components/modals/EditGoodModal";
+import { WorstRemovalModal } from "./components/modals/WorstRemovalModal";
 import { useGameController } from "./hooks/useGameController";
 
 // Entry component that wires controller state into all UI pieces.
@@ -131,6 +132,9 @@ function App() {
     editGoodModal,
     applyGoodEdit,
     cancelEditGood,
+    worstModal,
+    openWorstModal,
+    setWorstModal,
   } = useGameController();
 
   useEffect(() => {
@@ -406,6 +410,7 @@ function App() {
             selectMode={selectMode}
             onToggleSelectMode={toggleSelectMode}
             onPrintBoard={handlePrint}
+            onFindWorst={openWorstModal}
             onDeleteSave={(name) => {
               deleteSave(name);
               setLoadName((prev) => (prev === name ? "" : prev));
@@ -494,6 +499,11 @@ function App() {
         onClose={() => setConfigModal(false)}
         config={config}
         onSave={updateConfig}
+      />
+      <WorstRemovalModal
+        open={!!worstModal}
+        data={worstModal}
+        onClose={() => setWorstModal(null)}
       />
     </div>
   );

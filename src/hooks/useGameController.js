@@ -145,6 +145,7 @@ export const useGameController = () => {
   const [editGoodModal, setEditGoodModal] = useState(
     initialState.editGoodModal
   );
+  const [worstModal, setWorstModal] = useState(null);
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
     initialState.unlockGoodSelect
@@ -686,6 +687,71 @@ export const useGameController = () => {
     stats.happinessProvided,
     stats.happinessRequired
   );
+
+  const harvestWithConfig = useCallback(
+    (layoutSubset) => {
+      const base = computeStats(layoutSubset, libraryMap);
+      const happy = happinessTier(
+        base.happinessProvided,
+        base.happinessRequired
+      ).ratio;
+      const coinBoost = (base.coinBoost ?? 0) + coinBoostCfg;
+      const supplyBoost = (base.supplyBoost ?? 0) + supplyBoostCfg;
+      const coins =
+        Math.round(base.baseCoins * (1 + coinBoost + (happy - 1))) +
+        base.flatCoins;
+      const supplies =
+        Math.round(base.baseSupplies * (1 + supplyBoost + (happy - 1))) +
+        base.flatSupplies;
+      return { coins, supplies };
+    },
+    [libraryMap, coinBoostCfg, supplyBoostCfg]
+  );
+
+  const openWorstModal = useCallback(() => {
+    const activeLayout = layout.filter((b) => !buildLocks[b.id]);
+    const housingDefs = Array.from(
+      new Set(
+        activeLayout
+          .filter((b) => libraryMap[b.defId]?.category === "housing")
+          .map((b) => b.defId)
+      )
+    );
+    const productionDefs = Array.from(
+      new Set(
+        activeLayout
+          .filter((b) => libraryMap[b.defId]?.category === "production")
+          .map((b) => b.defId)
+      )
+    );
+
+    const computeList = (defIds, harvestKey) => {
+      return defIds
+        .map((defId) => {
+          const idx = activeLayout.findIndex((b) => b.defId === defId);
+          if (idx === -1) return null;
+          const removed = activeLayout.filter((_, i) => i !== idx);
+          const h = harvestWithConfig(removed);
+          const value = h[harvestKey] ?? 0;
+          const def = libraryMap[defId];
+          return {
+            defId,
+            short: def?.short || def?.name || defId,
+            name: def?.name || defId,
+            value,
+          };
+        })
+        .filter(Boolean);
+    };
+
+    const housingList = computeList(housingDefs, "coins");
+    const productionList = computeList(productionDefs, "supplies");
+
+    setWorstModal({
+      housing: housingList,
+      production: productionList,
+    });
+  }, [layout, buildLocks, libraryMap, harvestWithConfig]);
   const {
     currentGoodsCost,
     currentShardCost,
@@ -1615,6 +1681,9 @@ export const useGameController = () => {
     handleSaveState,
     handleLoadState,
     deleteSave,
+    worstModal,
+    openWorstModal,
+    setWorstModal,
     setFastBuyModal,
     setFastBuyTarget,
     setUnlockChoice,

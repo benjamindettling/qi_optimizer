@@ -1,6 +1,5 @@
 import { useDropdownMenu } from "../hooks/useDropdownMenu";
-import { Redo } from "lucide-react";
-import { Undo } from "lucide-react";
+import { Redo, Undo } from "lucide-react";
 
 export function ActionToolbar({
   moveMode,
@@ -30,6 +29,7 @@ export function ActionToolbar({
   selectMode,
   onToggleSelectMode,
   onPrintBoard,
+  onFindWorst,
 }) {
   const saveKeys = Object.keys(saves).sort((a, b) => a.localeCompare(b));
   const {
@@ -60,14 +60,14 @@ export function ActionToolbar({
         <button
           onClick={onToggleMove}
           className={`mode-button move ${moveMode ? "active-mode" : ""}`}
-          title="Bewege oder tausche Gebäude nach Belieben"
+          title="Bewege oder tausche Gebaeude nach Belieben"
         >
           Bewegen
         </button>
         <button
           onClick={onToggleSell}
           className={`mode-button sell ${sellMode ? "active-mode" : ""}`}
-          title="Verkauf Gebäude. Erhalte 1/4 des gezahlten Werts zurück"
+          title="Verkauf Gebaeude. Erhalte 1/4 des gezahlten Werts zurueck"
         >
           Verkaufen
         </button>
@@ -77,7 +77,7 @@ export function ActionToolbar({
         <button
           onClick={onUndo}
           className="action-button undo"
-          title="Undo. Kehre zu voherigen Schritten zurück"
+          title="Undo. Kehre zu voherigen Schritten zurueck"
           disabled={!canUndo}
         >
           <Undo />
@@ -85,7 +85,7 @@ export function ActionToolbar({
         <button
           onClick={onRedo}
           className="action-button redo"
-          title="Redo. Kehre zu späteren Schritten zurück"
+          title="Redo. Kehre zu spaeteren Schritten zurueck"
           disabled={!canRedo}
         >
           <Redo />
@@ -95,7 +95,7 @@ export function ActionToolbar({
       <button
         onClick={onToggleRefund}
         className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
-        title="DEBUG: Erhalte den VOLLEN Wert des Gebäudes zurück"
+        title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
       >
         Volle Erstattung
       </button>
@@ -104,16 +104,16 @@ export function ActionToolbar({
         <button
           onClick={finishProductions}
           className="action-button finish"
-          title="Beendet alle Produktion. Gebäude kБnnen dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
+          title="Beendet alle Produktion. Gebaeude koennen dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
         >
           Beende alle Prod.
         </button>
         <button
           onClick={onToggleBoost}
           className={`action-button finish ${boostMode ? "active-mode" : ""}`}
-          title="Boost-Modus: Klick auf Gebäude um zu entsperren/fertigzustellen/ernten"
+          title="Boost-Modus: Klick auf Gebaeude um zu entsperren/fertigzustellen/ernten"
         >
-          Boost einzelne Gebäude
+          Boost einzelne Gebaeude
         </button>
       </div>
 
@@ -146,7 +146,7 @@ export function ActionToolbar({
             {loadName || "Load state..."}
           </span>
           <span className="save-trigger-caret" aria-hidden="true">
-            ▾
+            ▼
           </span>
         </button>
 
@@ -204,7 +204,7 @@ export function ActionToolbar({
         <textarea
           id="city-notes"
           className="notes-input"
-          placeholder="Füge Notizen hinzu"
+          placeholder="F\u00fcge Notizen hinzu"
           value={notes}
           onChange={(e) => onChangeNotes?.(e.target.value)}
           rows={6}
@@ -214,7 +214,7 @@ export function ActionToolbar({
         <button
           className={`mode-button select ${selectMode ? "active-mode" : ""}`}
           onClick={onToggleSelectMode}
-          title="Markiere GebÇÏude rot, ohne sie zu ¸ndern"
+          title="Markiere Geb\u00e4ude rot, ohne sie zu \u00e4ndern"
         >
           Select
         </button>
@@ -226,6 +226,13 @@ export function ActionToolbar({
           Print
         </button>
       </div>
+      <button
+        className="action-button worst"
+        onClick={onFindWorst}
+        title="Berechne, welche Wohn-/Produktionsgeb\u00e4ude beim Entfernen den h\u00f6chsten Ertrag \u00fcbrig lassen"
+      >
+        Finde schlechtestes
+      </button>
     </div>
   );
 }
