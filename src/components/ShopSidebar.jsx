@@ -44,6 +44,7 @@ export function ShopSidebar({
   setSelectedCategory,
   setSelectedBuildingId,
   resources,
+  editingLocked = false,
   stats,
   infiniteResources = false,
   viewMode,
@@ -61,8 +62,7 @@ export function ShopSidebar({
   handleUnlockRegion,
   REGION_COLS,
   onResetModes,
-  debugRegions,
-  onToggleDebugRegions,
+  adminMode,
   onDebugUnlockRegion,
   onDebugLockRegion,
 }) {
@@ -93,7 +93,8 @@ export function ShopSidebar({
     visibleCategories[0];
 
   const canBuild = (item) =>
-    (infiniteResources ||
+    (adminMode ||
+      infiniteResources ||
       ((resources.coins ?? 0) >= (item.cost.coins ?? 0) &&
         (resources.supplies ?? 0) >= (item.cost.supplies ?? 0) &&
         (resources.chronos ?? 0) >= (item.cost.chronos ?? 0))) &&
@@ -309,7 +310,7 @@ export function ShopSidebar({
       <div className="shop">
         {selectedCat?.data.map((item) => {
           const defId = `${selectedCat.key}:${item.id}`;
-          const buildable = canBuild(item);
+          const buildable = !editingLocked && canBuild(item);
           const isCollapsed = !!collapsedCards[defId];
 
           return (
@@ -430,11 +431,10 @@ export function ShopSidebar({
         onSetGoodsUnlocks={onSetGoodsUnlocks}
         onSetShardUnlocks={onSetShardUnlocks}
         infiniteResources={infiniteResources}
+        adminMode={adminMode}
         canAnyUnlock={canAnyUnlock}
         handleUnlockRegion={handleUnlockRegion}
         REGION_COLS={REGION_COLS}
-        debugRegions={debugRegions}
-        onToggleDebugRegions={onToggleDebugRegions}
         onDebugUnlockRegion={onDebugUnlockRegion}
         onDebugLockRegion={onDebugLockRegion}
       />

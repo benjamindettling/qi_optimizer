@@ -4,9 +4,7 @@ import { GOODS_TYPES } from "../config/boardConfig";
 import { happinessTier } from "./gameMath";
 import { cloneLayout } from "./layoutUtils";
 
-/**
- * Snapshot the parts of state needed for undo/redo.
- */
+// Snapshot the parts of state needed for persistence or time travel.
 export const serializeState = (state) => ({
   resources: {
     ...state.resources,
@@ -19,10 +17,6 @@ export const serializeState = (state) => ({
   shardUnlocks: state.shardUnlocks,
   nextId: state.nextId,
   readyMap: { ...(state.readyMap ?? {}) },
-  boostMode: state.boostMode ?? false,
-  moveMode: state.moveMode,
-  sellMode: state.sellMode,
-  refundMode: state.refundMode,
   selectedCategory: state.selectedCategory,
   infiniteResources: state.infiniteResources ?? false,
   infiniteBackup: state.infiniteBackup
@@ -35,6 +29,9 @@ export const serializeState = (state) => ({
   notes: state.notes ?? "",
   buildLocks: { ...(state.buildLocks ?? {}) },
   selectedIds: Array.from(state.selectedIds ?? []),
+  timeStep: state.timeStep ?? 1,
+  loadName: state.loadName ?? "",
+  selectedBuildingId: state.selectedBuildingId ?? null,
 });
 
 /**

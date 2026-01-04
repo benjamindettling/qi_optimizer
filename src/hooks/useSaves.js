@@ -31,12 +31,13 @@ export function useSaves() {
     });
   };
 
-  const saveSnapshot = (name, snapshot) => {
+  const saveSnapshot = (name, payload) => {
     if (!name) return;
-    setAllSaves((prev) => ({ ...prev, [name]: { snapshot } }));
+    const entry = payload && payload.snapshot ? payload : { snapshot: payload };
+    setAllSaves((prev) => ({ ...prev, [name]: entry }));
   };
 
-  const loadSnapshot = (name) => saves[name]?.snapshot ?? null;
+  const loadSnapshot = (name) => saves[name] ?? null;
 
   const deleteSave = (name) => {
     const next = { ...saves };

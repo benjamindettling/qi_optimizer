@@ -17,6 +17,10 @@ import { HelpModal } from "./components/modals/HelpModal";
 import { ConfigModal } from "./components/modals/ConfigModal";
 import { EditGoodModal } from "./components/modals/EditGoodModal";
 import { WorstRemovalModal } from "./components/modals/WorstRemovalModal";
+import { ExportSavesModal } from "./components/modals/ExportSavesModal";
+import { ImportSavesModal } from "./components/modals/ImportSavesModal";
+import { PastEditWarningModal } from "./components/modals/PastEditWarningModal";
+import { EditResourceModal } from "./components/modals/EditResourceModal";
 import { useGameController } from "./hooks/useGameController";
 
 // Entry component that wires controller state into all UI pieces.
@@ -89,17 +93,13 @@ function App() {
     setShardUnlocks,
     infiniteResources,
     handleToggleInfinite,
-    debugRegions,
     handleCellClick,
     handleUnlockRegion,
-    toggleDebugRegions,
     handleDebugUnlockRegion,
     handleDebugLockRegion,
     toggleMove,
     toggleSell,
     toggleRefund,
-    undoWithCleanup,
-    redoWithCleanup,
     finishProductions,
     toggleBoost,
     toggleSelectId,
@@ -117,8 +117,6 @@ function App() {
     handleEditResource,
     handleEditGood,
     isCellUnlocked,
-    undoStack,
-    redoStack,
     notes,
     handleChangeNotes,
     useShortNames,
@@ -132,10 +130,51 @@ function App() {
     editGoodModal,
     applyGoodEdit,
     cancelEditGood,
+    editResourceModal,
+    applyResourceEdit,
+    cancelEditResource,
     worstModal,
     openWorstModal,
     setWorstModal,
+    timeStep,
+    setTimeStep,
+    checkpointIndex,
+    addCheckpointPart,
+    currentPart,
+    currentPartTotal,
+    editUnlocked,
+    isPast,
+    editingLocked,
+    canTimeBack,
+    canTimeForward,
+    jumpBackTime,
+    jumpForwardTime,
+    enableEditFromPast,
+    exportModal,
+    importModal,
+    setExportModal,
+    setImportModal,
+    openExportSaves,
+    openImportSaves,
+    handleExportSelected,
+    handleImportSelected,
+    pastEditModal,
+    openPastEditModal,
+    closePastEditModal,
+    handleCopyAndEnableEdit,
+    handleEnableEditFromPast,
+    autoSelectNew,
+    toggleAutoSelectNew,
   } = useGameController();
+
+  const adminMode = infiniteResources;
+
+  useEffect(() => {
+    const body = document.body;
+    if (!body) return;
+    if (adminMode) body.classList.add("admin-theme");
+    else body.classList.remove("admin-theme");
+  }, [adminMode]);
 
   useEffect(() => {
     const clearTimer = () => {
@@ -288,6 +327,7 @@ function App() {
         setSelectedBuildingId={setSelectedBuildingId}
         resources={resources}
         stats={stats}
+        editingLocked={editingLocked}
         infiniteResources={infiniteResources}
         viewMode={viewMode}
         regionTransform={regionTransform}
@@ -303,9 +343,8 @@ function App() {
         canAnyUnlock={canAnyUnlock}
         handleUnlockRegion={handleUnlockRegion}
         REGION_COLS={REGION_COLS}
+        adminMode={adminMode}
         onResetModes={resetModes}
-        debugRegions={debugRegions}
-        onToggleDebugRegions={toggleDebugRegions}
         onDebugUnlockRegion={handleDebugUnlockRegion}
         onDebugLockRegion={handleDebugLockRegion}
       />
@@ -317,8 +356,8 @@ function App() {
           happyInfo={happyInfo}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          infiniteResources={infiniteResources}
-          onToggleInfinite={handleToggleInfinite}
+          adminMode={adminMode}
+          onToggleAdmin={handleToggleInfinite}
           useShortNames={useShortNames}
           setUseShortNames={setUseShortNames}
           onOpenConfig={() => setConfigModal(true)}
@@ -327,6 +366,7 @@ function App() {
           setBoardScale={setBoardScale}
           onEditResource={handleEditResource}
           onEditGood={handleEditGood}
+          editingLocked={editingLocked}
         />
         <div className="workspace">
           <div className="board-area">
@@ -391,14 +431,10 @@ function App() {
               setSelectMode(false);
               toggleBoost();
             }}
-            onUndo={undoWithCleanup}
-            onRedo={redoWithCleanup}
             finishProductions={finishProductions}
             harvestIsPartial={harvestIsPartial}
             boostMode={boostMode}
             harvestAll={harvestAll}
-            canUndo={!!undoStack.length}
-            canRedo={!!redoStack.length}
             onSave={handleSaveState}
             onLoad={handleLoadState}
             saves={saves}
@@ -409,8 +445,25 @@ function App() {
             onChangeNotes={handleChangeNotes}
             selectMode={selectMode}
             onToggleSelectMode={toggleSelectMode}
+            autoSelectNew={autoSelectNew}
+            onToggleAutoSelectNew={toggleAutoSelectNew}
             onPrintBoard={handlePrint}
             onFindWorst={openWorstModal}
+            timeStep={timeStep}
+            canTimeBack={canTimeBack}
+            canTimeForward={canTimeForward}
+            onStepBack={jumpBackTime}
+            onStepForward={jumpForwardTime}
+            onAddCheckpoint={addCheckpointPart}
+            isLatestCheckpoint={checkpointIndex === null}
+            timePart={currentPart}
+            timePartTotal={currentPartTotal}
+            isPast={isPast}
+            editUnlocked={editUnlocked}
+            onOpenPastEditWarning={openPastEditModal}
+            editingLocked={editingLocked}
+            onOpenExport={openExportSaves}
+            onOpenImport={openImportSaves}
             onDeleteSave={(name) => {
               deleteSave(name);
               setLoadName((prev) => (prev === name ? "" : prev));
@@ -484,6 +537,11 @@ function App() {
         onSaveAll={(val) => applyGoodEdit(val, true)}
         onClose={cancelEditGood}
       />
+      <EditResourceModal
+        modal={editResourceModal}
+        onSave={applyResourceEdit}
+        onClose={cancelEditResource}
+      />
 
       <FastBuyModal
         fastBuyModal={fastBuyModal}
@@ -500,10 +558,28 @@ function App() {
         config={config}
         onSave={updateConfig}
       />
+      <ExportSavesModal
+        open={!!exportModal}
+        saves={saves}
+        onClose={() => setExportModal(false)}
+        onExport={handleExportSelected}
+      />
+      <ImportSavesModal
+        open={!!importModal}
+        onClose={() => setImportModal(false)}
+        onImport={handleImportSelected}
+      />
       <WorstRemovalModal
         open={!!worstModal}
         data={worstModal}
         onClose={() => setWorstModal(null)}
+      />
+      <PastEditWarningModal
+        open={pastEditModal}
+        onCopyAndContinue={handleCopyAndEnableEdit}
+        onContinue={handleEnableEditFromPast}
+        onCancel={closePastEditModal}
+        currentName={loadName}
       />
     </div>
   );

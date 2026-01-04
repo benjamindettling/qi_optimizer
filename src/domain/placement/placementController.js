@@ -19,19 +19,16 @@ export const dropCarried = ({
   layout,
   libraryMap,
   isCellUnlocked,
-  moveSnapshot,
-  buildSnapshot,
   setLayout,
   setCarried,
   setReadyMap,
   setBuildLocks,
   buildLocks,
-  pushHistory,
-  setMoveSnapshot,
   setMoveMode,
   updateStatus,
 }) => {
   if (!carried) return;
+  const carriedSwapped = !!carried.swapped;
   const def = carried.def;
   const placeX = Math.min(x, BOARD_WIDTH - def.width);
   const placeY = Math.min(y, BOARD_HEIGHT - def.height);
@@ -58,6 +55,7 @@ export const dropCarried = ({
   }
 
   if (overlap) {
+    // Mark that a swap occurred so the final placement can log accordingly.
     setLayout((prev) => {
       const filtered = prev.filter((p) => p.id !== overlap.id);
       const placed = {
@@ -72,6 +70,7 @@ export const dropCarried = ({
     setCarried({
       instance: { ...overlap },
       def: libraryMap[overlap.defId],
+      swapped: true,
     });
     setReadyMap((prev) => ({
       ...prev,
@@ -86,7 +85,6 @@ export const dropCarried = ({
       [overlap.id]: prev[overlap.id] ?? false,
     }));
   } else {
-    const snapshot = moveSnapshot ?? buildSnapshot();
     setLayout((prev) => [
       ...prev,
       {
@@ -107,11 +105,12 @@ export const dropCarried = ({
       [carried.instance.id]:
         carried.instance.locked ?? prev[carried.instance.id] ?? false,
     }));
-    pushHistory(snapshot);
-    setCarried(null);
-    setMoveSnapshot(null);
-    // Stay in Move mode until user toggles it off or selects another mode.
-  }
+  const label = carriedSwapped
+    ? "Swapped Buildings"
+    : `Moved ${def?.name ?? "Gebaeude"}`;
+  updateStatus(label);
+  setCarried(null);
+}
 };
 
 export const handleSaleOrRefund = ({
@@ -119,16 +118,15 @@ export const handleSaleOrRefund = ({
   refundMode,
   libraryMap,
   readyMap,
-  buildSnapshot,
-  pushHistory,
   harvestBuildings,
   refundResources,
   setLayout,
   setReadyMap,
   updateStatus,
 }) => {
-  const snapshot = buildSnapshot();
-  pushHistory(snapshot);
+  const label = `${refundMode ? "Refunded" : "Sold"} ${
+    libraryMap[target.defId]?.name ?? "Gebaeude"
+  }`;
   const delta =
     refundMode && target.cost
       ? target.cost
@@ -143,9 +141,7 @@ export const handleSaleOrRefund = ({
     delete next[target.id];
     return next;
   });
-  updateStatus(
-    `${refundMode ? "Refunded" : "Sold"} ${libraryMap[target.defId].name}`
-  );
+  updateStatus(label);
 };
 
 export const canPlaceDef = ({

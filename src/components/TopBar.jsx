@@ -19,8 +19,8 @@ export function TopBar({
   happyInfo,
   viewMode,
   setViewMode,
-  infiniteResources,
-  onToggleInfinite,
+  adminMode,
+  onToggleAdmin,
   useShortNames = false,
   setUseShortNames,
   boardScale,
@@ -29,7 +29,29 @@ export function TopBar({
   onEditGood,
   onOpenHelp,
   onOpenConfig,
+  editingLocked = false,
 }) {
+  const adminEnabled = adminMode && !editingLocked;
+
+  const resourceEntries = [
+    { key: "coins", label: "Muenzen", icon: moneyIcon, value: resources.coins },
+    {
+      key: "supplies",
+      label: "Vorraete",
+      icon: suppliesIcon,
+      value: resources.supplies,
+    },
+    { key: "chronos", label: "Chronos", icon: chronosIcon, value: resources.chronos },
+    { key: "shards", label: "Scherben", icon: shardsIcon, value: resources.shards },
+    {
+      key: "quantumActions",
+      label: "QA",
+      icon: qaIcon,
+      value: resources.quantumActions,
+      title: `QA/h: ${formatNumber(stats.qaPerHour ?? 0)}`,
+    },
+  ];
+
   const percentColor = (pct) => {
     const hue = Math.min(120, Math.max(0, (pct / 200) * 120));
     return `hsl(${hue}, 70%, 60%)`;
@@ -78,88 +100,58 @@ export function TopBar({
   return (
     <header className="topbar">
       <div className="resource-stack">
-        <div
-          className="resource-line"
-          title="Münzen"
-          onDoubleClick={() => onEditResource?.("coins")}
-        >
-          <img src={moneyIcon} alt="coins" />
-          <span>
-            {infiniteResources ? "\u221e" : formatNumber(resources.coins ?? 0)}
-          </span>
-        </div>
-        <div
-          className="resource-line"
-          title="Vorräte"
-          onDoubleClick={() => onEditResource?.("supplies")}
-        >
-          <img src={suppliesIcon} alt="supplies" />
-          <span>
-            {infiniteResources
-              ? "\u221e"
-              : formatNumber(resources.supplies ?? 0)}
-          </span>
-        </div>
-        <div
-          className="resource-line"
-          title="Chronos"
-          onDoubleClick={() => onEditResource?.("chronos")}
-        >
-          <img src={chronosIcon} alt="chronos" />
-          <span>
-            {infiniteResources
-              ? "\u221e"
-              : formatNumber(resources.chronos ?? 0)}
-          </span>
-        </div>
-        <div className="resource-line" title="Scherben">
-          <img src={shardsIcon} alt="shards" />
-          <span onDoubleClick={() => onEditResource?.("shards")}>
-            {infiniteResources ? "\u221e" : formatNumber(resources.shards ?? 0)}
-          </span>
-        </div>
-        <div
-          className="resource-line"
-          title={`QA/h: ${formatNumber(stats.qaPerHour ?? 0)}`}
-          onDoubleClick={() => onEditResource?.("quantumActions")}
-        >
-          <img src={qaIcon} alt="quantum actions" />
-          <span>
-            {infiniteResources
-              ? "\u221e"
-              : formatNumber(resources.quantumActions ?? 0)}
-          </span>
-        </div>
+        {resourceEntries.map((r) =>
+          adminEnabled ? (
+            <button
+              key={r.key}
+              className="resource-button"
+              title={r.title || r.label}
+              onClick={() =>
+                onEditResource?.({ key: r.key, label: r.label, icon: r.icon })
+              }
+            >
+              <img src={r.icon} alt={r.label} />
+              <span>{formatNumber(r.value ?? 0)}</span>
+            </button>
+          ) : (
+            <div key={r.key} className="resource-line" title={r.title || r.label}>
+              <img src={r.icon} alt={r.label} />
+              <span>{formatNumber(r.value ?? 0)}</span>
+            </div>
+          )
+        )}
       </div>
       <div className="goods-stack">
-        {GOODS_TYPES.map((g) => (
-          <div
-            key={g}
-            className="resource-line"
-            title={g}
-            onDoubleClick={() => onEditGood?.(g)}
-          >
-            <img
-              src={`/goods/${g === "Stein" ? "Backstein" : g}.webp`}
-              alt={g}
-            />
-            <span>
-              {infiniteResources
-                ? "\u221e"
-                : formatNumber(resources.goods[g] ?? 0)}
-            </span>
-          </div>
-        ))}
+        {GOODS_TYPES.map((g) =>
+          adminEnabled ? (
+            <button
+              key={g}
+              className="resource-button"
+              title={g}
+              onClick={() => onEditGood?.(g)}
+            >
+              <img
+                src={`/goods/${g === "Stein" ? "Backstein" : g}.webp`}
+                alt={g}
+              />
+              <span>{formatNumber(resources.goods[g] ?? 0)}</span>
+            </button>
+          ) : (
+            <div key={g} className="resource-line" title={g}>
+              <img
+                src={`/goods/${g === "Stein" ? "Backstein" : g}.webp`}
+                alt={g}
+              />
+              <span>{formatNumber(resources.goods[g] ?? 0)}</span>
+            </div>
+          )
+        )}
       </div>
       <div className="goods-stack">
         {UNIT_TYPES.map((u) => (
           <div key={u} className="resource-line" title={u}>
             <img src={`/units/${u}.webp`} alt={u} />
-            <span>
-              {infiniteResources
-                ? "\u221e"
-                : formatNumber(resources.units?.[u] ?? 0)}
-            </span>
+            <span>{formatNumber(resources.units?.[u] ?? 0)}</span>
           </div>
         ))}
       </div>
@@ -184,7 +176,7 @@ export function TopBar({
             </div>
           </div>
         </div>
-        <div className="resource-line" title="Totaler Münzboost">
+        <div className="resource-line" title="Totaler Muenzboost">
           <img src={moneyIcon} alt="coins" />
           <span className="happy-label"></span>
           <span className="happy-boost">x{coinMult}</span>
@@ -194,19 +186,19 @@ export function TopBar({
           <span className="happy-label"></span>
           <span className="happy-boost">x{supplyMult}</span>
         </div>
-        <div className="resource-line" title="Totaler Chronossboost">
+        <div className="resource-line" title="Totaler Chronosboost">
           <img src={chronosIcon} alt="chronos" />
           <span className="happy-label"></span>
           <span className="happy-boost">x{chronosMult}</span>
         </div>
-        <div className="resource-line population" title="Bevölkerung">
+        <div className="resource-line population" title="Bevoelkerung">
           <img src={populationIcon} alt="population" />
           <div>
-            <span className="total-pop" title="Totale Bevölkerung">
+            <span className="total-pop" title="Totale Bevoelkerung">
               tot: {formatNumber(stats.people ?? 0)}
             </span>
             <br></br>
-            <span title="Freie Bevölkerung">
+            <span title="Freie Bevoelkerung">
               free:{" "}
               {formatNumber(
                 Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0))
@@ -282,29 +274,35 @@ export function TopBar({
               step={0.05}
               value={boardScale}
               onChange={(e) => setBoardScale?.(Number(e.target.value))}
-              title="Grösse Stadtanzeige"
+              title="Groesse Stadtanzeige"
             />
           </div>
         </div>
         <div className="goods-stack">
           <label
             className="infinite-toggle"
-            title="Unendliche Ressourcen, um einfacher Städte zu setuppen"
+            title="Admin-Modus: freies Bauen, Region-Tools, Ressourcenbearbeitung"
           >
             <input
               type="checkbox"
-              checked={!!infiniteResources}
-              onChange={(e) => onToggleInfinite?.(e.target.checked)}
+              disabled={editingLocked}
+              checked={!!adminMode}
+              onChange={(e) =>
+                !editingLocked && onToggleAdmin?.(e.target.checked)
+              }
             />
-            &#8734;
+            Admin
           </label>
           <label className="infinite-toggle" title="Gebaeudenamen abkuerzen">
             <input
               type="checkbox"
+              disabled={editingLocked}
               checked={!!useShortNames}
-              onChange={(e) => setUseShortNames?.(e.target.checked)}
+              onChange={(e) =>
+                !editingLocked && setUseShortNames?.(e.target.checked)
+              }
             />
-            Abkürzen
+            Abkuerzen
           </label>
         </div>
 

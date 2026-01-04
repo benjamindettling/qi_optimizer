@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { RegionBadge } from "./RegionBadge";
 import { REGION_GOODS_COSTS, REGION_SHARD_COSTS } from "../config/boardConfig";
 import { formatNumber } from "../utils/formatNumber";
+import { RegionBadge } from "./RegionBadge";
 
 export function RegionsPanel({
   viewMode,
@@ -16,31 +15,17 @@ export function RegionsPanel({
   onSetGoodsUnlocks,
   onSetShardUnlocks,
   infiniteResources = false,
+  adminMode = false,
   canAnyUnlock,
   handleUnlockRegion,
   REGION_COLS,
-  debugRegions = false,
-  onToggleDebugRegions,
   onDebugUnlockRegion,
   onDebugLockRegion,
 }) {
-  const [editGoods, setEditGoods] = useState(false);
-  const [editShards, setEditShards] = useState(false);
-
   return (
     <div className="regions">
       <div className="regions-title-row">
         <div className="regions-title">Regions</div>
-
-        {/* Keep this always present so layout never changes */}
-        <label className="regions-debug">
-          <input
-            type="checkbox"
-            checked={debugRegions}
-            onChange={(e) => onToggleDebugRegions?.(e.target.checked)}
-          />
-          Debug
-        </label>
       </div>
 
       <div className={`region-frame ${viewMode ? `view-${viewMode}` : ""}`}>
@@ -72,9 +57,9 @@ export function RegionsPanel({
                 isBase={isBase}
                 canUnlock={infiniteResources ? true : canAnyUnlock}
                 onUnlock={() => handleUnlockRegion?.(idx)}
-                debugMode={debugRegions}
-                onDebugUnlock={() => onDebugUnlockRegion?.(idx)}
-                onDebugLock={() => onDebugLockRegion?.(idx, isBase)}
+                debugMode={adminMode}
+                onDebugUnlock={() => adminMode && onDebugUnlockRegion?.(idx)}
+                onDebugLock={() => adminMode && onDebugLockRegion?.(idx, isBase)}
               />
             );
           })}
@@ -83,22 +68,15 @@ export function RegionsPanel({
 
       <div className="region-note">
         Kosten skalieren mit jedem Kauf. Aktuell:{" "}
-        <span
-          className={debugRegions ? "cost-debug" : ""}
-          onDoubleClick={() => debugRegions && setEditGoods(true)}
-          title={debugRegions ? "Double-click to adjust goods cost index" : ""}
-        >
-          {editGoods && debugRegions ? (
+        <span className={adminMode ? "cost-debug" : ""}>
+          {adminMode ? (
             <select
-              autoFocus
               value={goodsUnlocks}
               onChange={(e) => {
                 const idx = Number(e.target.value);
                 if (Number.isFinite(idx) && onSetGoodsUnlocks)
                   onSetGoodsUnlocks(idx);
-                setEditGoods(false);
               }}
-              onBlur={() => setEditGoods(false)}
             >
               {REGION_GOODS_COSTS.map((cost, idx) => (
                 <option key={idx} value={idx}>
@@ -111,22 +89,15 @@ export function RegionsPanel({
           )}
         </span>{" "}
         or{" "}
-        <span
-          className={debugRegions ? "cost-debug" : ""}
-          onDoubleClick={() => debugRegions && setEditShards(true)}
-          title={debugRegions ? "Double-click to adjust shard cost index" : ""}
-        >
-          {editShards && debugRegions ? (
+        <span className={adminMode ? "cost-debug" : ""}>
+          {adminMode ? (
             <select
-              autoFocus
               value={shardUnlocks}
               onChange={(e) => {
                 const idx = Number(e.target.value);
                 if (Number.isFinite(idx) && onSetShardUnlocks)
                   onSetShardUnlocks(idx);
-                setEditShards(false);
               }}
-              onBlur={() => setEditShards(false)}
             >
               {REGION_SHARD_COSTS.map((cost, idx) => (
                 <option key={idx} value={idx}>
@@ -139,10 +110,8 @@ export function RegionsPanel({
           )}
         </span>
         . <br></br>
-        Werte ändern automatisch, oder können im 'debug' Modus bearbeitet werden
+        Werte ändern automatisch, oder können im Admin-Modus bearbeitet werden
       </div>
     </div>
   );
 }
-
-

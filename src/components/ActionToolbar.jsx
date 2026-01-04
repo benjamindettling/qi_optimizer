@@ -1,5 +1,13 @@
+import React, { useEffect, useMemo, useRef } from "react";
 import { useDropdownMenu } from "../hooks/useDropdownMenu";
-import { Redo, Undo } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ClockArrowUp,
+  Move,
+  Plus,
+  Trash2,
+} from "lucide-react";
 
 export function ActionToolbar({
   moveMode,
@@ -10,13 +18,9 @@ export function ActionToolbar({
   onToggleSell,
   onToggleRefund,
   onToggleBoost,
-  onUndo,
-  onRedo,
   finishProductions,
   harvestAll,
   harvestIsPartial = false,
-  canUndo,
-  canRedo,
   onSave,
   onLoad,
   saves,
@@ -28,9 +32,32 @@ export function ActionToolbar({
   onChangeNotes,
   selectMode,
   onToggleSelectMode,
+  autoSelectNew = false,
+  onToggleAutoSelectNew,
   onPrintBoard,
   onFindWorst,
+  onOpenExport,
+  onOpenImport,
+  timeStep,
+  canTimeBack,
+  canTimeForward,
+  onStepBack,
+  onStepForward,
+  onAddCheckpoint,
+  isLatestCheckpoint = false,
+  timePart = null,
+  timePartTotal = 0,
+  isPast = false,
+  editUnlocked = false,
+  onOpenPastEditWarning,
+  editingLocked = false,
 }) {
+  const stepVal = Math.max(1, Math.min(23, timeStep ?? 1));
+  const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
+  const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
+  const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
+  const stepLabel = `Schritt ${stepVal}, ${dayNames[dayIndex]} ${period}`;
+
   const saveKeys = Object.keys(saves).sort((a, b) => a.localeCompare(b));
   const {
     ref: saveMenuRef,
@@ -51,86 +78,212 @@ export function ActionToolbar({
     if (onSave) onSave(target);
   };
 
+  const harvestTitle = harvestIsPartial
+    ? "Sammelt nur fertige Produktionen ein"
+    : "Volle Ernte: erntet die gesamte Stadt";
+  const hasParts = (timePartTotal ?? 0) > 1 && (timePart ?? 0) > 0;
+  const partColor =
+    timePart && timePartTotal && timePart === timePartTotal
+      ? "#2ecc71"
+      : "#f1c40f";
+
+  const NOTE_RULES = [
+    { regex: /\+/g, className: "notes-green" },
+    { regex: /-/g, className: "notes-red" },
+    { regex: />>/g, className: "notes-turquoise", fullLine: true },
+    { regex: /\(1h\)/g, className: "notes-yellow" },
+    { regex: /\(boost\)/g, className: "notes-yellow" },
+  ];
+
+  const applyRuleToLineHtml = (lineHtml, rule) => {
+    if (!lineHtml) return lineHtml;
+
+    // FULL-LINE RULE
+    if (rule.fullLine) {
+      const match = lineHtml.match(rule.regex);
+      if (!match) return lineHtml; // nothing to do
+      const plain = lineHtml
+        .replace(/<span[^>]*>/g, "")
+        .replace(/<\/span>/g, "");
+
+      return `<span class="${rule.className}">${plain}</span>`;
+    }
+
+    // NORMAL RULE
+    const parts = lineHtml.split(/(<[^>]+>)/g);
+
+    const processed = parts.map((part) => {
+      // If this is a tag ("<...>"), never touch it
+      if (part.startsWith("<")) return part;
+
+      // Text chunk: apply regex and wrap matches in spans
+      return part.replace(rule.regex, (match) => {
+        return `<span class="${rule.className}">${match}</span>`;
+      });
+    });
+
+    return processed.join("");
+  };
+
+  const formattedNotes = useMemo(() => {
+    const raw = notes || "";
+
+    // Start as plain text lines (no spans)
+    let htmlLines = raw.split(/\n/);
+
+    // Apply rules one by one, across all lines
+    for (const rule of NOTE_RULES) {
+      htmlLines = htmlLines.map((lineHtml) =>
+        applyRuleToLineHtml(lineHtml, rule)
+      );
+    }
+
+    const merged = htmlLines.join("<br />");
+
+    return (
+      merged || '<span class="notes-placeholder">Fuege Notizen hinzu</span>'
+    );
+  }, [notes]);
+
+  const notesRef = useRef(null);
+
+  const resizeNotes = () => {
+    const el = notesRef.current;
+    if (!el) return;
+    el.style.height = "auto"; // reset
+    el.style.height = `${el.scrollHeight}px`; // grow to fit content
+  };
+
+  useEffect(() => {
+    resizeNotes();
+  }, [notes]);
+
   return (
     <div
       className="actions-column"
       style={{ marginLeft: `${toolbarOffset}px` }}
     >
-      <div className="actions-row">
+      <div className="actions-row time-row">
         <button
-          onClick={onToggleMove}
-          className={`mode-button move ${moveMode ? "active-mode" : ""}`}
-          title="Bewege oder tausche Gebaeude nach Belieben"
+          className="action-button"
+          onClick={onStepBack}
+          disabled={!canTimeBack}
+          title="Zum vorherigen Zeitschritt"
         >
-          Bewegen
+          <ArrowLeft />
         </button>
-        <button
-          onClick={onToggleSell}
-          className={`mode-button sell ${sellMode ? "active-mode" : ""}`}
-          title="Verkauf Gebaeude. Erhalte 1/4 des gezahlten Werts zurueck"
-        >
-          Verkaufen
-        </button>
+        {isLatestCheckpoint ? (
+          <button
+            className="action-button"
+            onClick={onAddCheckpoint}
+            title="Neuen Zwischen-Checkpoint einfuegen"
+          >
+            <Plus />
+          </button>
+        ) : (
+          <button
+            className="action-button"
+            onClick={onStepForward}
+            disabled={!canTimeForward}
+            title="Zum naechsten Zeitschritt"
+          >
+            <ArrowRight />
+          </button>
+        )}
+        <div className="time-tracker-label">
+          <span>{stepLabel}</span>
+          {hasParts && (
+            <span>
+              Teil <span style={{ color: partColor }}>{timePart}</span> von{" "}
+              <span style={{ color: partColor }}>{timePartTotal}</span>
+            </span>
+          )}
+        </div>
       </div>
 
+      {isPast ? (
+        <div className="actions-row">
+          <button
+            onClick={onToggleMove}
+            className={`mode-button move ${moveMode ? "active-mode" : ""}`}
+            title="Bewege oder tausche Gebaeude nach Belieben"
+          >
+            <Move />
+          </button>
+          {!editUnlocked && (
+            <button
+              className="action-button warn"
+              onClick={onOpenPastEditWarning}
+              title="Bearbeitung im Vergangenheitszustand aktivieren"
+            >
+              Bearbeitung aktivieren
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="actions-row">
+            <button
+              onClick={onToggleMove}
+              className={`mode-button move ${moveMode ? "active-mode" : ""}`}
+              title="Bewege oder tausche Gebaeude nach Belieben"
+            >
+              <Move />
+            </button>
+            <button
+              onClick={onToggleSell}
+              className={`mode-button sell ${sellMode ? "active-mode" : ""}`}
+              title="Verkauf Gebaeude. Erhalte 1/4 des gezahlten Werts zurueck"
+            >
+              <Trash2 />
+            </button>
+            <button
+              onClick={onToggleBoost}
+              className={`mode-button finish ${boostMode ? "active-mode" : ""}`}
+              title="Boost einzelne Gebaeude: entsperre oder beende Produktionen"
+            >
+              <ClockArrowUp />
+            </button>
+          </div>
+
+          <div className="actions-row">
+            <button
+              onClick={harvestAll}
+              className="action-button harvest"
+              title={harvestTitle}
+            >
+              {harvestIsPartial ? "Rest einsammeln" : "Ernte"}
+            </button>
+            <button
+              onClick={finishProductions}
+              className="action-button finish"
+              title="Beendet alle Produktionen. Danach kannst du ernten"
+            >
+              <ClockArrowUp />
+              <span style={{ marginLeft: 6 }}>alle</span>
+            </button>
+          </div>
+        </>
+      )}
+
       <div className="actions-row">
         <button
-          onClick={onUndo}
-          className="action-button undo"
-          title="Undo. Kehre zu voherigen Schritten zurueck"
-          disabled={!canUndo}
+          onClick={handleSaveClick}
+          className="action-button"
+          title="Speicher aktuellen Stand (inkl. Undo/Redo) in deinem Browser."
         >
-          <Undo />
+          Speichern als
         </button>
         <button
-          onClick={onRedo}
-          className="action-button redo"
-          title="Redo. Kehre zu spaeteren Schritten zurueck"
-          disabled={!canRedo}
+          onClick={() => {
+            if (loadName) onLoad(loadName);
+          }}
+          className="action-button"
+          disabled={!loadName}
         >
-          <Redo />
+          Laden
         </button>
       </div>
-
-      <button
-        onClick={onToggleRefund}
-        className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
-        title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
-      >
-        Volle Erstattung
-      </button>
-
-      <div className="actions-row">
-        <button
-          onClick={finishProductions}
-          className="action-button finish"
-          title="Beendet alle Produktion. Gebaeude koennen dann angeklickt werden um zu ernten oder mit Harvest All geerntet werden"
-        >
-          Beende alle Prod.
-        </button>
-        <button
-          onClick={onToggleBoost}
-          className={`action-button finish ${boostMode ? "active-mode" : ""}`}
-          title="Boost-Modus: Klick auf Gebaeude um zu entsperren/fertigzustellen/ernten"
-        >
-          Boost einzelne Gebaeude
-        </button>
-      </div>
-
-      <button
-        onClick={harvestAll}
-        className="action-button harvest"
-        title="Sammle alle noch nicht eingesammelten Produktionen ein, oder, falls keine Produktionen offen, erntet es die ganze Stadt"
-      >
-        {harvestIsPartial ? "Rest einsammeln" : "Volle Ernte"}
-      </button>
-
-      <button
-        onClick={handleSaveClick}
-        title="Speicher aktuellen Stand in deinem Browser. (Hinweis, undo/redo Verlauf wird nicht mitgespeichert)"
-      >
-        Speichern als
-      </button>
       <div className="save-control" ref={saveMenuRef}>
         <button
           type="button"
@@ -146,7 +299,7 @@ export function ActionToolbar({
             {loadName || "Load state..."}
           </span>
           <span className="save-trigger-caret" aria-hidden="true">
-            ▼
+            v
           </span>
         </button>
 
@@ -186,37 +339,66 @@ export function ActionToolbar({
             )}
           </div>
         )}
-
-        <button
-          onClick={() => {
-            if (loadName) onLoad(loadName);
-          }}
-          disabled={!loadName}
-          style={{ marginTop: 4, width: "100%" }}
-        >
-          Spielstand laden
+      </div>
+      <div className="actions-row">
+        <button className="action-button" onClick={onOpenExport}>
+          Export
+        </button>
+        <button className="action-button" onClick={onOpenImport}>
+          Import
         </button>
       </div>
       <div className="notes-card">
         <label className="notes-label" htmlFor="city-notes">
           Notizen
         </label>
-        <textarea
-          id="city-notes"
-          className="notes-input"
-          placeholder="F\u00fcge Notizen hinzu"
-          value={notes}
-          onChange={(e) => onChangeNotes?.(e.target.value)}
-          rows={6}
-        />
+        <div className="notes-autosize">
+          <div
+            className="notes-mirror"
+            aria-hidden="true"
+            dangerouslySetInnerHTML={{ __html: `${formattedNotes}\n` }}
+          />
+          <textarea
+            id="city-notes"
+            className="notes-input"
+            placeholder="Fuege Notizen hinzu"
+            value={notes}
+            onChange={(e) => {
+              onChangeNotes?.(e.target.value);
+              const el = notesRef.current;
+              if (el) {
+                el.style.height = "auto";
+                el.style.height = `${el.scrollHeight}px`;
+              }
+            }}
+            ref={notesRef}
+            rows={3}
+          />
+        </div>
       </div>
+      <button
+        onClick={onToggleRefund}
+        className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
+        title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
+      >
+        Volle Erstattung
+      </button>
       <div className="actions-row">
         <button
           className={`mode-button select ${selectMode ? "active-mode" : ""}`}
           onClick={onToggleSelectMode}
           title="Markiere Geb\u00e4ude rot, ohne sie zu \u00e4ndern"
         >
-          Select
+          <span>Select</span>
+          <label className="select-auto">
+            <input
+              type="checkbox"
+              checked={autoSelectNew}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => onToggleAutoSelectNew?.()}
+              title="Neue Geb\u00e4ude automatisch markieren"
+            />
+          </label>
         </button>
         <button
           className="action-button print"

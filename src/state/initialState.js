@@ -62,6 +62,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     unlockChoice: null,
     unlockGoodSelect: null,
     viewMode: "down",
+    timeStep: 1,
     status: "",
     readyMap,
     buildLocks: {},

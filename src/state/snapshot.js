@@ -10,15 +10,18 @@ export const buildSnapshot = (state) =>
     nextId: state.nextId,
     readyMap: state.readyMap,
     buildLocks: state.buildLocks,
-    boostMode: state.boostMode,
     moveMode: state.moveMode,
     sellMode: state.sellMode,
     refundMode: state.refundMode,
+    boostMode: state.boostMode,
     selectedCategory: state.selectedCategory,
     infiniteResources: state.infiniteResources,
     infiniteBackup: state.infiniteBackup,
     notes: state.notes,
     selectedIds: Array.from(state.selectedIds ?? []),
+    timeStep: state.timeStep,
+    loadName: state.loadName,
+    selectedBuildingId: state.selectedBuildingId,
   });
 
 export const applySnapshot = (snapshot, setters) => {
@@ -34,11 +37,14 @@ export const applySnapshot = (snapshot, setters) => {
     setSellMode,
     setRefundMode,
     setSelectedCategory,
+    setTimeStep,
     setNotes,
     setInfiniteResources,
     setInfiniteBackup,
     setBuildLocks,
     setSelectedIds,
+    setSelectedBuildingId,
+    setLoadName,
     nextIdRef,
     townhallDef,
   } = setters;
@@ -50,13 +56,18 @@ export const applySnapshot = (snapshot, setters) => {
   if (snapshot.shardUnlocks !== undefined) setShardUnlocks(snapshot.shardUnlocks);
   if (snapshot.nextId !== undefined && nextIdRef) nextIdRef.current = snapshot.nextId;
   if (snapshot.readyMap) setReadyMap(snapshot.readyMap);
-  if (setBoostMode && snapshot.boostMode !== undefined)
-    setBoostMode(snapshot.boostMode);
-  if (snapshot.moveMode !== undefined) setMoveMode(snapshot.moveMode);
-  if (snapshot.sellMode !== undefined) setSellMode(snapshot.sellMode);
-  if (snapshot.refundMode !== undefined) setRefundMode(snapshot.refundMode);
+  if (setMoveMode) setMoveMode(!!snapshot.moveMode);
+  if (setSellMode) setSellMode(!!snapshot.sellMode);
+  if (setRefundMode) setRefundMode(!!snapshot.refundMode);
+  if (setBoostMode) setBoostMode(!!snapshot.boostMode);
   if (snapshot.selectedCategory) setSelectedCategory(snapshot.selectedCategory);
   if (setNotes && snapshot.notes !== undefined) setNotes(snapshot.notes ?? "");
+  if (setTimeStep && snapshot.timeStep !== undefined) {
+    setTimeStep(snapshot.timeStep ?? 1);
+  }
+  if (setLoadName && snapshot.loadName !== undefined) {
+    setLoadName(snapshot.loadName ?? "");
+  }
   if (setInfiniteResources && snapshot.infiniteResources !== undefined) {
     setInfiniteResources(snapshot.infiniteResources);
   }
@@ -69,6 +80,9 @@ export const applySnapshot = (snapshot, setters) => {
   if (setSelectedIds) {
     const incoming = snapshot.selectedIds ?? [];
     setSelectedIds(new Set(incoming));
+  }
+  if (setSelectedBuildingId !== undefined) {
+    setSelectedBuildingId(snapshot.selectedBuildingId ?? null);
   }
   if (
     townhallDef &&

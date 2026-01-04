@@ -1,4 +1,4 @@
-// Central game-state hook: orchestrates layout, placement, economy, regions, undo/redo, and modals.
+// Central game-state hook: orchestrates layout, placement, economy, regions, and modals.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -7,6 +7,7 @@ import {
   REGION_SIZE,
   REGION_COLS,
   REGION_MASK,
+  REGION_GOODS_COSTS,
   GOODS_TYPES,
   UNIT_TYPES,
   BOARD_SCALE_DEFAULT,
@@ -27,7 +28,6 @@ import {
 } from "../utils/stateUtils";
 import { isAreaFree } from "../utils/layoutUtils";
 import { useResources } from "./useResources";
-import { useUndoRedo } from "./useUndoRedo";
 import { useRegionAccess } from "./useRegionAccess";
 import { useSaves } from "./useSaves";
 import { useConfig } from "./useConfig";
@@ -55,6 +55,8 @@ import {
   computeSaleOrRefund,
   totalFastBuyCost,
 } from "../domain/economy/resourceTransactions";
+import { formatNumber } from "../utils/formatNumber";
+import { useCheckpoints } from "./useCheckpoints";
 
 const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
 const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
@@ -145,7 +147,13 @@ export const useGameController = () => {
   const [editGoodModal, setEditGoodModal] = useState(
     initialState.editGoodModal
   );
+  const [editResourceModal, setEditResourceModal] = useState(null);
+  const [autoSelectNew, setAutoSelectNew] = useState(false);
   const [worstModal, setWorstModal] = useState(null);
+  const [exportModal, setExportModal] = useState(false);
+  const [importModal, setImportModal] = useState(false);
+  const [pastEditModal, setPastEditModal] = useState(false);
+  const [timeStep, setTimeStep] = useState(initialState.timeStep ?? 1);
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
     initialState.unlockGoodSelect
@@ -187,6 +195,10 @@ export const useGameController = () => {
   });
   // Debug: allow quick toggling of region unlocks from the Regions panel (no cost).
   const [debugRegions, setDebugRegions] = useState(false);
+
+  useEffect(() => {
+    setDebugRegions(infiniteResources);
+  }, [infiniteResources]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -290,30 +302,11 @@ export const useGameController = () => {
     [infiniteResources, adjustUnits]
   );
 
-  useEffect(() => {
-    if (infiniteResources && !infiniteBackup) {
-      setInfiniteBackup(cloneResources(resources));
-    }
-  }, [cloneResources, infiniteBackup, infiniteResources, resources]);
-
-  const handleToggleInfinite = useCallback(
-    (checked) => {
-      if (checked) {
-        setInfiniteBackup(cloneResources(resources));
-        setInfiniteResources(true);
-      } else {
-        if (infiniteBackup) setResources(cloneResources(infiniteBackup));
-        setInfiniteResources(false);
-        setInfiniteBackup(null);
-      }
-    },
-    [cloneResources, resources, infiniteBackup, setResources]
-  );
-
   const {
     saves,
     loadName,
     setLoadName,
+    setAllSaves,
     saveSnapshot,
     loadSnapshot,
     deleteSave,
@@ -413,7 +406,7 @@ export const useGameController = () => {
     setStatus(msg);
   }, []);
 
-  // Capture a serializable snapshot for undo/redo.
+  // Capture a serializable snapshot of the current game state.
   const buildSnapshot = useCallback(
     () =>
       buildSnapshotState({
@@ -425,14 +418,17 @@ export const useGameController = () => {
         nextId: nextId.current,
         readyMap,
         buildLocks,
-        boostMode,
         moveMode,
         sellMode,
         refundMode,
+        boostMode,
         selectedCategory,
         infiniteResources,
         infiniteBackup,
         notes,
+        timeStep,
+        loadName,
+        selectedBuildingId,
         selectedIds: Array.from(selectedIds ?? []),
       }),
     [
@@ -451,7 +447,10 @@ export const useGameController = () => {
       infiniteResources,
       infiniteBackup,
       notes,
+      timeStep,
       selectedIds,
+      loadName,
+      selectedBuildingId,
     ]
   );
 
@@ -471,6 +470,7 @@ export const useGameController = () => {
         setSellMode,
         setRefundMode,
         setSelectedCategory,
+        setTimeStep,
         setLoadName,
         setNotes,
         setInfiniteResources,
@@ -492,6 +492,7 @@ export const useGameController = () => {
       setSellMode,
       setRefundMode,
       setSelectedCategory,
+      setTimeStep,
       setNotes,
       setInfiniteResources,
       setInfiniteBackup,
@@ -500,8 +501,79 @@ export const useGameController = () => {
     ]
   );
 
-  const { undoStack, redoStack, pushHistory, handleUndo, handleRedo } =
-    useUndoRedo(buildSnapshot, applySnapshot);
+  const {
+    checkpoints,
+    checkpointIndex,
+    setCheckpointIndex,
+    editUnlocked,
+    setEditUnlocked,
+    isPast,
+    editingLocked,
+    canTimeBack,
+    canTimeForward,
+    jumpBackTime,
+    jumpForwardTime,
+    branchFromPast,
+    trimFutureCheckpoints,
+    applyLoadedCheckpoints,
+    makeCheckpointsForSave,
+    addCheckpointPart,
+    currentPart,
+    currentPartTotal,
+    suppressNextCheckpoint,
+    overwriteCheckpointAtIndex,
+    enableEditFromPast,
+  } = useCheckpoints({
+    buildSnapshot,
+    applySnapshot,
+    timeStep,
+    setTimeStep,
+  });
+
+  useEffect(() => {
+    if (checkpointIndex === null) return;
+    const snap = buildSnapshot();
+    overwriteCheckpointAtIndex(snap, checkpointIndex);
+  }, [
+    checkpointIndex,
+    buildSnapshot,
+    overwriteCheckpointAtIndex,
+    layout,
+    resources,
+    readyMap,
+    buildLocks,
+    notes,
+    selectedIds,
+    selectedBuildingId,
+    timeStep,
+  ]);
+
+  const handleAddCheckpointPart = useCallback(() => {
+    suppressNextCheckpoint(2);
+    setNotes("");
+    setSelectedIds(new Set());
+    setSelectedBuildingId(null);
+    setTimeout(() => {
+      addCheckpointPart();
+    }, 0);
+  }, [
+    suppressNextCheckpoint,
+    setNotes,
+    setSelectedIds,
+    setSelectedBuildingId,
+    addCheckpointPart,
+  ]);
+
+  const handleToggleInfinite = useCallback(
+    (checked) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      setInfiniteResources(!!checked);
+    },
+    [editingLocked, updateStatus]
+  );
 
   // Clears interaction modes and deselects building.
   const resetModes = useCallback(() => {
@@ -512,85 +584,120 @@ export const useGameController = () => {
     setSelectedBuildingId(null);
   }, []);
 
-  // Debug editor: set numeric resource.
+  // Admin editor: open modal for numeric resource.
   const handleEditResource = useCallback(
-    (key) => {
-      if (!key) return;
-      const current = resources?.[key] ?? 0;
-      const raw = prompt(`Set ${key} (current: ${current})`, String(current));
-      if (raw == null) return;
-      const nextVal = Math.max(0, Number.parseInt(String(raw), 10));
-      if (Number.isNaN(nextVal)) return;
-      pushHistory(buildSnapshot());
-      setResources((prev) => ({ ...prev, [key]: nextVal }));
-      updateStatus(`${key} set to ${nextVal}`);
+    (descriptor) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (!infiniteResources) {
+        updateStatus("Admin-Modus aktivieren, um Werte zu bearbeiten.");
+        return;
+      }
+      if (!descriptor?.key) return;
+      const current = resources?.[descriptor.key] ?? 0;
+      setEditResourceModal({
+        ...descriptor,
+        value: current,
+      });
     },
-    [resources, pushHistory, buildSnapshot, setResources, updateStatus]
+    [resources, editingLocked, infiniteResources, updateStatus]
   );
 
-  // Debug editor: set goods amount.
+  // Admin editor: set goods amount.
   const handleEditGood = useCallback(
     (goodKey) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (!infiniteResources) {
+        updateStatus("Admin-Modus aktivieren, um Werte zu bearbeiten.");
+        return;
+      }
       if (!goodKey) return;
       const current = resources?.goods?.[goodKey] ?? 0;
       setEditGoodModal({ goodKey, value: current });
     },
-    [resources]
+    [resources, editingLocked, updateStatus, infiniteResources]
   );
 
-  const applyGoodEdit = useCallback(
-    (amount, applyAll = false) => {
-      if (!editGoodModal?.goodKey && !applyAll) return;
-      const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
-      const snapshot = buildSnapshot();
-      pushHistory(snapshot);
-      setResources((prev) => {
-        const goods = { ...(prev.goods ?? {}) };
-        if (applyAll) {
-          GOODS_TYPES.forEach((g) => {
-            goods[g] = nextVal;
-          });
-        } else if (editGoodModal?.goodKey) {
-          goods[editGoodModal.goodKey] = nextVal;
-        }
-        return { ...prev, goods };
-      });
-      const label = applyAll
-        ? `Alle Gueter auf ${nextVal} gesetzt`
-        : `${editGoodModal?.goodKey} auf ${nextVal} gesetzt`;
-      updateStatus(label);
-      setEditGoodModal(null);
-    },
-    [buildSnapshot, editGoodModal, pushHistory, setResources, updateStatus]
-  );
+  const applyGoodEdit = useCallback((amount, applyAll = false) => {
+    if (!editGoodModal?.goodKey && !applyAll) return;
+    const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
+    const prevVal = editGoodModal?.value ?? 0;
+    const label = applyAll
+      ? `Alle Gueter: ${formatNumber(nextVal)}`
+      : `${
+          GOODS_LABELS[editGoodModal?.goodKey] ?? editGoodModal?.goodKey
+        }: ${formatNumber(prevVal)} -> ${formatNumber(nextVal)}`;
+    setResources((prev) => {
+      const goods = { ...(prev.goods ?? {}) };
+      if (applyAll) {
+        GOODS_TYPES.forEach((g) => {
+          goods[g] = nextVal;
+        });
+      } else if (editGoodModal?.goodKey) {
+        goods[editGoodModal.goodKey] = nextVal;
+      }
+      return { ...prev, goods };
+    });
+    updateStatus(label);
+    setEditGoodModal(null);
+  });
 
   const cancelEditGood = useCallback(() => {
     setEditGoodModal(null);
   }, []);
 
-  // Undo while clearing any carried building context.
-  const undoWithCleanup = useCallback(() => {
-    if (!undoStack.length) {
-      updateStatus("Nothing to undo");
-      return;
-    }
-    handleUndo();
-    updateStatus("Undo");
-    setCarried(null);
-    setMoveSnapshot(null);
-  }, [handleUndo, undoStack.length, updateStatus]);
+  const RESOURCE_LABELS = {
+    coins: "M\u00fcnzen",
+    supplies: "Vorr\u00e4te",
+    chronos: "Chronos",
+    shards: "Scherben",
+    quantumActions: "QA",
+  };
 
-  // Redo while clearing any carried building context.
-  const redoWithCleanup = useCallback(() => {
-    if (!redoStack.length) {
-      updateStatus("Nothing to redo");
-      return;
-    }
-    handleRedo();
-    updateStatus("Redo");
+  const GOODS_LABELS = {
+    Kupfer: "Kupfer",
+    Honig: "Honig",
+    Stein: "Stein",
+    Seil: "Seil",
+    Schiesspulver: "Schiesspulver",
+  };
+
+  const applyResourceEdit = useCallback(
+    (amount) => {
+      if (!editResourceModal?.key) return;
+      const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
+      const prevVal = resources?.[editResourceModal.key] ?? 0;
+      branchFromPast();
+      const resLabel =
+        RESOURCE_LABELS[editResourceModal.key] || editResourceModal.key;
+      const label = `${resLabel}: ${formatNumber(prevVal)} -> ${formatNumber(
+        nextVal
+      )}`;
+      setResources((prev) => ({ ...prev, [editResourceModal.key]: nextVal }));
+      updateStatus(label);
+      setEditResourceModal(null);
+    },
+    [branchFromPast, editResourceModal, resources, setResources, updateStatus]
+  );
+
+  const cancelEditResource = useCallback(() => {
+    setEditResourceModal(null);
+  }, []);
+
+  const resetTransientModes = useCallback(() => {
+    setMoveMode(false);
+    setSellMode(false);
+    setRefundMode(false);
+    setBoostMode(false);
+    setSelectedBuildingId(null);
     setCarried(null);
     setMoveSnapshot(null);
-  }, [handleRedo, redoStack.length, updateStatus]);
+  }, []);
 
   const isCellUnlocked = useCallback(
     (x, y) => regionIsCellUnlocked(x, y, unlockedRegions),
@@ -603,10 +710,23 @@ export const useGameController = () => {
       const targetName =
         nameArg || loadName || prompt("Save name?", loadName || "");
       if (!targetName) return;
-      const snapshotBefore = buildSnapshot();
-      pushHistory(snapshotBefore);
       const snapshot = buildSnapshot();
-      saveSnapshot(targetName, snapshot);
+      const latestCp = checkpoints[checkpoints.length - 1];
+      const snapshotForSave = latestCp?.snapshot ?? snapshot;
+      const stepForSave = latestCp?.timeStep ?? timeStep ?? 1;
+      const checkpointsForSave = makeCheckpointsForSave(
+        snapshotForSave,
+        stepForSave,
+        checkpointIndex,
+        isPast
+      ).map((cp) => ({
+        ...cp,
+        snapshot: { ...(cp.snapshot ?? {}), loadName: targetName },
+      }));
+      saveSnapshot(targetName, {
+        snapshot: { ...snapshotForSave, loadName: targetName },
+        checkpoints: checkpointsForSave,
+      });
       setLoadName(targetName);
       updateStatus(`Saved state "${targetName}"`);
     },
@@ -616,7 +736,11 @@ export const useGameController = () => {
       saveSnapshot,
       setLoadName,
       updateStatus,
-      pushHistory,
+      makeCheckpointsForSave,
+      timeStep,
+      checkpointIndex,
+      isPast,
+      checkpoints,
     ]
   );
 
@@ -624,26 +748,83 @@ export const useGameController = () => {
   const handleLoadState = useCallback(
     (name) => {
       if (!name) return;
-      const snap = loadSnapshot(name);
+      const saved = loadSnapshot(name);
+      const snap = saved?.snapshot ?? saved;
       if (!snap) return;
-      const prev = buildSnapshot();
-      pushHistory(prev);
+      const label = `Load ${name}`;
       applySnapshot(snap);
+      applyLoadedCheckpoints(saved?.checkpoints ?? [], 1, snap?.timeStep ?? 1);
       setCarried(null);
       setMoveSnapshot(null);
       setMoveMode(false);
       setLoadName(name);
-      updateStatus(`Loaded state "${name}"`);
+      updateStatus(label);
     },
     [
       applySnapshot,
       loadSnapshot,
       updateStatus,
-      buildSnapshot,
-      pushHistory,
       setLoadName,
+      applyLoadedCheckpoints,
+      buildSnapshot,
     ]
   );
+
+  const openPastEditModal = useCallback(() => {
+    setPastEditModal(true);
+  }, []);
+
+  const closePastEditModal = useCallback(() => {
+    setPastEditModal(false);
+  }, []);
+
+  const handleEnableEditFromPast = useCallback(() => {
+    enableEditFromPast();
+    updateStatus("Bearbeitung aktiviert. Zukuenftige Checkpoints entfernt.");
+    setPastEditModal(false);
+  }, [enableEditFromPast, updateStatus]);
+
+  const handleCopyAndEnableEdit = useCallback(() => {
+    const base = (loadName || "").trim();
+    let idx = 1;
+    let candidate = `${base}_copy${idx}`;
+    while (saves[candidate]) {
+      idx += 1;
+      candidate = `${base}_copy${idx}`;
+    }
+    const snapshot = buildSnapshot();
+    const latestCp = checkpoints[checkpoints.length - 1];
+    const snapshotForSave = latestCp?.snapshot ?? snapshot;
+    const stepForSave = latestCp?.timeStep ?? timeStep ?? 1;
+    const checkpointsForSave = makeCheckpointsForSave(
+      snapshotForSave,
+      stepForSave,
+      checkpointIndex,
+      isPast
+    ).map((cp) => ({
+      ...cp,
+      snapshot: { ...(cp.snapshot ?? {}), loadName: candidate },
+    }));
+    saveSnapshot(candidate, {
+      snapshot: { ...snapshotForSave, loadName: candidate },
+      checkpoints: checkpointsForSave,
+    });
+    setLoadName(candidate);
+    updateStatus(`Kopie gespeichert als "${candidate}"`);
+    handleEnableEditFromPast();
+  }, [
+    loadName,
+    saves,
+    buildSnapshot,
+    makeCheckpointsForSave,
+    saveSnapshot,
+    setLoadName,
+    updateStatus,
+    timeStep,
+    handleEnableEditFromPast,
+    checkpointIndex,
+    isPast,
+  ]);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -752,6 +933,75 @@ export const useGameController = () => {
       production: productionList,
     });
   }, [layout, buildLocks, libraryMap, harvestWithConfig]);
+
+  const openExportSaves = useCallback(() => {
+    setExportModal(true);
+  }, []);
+
+  const openImportSaves = useCallback(() => {
+    setImportModal(true);
+  }, []);
+
+  const handleExportSelected = useCallback(
+    (names) => {
+      if (!names?.length) {
+        setExportModal(false);
+        return;
+      }
+      const payload = {
+        version: 1,
+        savedAt: new Date().toISOString(),
+        saves: names
+          .filter((n) => saves[n]?.snapshot)
+          .map((name) => ({
+            name,
+            snapshot: saves[name].snapshot,
+            checkpoints: saves[name].checkpoints ?? [],
+          })),
+      };
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const fileName = `QI_${pad(now.getMonth() + 1)}${pad(
+        now.getDate()
+      )}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(
+        now.getSeconds()
+      )}.json`;
+      const blob = new Blob([JSON.stringify(payload, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      setExportModal(false);
+    },
+    [saves]
+  );
+
+  const handleImportSelected = useCallback(
+    (entries) => {
+      if (!entries?.length) {
+        setImportModal(false);
+        return;
+      }
+      setAllSaves((prev) => {
+        const next = { ...(prev || {}) };
+        entries.forEach((entry) => {
+          if (entry.name && entry.snapshot) {
+            next[entry.name] = {
+              snapshot: entry.snapshot,
+              checkpoints: entry.checkpoints ?? [],
+            };
+          }
+        });
+        return next;
+      });
+      setImportModal(false);
+    },
+    [setAllSaves]
+  );
   const {
     currentGoodsCost,
     currentShardCost,
@@ -779,8 +1029,7 @@ export const useGameController = () => {
       options = {}
     ) => {
       if (!instances.length) return;
-      const snapshot = skipHistory ? null : buildSnapshot();
-      if (!skipHistory) pushHistory(snapshot);
+      const logStatus = options.logStatus ?? !skipHistory;
 
       const locks = options.buildLocksOverride ?? buildLocks;
       const useStats = options.statsOverride ?? stats;
@@ -843,10 +1092,7 @@ export const useGameController = () => {
         });
         return next;
       });
-      const unlockIds = [
-        ...lockedIds,
-        ...lockedCulture.map((inst) => inst.id),
-      ];
+      const unlockIds = [...lockedIds, ...lockedCulture.map((inst) => inst.id)];
       if (unlockIds.length) {
         setBuildLocks((prev) => {
           const next = { ...prev };
@@ -863,13 +1109,17 @@ export const useGameController = () => {
           title: label,
         });
       }
+      if (!skipHistory) {
+      }
+      if (logStatus) {
+        updateStatus(label);
+      }
     },
     [
       buildSnapshot,
       libraryMap,
       stats,
       setResources,
-      pushHistory,
       resources,
       infiniteResources,
       buildLocks,
@@ -881,6 +1131,10 @@ export const useGameController = () => {
   // Unlock region via goods or shards, with fast-buy fallback.
   const handleUnlockRegion = useCallback(
     (idx, method, goodKey) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       const row = Math.floor(idx / REGION_COLS);
       const col = idx % REGION_COLS;
       if (REGION_MASK[row][col] === "N") return;
@@ -898,6 +1152,10 @@ export const useGameController = () => {
         return;
       }
       if (method === "goods") {
+        if (goodsUnlocks >= REGION_GOODS_COSTS.length - 1) {
+          updateStatus("Keine weiteren Gueter-Erweiterungen verfuegbar.");
+          return;
+        }
         if (
           !infiniteResources &&
           !canAffordSingleGood(
@@ -926,13 +1184,17 @@ export const useGameController = () => {
           setFastBuyTarget(idx);
           return;
         }
-        const snapshot = buildSnapshot();
-        pushHistory(snapshot);
+        const label = `Erweiterung gekauft für ${formatNumber(
+          currentGoodsCost
+        )} Güter`;
         applyAdjustGoods(goodKey, -currentGoodsCost);
-        setGoodsUnlocks((prev) => prev + 1);
+        setGoodsUnlocks((prev) =>
+          Math.min(prev + 1, REGION_GOODS_COSTS.length - 1)
+        );
         setUnlockedRegions((prev) =>
           prev.map((val, i) => (i === idx ? true : val))
         );
+        updateStatus(label);
       } else {
         if (
           !infiniteResources &&
@@ -941,8 +1203,9 @@ export const useGameController = () => {
           updateStatus("Need more shards to unlock.");
           return;
         }
-        const snapshot = buildSnapshot();
-        pushHistory(snapshot);
+        const label = `Erweiterung gekauft für ${formatNumber(
+          currentShardCost
+        )} Scherben`;
         if (!infiniteResources) {
           setResources((prev) => ({
             ...prev,
@@ -953,6 +1216,7 @@ export const useGameController = () => {
         setUnlockedRegions((prev) =>
           prev.map((val, i) => (i === idx ? true : val))
         );
+        updateStatus(label);
       }
       setFastBuyTarget(null);
       setUnlockChoice(null);
@@ -965,7 +1229,6 @@ export const useGameController = () => {
       currentShardCost,
       layout,
       libraryMap,
-      pushHistory,
       resources,
       effectiveResources,
       setResources,
@@ -976,8 +1239,12 @@ export const useGameController = () => {
 
   // Enable/disable region debug tools.
   const toggleDebugRegions = useCallback(() => {
+    if (editingLocked && !isPast) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
     setDebugRegions((prev) => !prev);
-  }, []);
+  }, [editingLocked, updateStatus]);
 
   // Compute cell bounds (inclusive) for a region index.
   const regionRect = useCallback((idx) => {
@@ -1012,6 +1279,10 @@ export const useGameController = () => {
   // Debug: unlock a region without cost.
   const handleDebugUnlockRegion = useCallback(
     (idx) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       if (!debugRegions) return;
       const row = Math.floor(idx / REGION_COLS);
       const col = idx % REGION_COLS;
@@ -1019,19 +1290,17 @@ export const useGameController = () => {
       if (unlockedRegions[idx]) return;
       if (!neighborUnlocked(idx)) return;
 
-      pushHistory(buildSnapshot());
       setUnlockedRegions((prev) => {
         const next = [...prev];
         next[idx] = true;
         return next;
       });
-      updateStatus("Debug: region unlocked (no cost)");
+      updateStatus("Admin: +1 Region");
     },
     [
       debugRegions,
       unlockedRegions,
       neighborUnlocked,
-      pushHistory,
       buildSnapshot,
       setUnlockedRegions,
       updateStatus,
@@ -1041,28 +1310,30 @@ export const useGameController = () => {
   // Debug: relock a region if empty and not base.
   const handleDebugLockRegion = useCallback(
     (idx, isBase = false) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       if (!debugRegions) return;
       if (isBase) return; // starting region must never be removable
       if (!unlockedRegions[idx]) return;
 
       if (hasAnyBuildingInRegion(idx)) {
-        updateStatus("Cannot remove region: buildings still placed in it.");
+        updateStatus("Kann Region nicht entfernen Gebäude stehen noch drauf.");
         return;
       }
 
-      pushHistory(buildSnapshot());
       setUnlockedRegions((prev) => {
         const next = [...prev];
         next[idx] = false;
         return next;
       });
-      updateStatus("Debug: region removed");
+      updateStatus("Admin: -1 Region");
     },
     [
       debugRegions,
       unlockedRegions,
       hasAnyBuildingInRegion,
-      pushHistory,
       buildSnapshot,
       setUnlockedRegions,
       updateStatus,
@@ -1071,7 +1342,6 @@ export const useGameController = () => {
 
   // Toggle move mode; starts/stops carrying interactions.
   const toggleMove = useCallback(() => {
-    pushHistory(buildSnapshot());
     setMoveMode((prev) => {
       const next = !prev;
       if (next) {
@@ -1081,7 +1351,7 @@ export const useGameController = () => {
         setSelectedBuildingId(null);
       }
       if (!next) {
-        if (moveSnapshot) {
+        if (carried && moveSnapshot) {
           applySnapshot(moveSnapshot);
         }
         setCarried(null);
@@ -1089,19 +1359,27 @@ export const useGameController = () => {
       }
       return next;
     });
-  }, [applySnapshot, buildSnapshot, moveSnapshot, pushHistory]);
+  }, [applySnapshot, moveSnapshot, carried]);
 
   const resetMoveIfActive = useCallback(() => {
-    if (moveMode && moveSnapshot) {
+    if (moveMode && carried && moveSnapshot) {
       applySnapshot(moveSnapshot);
     }
     setCarried(null);
     setMoveSnapshot(null);
-  }, [applySnapshot, moveMode, moveSnapshot]);
+  }, [applySnapshot, moveMode, moveSnapshot, carried]);
+
+  const toggleAutoSelectNew = useCallback(
+    () => setAutoSelectNew((prev) => !prev),
+    []
+  );
 
   // Toggle sell mode (coin return).
   const toggleSell = useCallback(() => {
-    pushHistory(buildSnapshot());
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
     resetMoveIfActive();
     setSellMode((prev) => {
       const next = !prev;
@@ -1113,11 +1391,14 @@ export const useGameController = () => {
       }
       return next;
     });
-  }, [buildSnapshot, pushHistory]);
+  });
 
   // Toggle refund mode (full cost return).
   const toggleRefund = useCallback(() => {
-    pushHistory(buildSnapshot());
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
     resetMoveIfActive();
     setRefundMode((prev) => {
       const next = !prev;
@@ -1129,10 +1410,13 @@ export const useGameController = () => {
       }
       return next;
     });
-  }, [buildSnapshot, pushHistory]);
+  });
 
   const toggleBoost = useCallback(() => {
-    pushHistory(buildSnapshot());
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
     resetMoveIfActive();
     setBoostMode((prev) => {
       const next = !prev;
@@ -1144,7 +1428,7 @@ export const useGameController = () => {
       }
       return next;
     });
-  }, [buildSnapshot, pushHistory]);
+  });
 
   const handleSelectBuilding = useCallback(
     (defId) => {
@@ -1161,6 +1445,10 @@ export const useGameController = () => {
   // Execute a goods purchase for a producer building.
   const handleGoodsPurchase = useCallback(
     (def, amount) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       const cost = def.goodsCost?.[amount];
       if (!cost) return;
       if (
@@ -1171,17 +1459,21 @@ export const useGameController = () => {
         updateStatus("Not enough coins or supplies.");
         return;
       }
-      const snapshot = buildSnapshot();
-      pushHistory(snapshot);
+      branchFromPast();
+      const label = `Goods gekauft: ${
+        def.produces
+      } ${amount} für ${formatNumber(cost.coins ?? 0)}/${formatNumber(
+        cost.supplies ?? 0
+      )}`;
       applySpend(cost);
       applyAdjustGoods(def.produces, Number(amount));
+      updateStatus(label);
     },
     [
       effectiveResources,
       resources,
       updateStatus,
       buildSnapshot,
-      pushHistory,
       applySpend,
       applyAdjustGoods,
       infiniteResources,
@@ -1190,6 +1482,10 @@ export const useGameController = () => {
 
   const handleUnitPurchase = useCallback(
     (def, amount) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       const cost = def.unitCosts?.[amount];
       if (!cost) return;
       if (
@@ -1200,17 +1496,20 @@ export const useGameController = () => {
         updateStatus("Not enough coins or supplies.");
         return;
       }
-      const snapshot = buildSnapshot();
-      pushHistory(snapshot);
+      branchFromPast();
+      const label = `Units gekauft: ${
+        def.produces
+      } ${amount} für ${formatNumber(cost.coins ?? 0)}/${formatNumber(
+        cost.supplies ?? 0
+      )}`;
       applySpend(cost);
       applyAdjustUnits(def.produces, Number(amount));
-      updateStatus(`Produced ${amount} ${def.produces}`);
+      updateStatus(label);
     },
     [
       effectiveResources,
       updateStatus,
       buildSnapshot,
-      pushHistory,
       applySpend,
       applyAdjustUnits,
       infiniteResources,
@@ -1220,6 +1519,10 @@ export const useGameController = () => {
   // Handle fast-buy flow to unlock regions with lacking goods.
   const handleFastBuy = useCallback(
     (option) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
       if (!fastBuyModal || fastBuyTarget === null) return;
       const goodKey = fastBuyModal.goodKey;
       const goodsCost = fastBuyModal.goodsCost;
@@ -1233,17 +1536,22 @@ export const useGameController = () => {
         updateStatus("Fast buy plan insufficient.");
         return;
       }
+      branchFromPast();
       const totals = totalFastBuyCost(option);
-      const snapshot = buildSnapshot();
-      pushHistory(snapshot);
+      const label = `Fastbuy ${goodKey} für ${formatNumber(
+        totals.coins
+      )}/${formatNumber(totals.supplies)}`;
       applySpend({ coins: totals.coins, supplies: totals.supplies });
       applyAdjustGoods(goodKey, option.totalAmount - goodsCost);
       setUnlockedRegions((prev) =>
         prev.map((val, i) => (i === fastBuyTarget ? true : val))
       );
-      setGoodsUnlocks((prev) => prev + 1);
+      setGoodsUnlocks((prev) =>
+        Math.min(prev + 1, REGION_GOODS_COSTS.length - 1)
+      );
       setFastBuyModal(null);
       setFastBuyTarget(null);
+      updateStatus(label);
     },
     [
       applyAdjustGoods,
@@ -1252,7 +1560,6 @@ export const useGameController = () => {
       effectiveResources,
       fastBuyModal,
       fastBuyTarget,
-      pushHistory,
       resources,
       updateStatus,
       infiniteResources,
@@ -1261,8 +1568,15 @@ export const useGameController = () => {
 
   // Mark all productions as ready.
   const finishProductions = useCallback(() => {
-    const snapshot = buildSnapshot();
-    pushHistory(snapshot);
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
+    trimFutureCheckpoints();
+    setCheckpointIndex(null);
+    setEditUnlocked(false);
+    const label = "Beende alle Prod.";
+    setNotes("");
     setReadyMap((prev) =>
       finishProductionsReadyMap(layout, libraryMap, prev, buildLocks)
     );
@@ -1275,10 +1589,13 @@ export const useGameController = () => {
         }));
       }
     }
+    setTimeStep((prev) => Math.min(23, prev + 1));
     setBoostMode(false);
+    updateStatus(label);
+    setSelectedIds(new Set());
+    setSelectedBuildingId(null);
   }, [
     buildSnapshot,
-    pushHistory,
     layout,
     libraryMap,
     buildLocks,
@@ -1286,12 +1603,29 @@ export const useGameController = () => {
     qaBasePerHour,
     qaHoursPerHarvest,
     setResources,
+    setTimeStep,
+    editingLocked,
+    updateStatus,
+    trimFutureCheckpoints,
+    suppressNextCheckpoint,
+    setSelectedIds,
+    setSelectedBuildingId,
   ]);
 
   // Harvest either all ready buildings or everything.
   const harvestAll = useCallback(() => {
-    const snapshot = buildSnapshot();
-    pushHistory(snapshot);
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
+    trimFutureCheckpoints();
+    setCheckpointIndex(null);
+    setEditUnlocked(false);
+    branchFromPast();
+    const readyOnes = layout.filter((b) => readyMap[b.id] === true);
+    const isFullHarvest = readyOnes.length === 0;
+    const label = isFullHarvest ? "Volle Ernte" : "Rest einsammeln";
+    setNotes("");
     setBoostMode(false);
 
     const locksBefore = { ...buildLocks };
@@ -1306,20 +1640,21 @@ export const useGameController = () => {
     if (unlockedAny) setBuildLocks(buildLocksAfter);
 
     const effectiveStats = computeStats(layout, libraryMap);
-    const readyOnes = layout.filter((b) => readyMap[b.id] === true);
     const baseQa = qaBasePerHour * qaHoursPerHarvest;
-    if (readyOnes.length > 0) {
-      harvestBuildings(readyOnes, "Partial Harvest", false, true, {
-        statsOverride: effectiveStats,
-        buildLocksOverride: locksBefore,
-        extraQa: baseQa,
-      });
-    } else {
-      harvestBuildings(layout, "Full Harvest", false, true, {
-        statsOverride: effectiveStats,
-        buildLocksOverride: locksBefore,
-        extraQa: baseQa,
-      });
+    const targets = isFullHarvest ? layout : readyOnes;
+    harvestBuildings(targets, label, false, true, {
+      statsOverride: effectiveStats,
+      buildLocksOverride: locksBefore,
+      extraQa: baseQa,
+      logStatus: false,
+    });
+    if (isFullHarvest) {
+      setTimeStep((prev) => Math.min(23, prev + 1));
+    }
+    updateStatus(label);
+    if (isFullHarvest) {
+      setSelectedIds(new Set());
+      setSelectedBuildingId(null);
     }
   }, [
     layout,
@@ -1330,9 +1665,18 @@ export const useGameController = () => {
     computeStats,
     libraryMap,
     buildSnapshot,
-    pushHistory,
     qaBasePerHour,
     qaHoursPerHarvest,
+    setTimeStep,
+    setCheckpointIndex,
+    setEditUnlocked,
+    editingLocked,
+    updateStatus,
+    trimFutureCheckpoints,
+    branchFromPast,
+    suppressNextCheckpoint,
+    setSelectedIds,
+    setSelectedBuildingId,
   ]);
 
   // Close harvest modal after acknowledgment.
@@ -1346,29 +1690,45 @@ export const useGameController = () => {
   }, []);
 
   // Update freeform notes tied to the current city state.
-  const handleChangeNotes = useCallback((val) => {
-    setNotes(val ?? "");
-  }, []);
-
-  // Selection helpers (undo/redo + save aware).
-  const toggleSelectId = useCallback(
-    (id) => {
-      if (!id) return;
-      pushHistory(buildSnapshot());
-      setSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id);
-        else next.add(id);
-        return next;
-      });
+  const handleChangeNotes = useCallback(
+    (val) => {
+      setNotes(val ?? "");
+      updateStatus("Notizen geaendert");
     },
-    [buildSnapshot, pushHistory]
+    [updateStatus]
   );
 
+  // Persist note edits when viewing past checkpoints after state flushes.
+  useEffect(() => {
+    if (!isPast) return;
+    const timer = setTimeout(() => {
+      overwriteCheckpointAtIndex(buildSnapshot());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [notes, isPast, overwriteCheckpointAtIndex, buildSnapshot]);
+
+  // Selection helpers.
+  const toggleSelectId = useCallback((id) => {
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
+    if (!id) return;
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const clearSelection = useCallback(() => {
-    pushHistory(buildSnapshot());
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
     setSelectedIds(new Set());
-  }, [buildSnapshot, pushHistory]);
+  }, [editingLocked, updateStatus]);
 
   // Core board click handler covering placement, moving, selling, harvesting, and goods modal.
   const handleCellClick = useCallback(
@@ -1382,15 +1742,11 @@ export const useGameController = () => {
           layout,
           libraryMap,
           isCellUnlocked,
-          moveSnapshot,
-          buildSnapshot,
           setLayout,
           setCarried,
           setReadyMap,
           setBuildLocks,
           buildLocks,
-          pushHistory,
-          setMoveSnapshot,
           setMoveMode,
           updateStatus,
         });
@@ -1399,15 +1755,17 @@ export const useGameController = () => {
 
       if ((sellMode || refundMode) && target) {
         if (libraryMap[target.defId]?.category === "townhall") {
-          updateStatus("Townhall cannot be deleted.");
+          updateStatus("Rathaus kann nicht verkauft werden.");
           return;
         }
+        branchFromPast();
         const delta = computeSaleOrRefund(target, libraryMap, refundMode);
         if (readyMap[target.id] === true) {
           harvestBuildings([target], "Harvest", true, true);
         }
-        const snapshot = buildSnapshot();
-        pushHistory(snapshot);
+        const label = `${refundMode ? "Rueckerstattung:" : "Verkauft:"} ${
+          libraryMap[target.defId].name
+        }`;
         if (!infiniteResources) refundResources(delta);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
         setReadyMap((prev) => {
@@ -1420,9 +1778,12 @@ export const useGameController = () => {
           delete next[target.id];
           return next;
         });
-        updateStatus(
-          `${refundMode ? "Refunded" : "Sold"} ${libraryMap[target.defId].name}`
-        );
+        updateStatus(label);
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
         return;
       }
 
@@ -1433,16 +1794,12 @@ export const useGameController = () => {
             harvestBuildings([target], "Harvest", true);
             updateStatus(`Unlocked ${def.name}`);
           } else {
-            const snapshot = buildSnapshot();
-            pushHistory(snapshot);
             setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
             updateStatus(`Unlocked ${def.name}`);
           }
         } else if (readyMap[target.id] === true) {
           // Do nothing for harvestable buildings in boost mode.
         } else {
-          const snapshot = buildSnapshot();
-          pushHistory(snapshot);
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
           updateStatus(`Boosted ${def.name}`);
         }
@@ -1477,7 +1834,7 @@ export const useGameController = () => {
           updateStatus("Not enough resources.");
           return;
         }
-        const snapshot = buildSnapshot();
+        branchFromPast();
         applySpend(selectedDef.cost);
         const instance = {
           id: nextId.current++,
@@ -1493,14 +1850,23 @@ export const useGameController = () => {
           ...prev,
           [instance.id]: selectedDef.buildTime === 10,
         }));
-        pushHistory(snapshot);
-        updateStatus(`Placed ${selectedDef.name}`);
+        if (autoSelectNew) {
+          setSelectedIds((prev) => new Set([...(prev ?? []), instance.id]));
+        }
+        const label = `Gekauft: ${selectedDef.name}`;
+        updateStatus(label);
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
         return;
       }
 
       if (moveMode && target) {
-        const snapshot = buildSnapshot();
-        setMoveSnapshot(snapshot);
+        suppressNextCheckpoint();
+        const snap = buildSnapshot();
+        setMoveSnapshot(snap);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
         setCarried({
           instance: {
@@ -1510,7 +1876,11 @@ export const useGameController = () => {
           },
           def: libraryMap[target.defId],
         });
-        updateStatus(`Picked up ${libraryMap[target.defId].name}`);
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
         return;
       }
 
@@ -1522,7 +1892,7 @@ export const useGameController = () => {
         target &&
         readyMap[target.id] === true
       ) {
-        harvestBuildings([target], "Harvest", true);
+        harvestBuildings([target], "Geerntet", true);
         return;
       }
 
@@ -1545,13 +1915,12 @@ export const useGameController = () => {
       }
     },
     [
-      layout,
-      carried,
-      libraryMap,
-      isCellUnlocked,
-      moveSnapshot,
+    layout,
+    carried,
+    libraryMap,
+    isCellUnlocked,
+    moveSnapshot,
       buildSnapshot,
-      pushHistory,
       setCarried,
       setLayout,
       setMoveMode,
@@ -1567,11 +1936,14 @@ export const useGameController = () => {
       sellMode,
       readyMap,
       harvestBuildings,
-      setGoodsModal,
-      updateStatus,
-      infiniteResources,
-    ]
-  );
+    setGoodsModal,
+    updateStatus,
+    infiniteResources,
+    buildLocks,
+    findTargetInstance,
+    autoSelectNew,
+  ]
+);
 
   const previewDef = carried?.def ?? selectedDef;
   const previewOrigin = useMemo(
@@ -1602,6 +1974,8 @@ export const useGameController = () => {
     setSelectedCategory,
     selectedBuildingId,
     setSelectedBuildingId,
+    autoSelectNew,
+    setAutoSelectNew,
     unlockedRegions,
     goodsUnlocks,
     setGoodsUnlocks,
@@ -1659,10 +2033,8 @@ export const useGameController = () => {
     hasAnyGoodsProducer,
     hasAnyGoodsEnough,
     canAnyUnlock,
-    debugRegions,
     handleCellClick,
     handleUnlockRegion,
-    toggleDebugRegions,
     handleDebugUnlockRegion,
     handleDebugLockRegion,
     toggleMove,
@@ -1672,8 +2044,6 @@ export const useGameController = () => {
     toggleSelectId,
     clearSelection,
     handleSelectBuilding,
-    undoWithCleanup,
-    redoWithCleanup,
     finishProductions,
     harvestAll,
     confirmHarvest,
@@ -1684,6 +2054,34 @@ export const useGameController = () => {
     worstModal,
     openWorstModal,
     setWorstModal,
+    exportModal,
+    importModal,
+    setExportModal,
+    setImportModal,
+    openExportSaves,
+    openImportSaves,
+    handleExportSelected,
+    handleImportSelected,
+    timeStep,
+    setTimeStep,
+    checkpointIndex,
+    addCheckpointPart: handleAddCheckpointPart,
+    currentPart,
+    currentPartTotal,
+    editUnlocked,
+    setEditUnlocked,
+    isPast,
+    editingLocked,
+    canTimeBack,
+    canTimeForward,
+    jumpBackTime,
+    jumpForwardTime,
+    enableEditFromPast,
+    pastEditModal,
+    openPastEditModal,
+    closePastEditModal,
+    handleCopyAndEnableEdit,
+    handleEnableEditFromPast,
     setFastBuyModal,
     setFastBuyTarget,
     setUnlockChoice,
@@ -1695,8 +2093,8 @@ export const useGameController = () => {
     handleEditResource,
     handleEditGood,
     isCellUnlocked,
-    undoStack,
-    redoStack,
+    autoSelectNew,
+    toggleAutoSelectNew,
     infiniteResources,
     handleToggleInfinite,
     helpModal,
@@ -1709,5 +2107,9 @@ export const useGameController = () => {
     updateConfig,
     applyGoodEdit,
     cancelEditGood,
+    editResourceModal,
+    setEditResourceModal,
+    applyResourceEdit,
+    cancelEditResource,
   };
 };
