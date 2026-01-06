@@ -144,10 +144,11 @@ export const useGameController = () => {
   );
   const [helpModal, setHelpModal] = useState(initialState.helpModal);
   const [configModal, setConfigModal] = useState(initialState.configModal);
+  const [editResourceModal, setEditResourceModal] = useState(null);
   const [editGoodModal, setEditGoodModal] = useState(
     initialState.editGoodModal
   );
-  const [editResourceModal, setEditResourceModal] = useState(null);
+  const [editUnitModal, setEditUnitModal] = useState(null);
   const [autoSelectNew, setAutoSelectNew] = useState(false);
   const [worstModal, setWorstModal] = useState(null);
   const [exportModal, setExportModal] = useState(false);
@@ -523,6 +524,8 @@ export const useGameController = () => {
     suppressNextCheckpoint,
     overwriteCheckpointAtIndex,
     enableEditFromPast,
+    pauseCheckpointTracking,
+    resumeCheckpointTracking,
   } = useCheckpoints({
     buildSnapshot,
     applySnapshot,
@@ -623,6 +626,24 @@ export const useGameController = () => {
     [resources, editingLocked, updateStatus, infiniteResources]
   );
 
+  // Admin editor: set unit amount.
+  const handleEditUnit = useCallback(
+    (unitKey) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (!infiniteResources) {
+        updateStatus("Admin-Modus aktivieren, um Werte zu bearbeiten.");
+        return;
+      }
+      if (!unitKey) return;
+      const current = resources?.units?.[unitKey] ?? 0;
+      setEditUnitModal({ unitKey, value: current });
+    },
+    [resources, editingLocked, infiniteResources, updateStatus]
+  );
+
   const applyGoodEdit = useCallback((amount, applyAll = false) => {
     if (!editGoodModal?.goodKey && !applyAll) return;
     const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
@@ -687,6 +708,34 @@ export const useGameController = () => {
 
   const cancelEditResource = useCallback(() => {
     setEditResourceModal(null);
+  }, []);
+
+  const applyUnitEdit = useCallback(
+    (amount) => {
+      if (!editUnitModal?.unitKey) return;
+      const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
+      const prevVal = resources?.units?.[editUnitModal.unitKey] ?? 0;
+
+      const label = `${editUnitModal.unitKey}: ${formatNumber(
+        prevVal
+      )} -> ${formatNumber(nextVal)}`;
+
+      setResources((prev) => ({
+        ...prev,
+        units: {
+          ...(prev.units ?? {}),
+          [editUnitModal.unitKey]: nextVal,
+        },
+      }));
+
+      updateStatus(label);
+      setEditUnitModal(null);
+    },
+    [editUnitModal, resources, setResources, updateStatus]
+  );
+
+  const cancelEditUnit = useCallback(() => {
+    setEditUnitModal(null);
   }, []);
 
   const resetTransientModes = useCallback(() => {
@@ -1915,11 +1964,11 @@ export const useGameController = () => {
       }
     },
     [
-    layout,
-    carried,
-    libraryMap,
-    isCellUnlocked,
-    moveSnapshot,
+      layout,
+      carried,
+      libraryMap,
+      isCellUnlocked,
+      moveSnapshot,
       buildSnapshot,
       setCarried,
       setLayout,
@@ -1936,14 +1985,14 @@ export const useGameController = () => {
       sellMode,
       readyMap,
       harvestBuildings,
-    setGoodsModal,
-    updateStatus,
-    infiniteResources,
-    buildLocks,
-    findTargetInstance,
-    autoSelectNew,
-  ]
-);
+      setGoodsModal,
+      updateStatus,
+      infiniteResources,
+      buildLocks,
+      findTargetInstance,
+      autoSelectNew,
+    ]
+  );
 
   const previewDef = carried?.def ?? selectedDef;
   const previewOrigin = useMemo(
@@ -1961,6 +2010,8 @@ export const useGameController = () => {
     statusOffsetPx,
     boardTransformClass,
     cellSizePx,
+    rotatedWidthPx,
+    rotatedHeightPx,
   } = computeViewTransforms(viewMode, viewWidth, viewHeight, boardScale);
 
   return {
@@ -2023,6 +2074,8 @@ export const useGameController = () => {
     statusOffsetPx,
     boardTransformClass,
     cellSizePx,
+    rotatedWidthPx,
+    rotatedHeightPx,
     viewWidth,
     viewHeight,
     viewColStart,
@@ -2062,6 +2115,8 @@ export const useGameController = () => {
     openImportSaves,
     handleExportSelected,
     handleImportSelected,
+    checkpoints,
+    setCheckpointIndex,
     timeStep,
     setTimeStep,
     checkpointIndex,
@@ -2092,6 +2147,11 @@ export const useGameController = () => {
     resetModes,
     handleEditResource,
     handleEditGood,
+    handleEditUnit,
+    buildSnapshot,
+    applySnapshot,
+    pauseCheckpointTracking,
+    resumeCheckpointTracking,
     isCellUnlocked,
     autoSelectNew,
     toggleAutoSelectNew,
@@ -2111,5 +2171,9 @@ export const useGameController = () => {
     setEditResourceModal,
     applyResourceEdit,
     cancelEditResource,
+    editUnitModal,
+    setEditUnitModal,
+    applyUnitEdit,
+    cancelEditUnit,
   };
 };

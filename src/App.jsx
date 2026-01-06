@@ -5,7 +5,7 @@ import "./index.css";
 import { Board } from "./components/Board";
 import { TopBar } from "./components/TopBar";
 import { ShopSidebar } from "./components/ShopSidebar";
-import { ActionToolbar } from "./components/ActionToolbar";
+import { ActionToolbar, formatNotesHtml } from "./components/ActionToolbar";
 import { REGION_MASK, REGION_COLS } from "./config/boardConfig";
 import { UnlockRegionModal } from "./components/modals/UnlockRegionModal";
 import { ChooseGoodModal } from "./components/modals/ChooseGoodModal";
@@ -16,6 +16,7 @@ import { HarvestModal } from "./components/modals/HarvestModal";
 import { HelpModal } from "./components/modals/HelpModal";
 import { ConfigModal } from "./components/modals/ConfigModal";
 import { EditGoodModal } from "./components/modals/EditGoodModal";
+import { EditUnitModal } from "./components/modals/EditUnitModal";
 import { WorstRemovalModal } from "./components/modals/WorstRemovalModal";
 import { ExportSavesModal } from "./components/modals/ExportSavesModal";
 import { ImportSavesModal } from "./components/modals/ImportSavesModal";
@@ -77,8 +78,8 @@ function App() {
     viewRotation,
     boardTransform,
     regionTransform,
-    toolbarOffsetPx,
-    statusOffsetPx,
+    rotatedWidthPx,
+    rotatedHeightPx,
     boardTransformClass,
     cellSizePx,
     viewWidth,
@@ -116,6 +117,10 @@ function App() {
     resetModes,
     handleEditResource,
     handleEditGood,
+    handleEditUnit,
+    editUnitModal,
+    applyUnitEdit,
+    cancelEditUnit,
     isCellUnlocked,
     notes,
     handleChangeNotes,
@@ -136,9 +141,11 @@ function App() {
     worstModal,
     openWorstModal,
     setWorstModal,
+    checkpoints,
     timeStep,
     setTimeStep,
     checkpointIndex,
+    setCheckpointIndex,
     addCheckpointPart,
     currentPart,
     currentPartTotal,
@@ -165,6 +172,10 @@ function App() {
     handleEnableEditFromPast,
     autoSelectNew,
     toggleAutoSelectNew,
+    buildSnapshot,
+    applySnapshot,
+    pauseCheckpointTracking,
+    resumeCheckpointTracking,
   } = useGameController();
 
   const adminMode = infiniteResources;
@@ -319,6 +330,306 @@ function App() {
     }
   };
 
+  const handleExportPdf = async () => {
+    if (!loadName) {
+      alert("Bitte zuerst einen Spielstand waehlen.");
+      return;
+    }
+    if (!checkpoints?.length) {
+      alert("Keine Checkpoints vorhanden.");
+      return;
+    }
+
+    const body = document.body;
+    body.classList.add("print-mode");
+    pauseCheckpointTracking();
+    const prevSnapshot = buildSnapshot();
+    const prevIndex = checkpointIndex;
+    const prevTime = timeStep;
+
+    const waitForFrame = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve))
+      );
+
+    const timeLabel = (step) => {
+      const stepVal = Math.max(1, Math.min(23, step ?? 1));
+      const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
+      const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
+      const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
+      return `Schritt ${stepVal}, ${dayNames[dayIndex]} ${period}`;
+    };
+
+    try {
+      const [{ jsPDF }, html2canvas] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas").then((m) => m.default),
+      ]);
+
+      const notesWidth = 320;
+      const margin = 32;
+      const columnGap = 16;
+      const rowGap = 16;
+      const headerHeight = 40;
+
+      const scaleToFit = (w, h, maxW, maxH) => {
+        const ratio = Math.min(maxW / Math.max(w, 1), maxH / Math.max(h, 1), 1);
+        return { w: w * ratio, h: h * ratio };
+      };
+
+      const grouped = [];
+      checkpoints.forEach((cp) => {
+        const step = cp.timeStep ?? 1;
+        let group = grouped.find((g) => g.timeStep === step);
+        if (!group) {
+          group = { timeStep: step, items: [] };
+          grouped.push(group);
+        }
+        group.items.push(cp);
+      });
+
+      const renderNotesImage = async (html, part, total) => {
+        const wrapper = document.createElement("div");
+        wrapper.style.position = "absolute";
+        wrapper.style.left = "-9999px";
+        wrapper.style.top = "0";
+        wrapper.style.width = `${notesWidth}px`;
+        wrapper.style.padding = "0";
+        wrapper.style.boxSizing = "border-box";
+        wrapper.style.background = "transparent";
+        wrapper.style.border = "none";
+        wrapper.style.fontFamily = 'Consolas, "Courier New", monospace';
+        wrapper.style.fontSize = "13px";
+        wrapper.style.lineHeight = "1.4";
+
+        const style = document.createElement("style");
+        style.innerHTML = `
+    .notes-green { color: #2ecc71; }
+    .notes-red { color: #e74c3c; }
+    .notes-turquoise { color: #1abc9c; }
+    .notes-yellow { color: #f1c40f; }
+    .notes-placeholder { color: #94a3b8; }
+  `;
+        wrapper.appendChild(style);
+
+        // Dark themed notes card, matching app
+        const content = document.createElement("div");
+        content.style.padding = "10px 12px";
+        content.style.borderRadius = "10px";
+        content.style.background = "#0f1e30"; // dark blue card
+        content.style.border = "1px solid #1f3e63"; // theme border
+        content.style.color = "#f3f6fb"; // default text white
+        content.innerHTML =
+          html || '<span class="notes-placeholder">Fuege Notizen hinzu</span>';
+
+        wrapper.appendChild(content);
+
+        document.body.appendChild(wrapper);
+        await waitForFrame();
+        const canvas = await html2canvas(wrapper, {
+          backgroundColor: null,
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+        });
+        wrapper.remove();
+        return {
+          url: canvas.toDataURL("image/png"),
+          width: canvas.width,
+          height: canvas.height,
+        };
+      };
+
+      const captureBoardImage = async (snapshot) => {
+        const target = boardRef.current;
+        if (!target) return null;
+        applySnapshot(snapshot);
+        setCheckpointIndex(null);
+        await waitForFrame();
+        await waitForFrame();
+
+        const fullCanvas = await html2canvas(document.body, {
+          backgroundColor: null,
+          scale: 1,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+        });
+
+        const rect = target.getBoundingClientRect();
+        const cropCanvas = document.createElement("canvas");
+        const cropWidth = Math.max(1, Math.round(rect.width));
+        const cropHeight = Math.max(1, Math.round(rect.height));
+        cropCanvas.width = cropWidth;
+        cropCanvas.height = cropHeight;
+
+        const ctx = cropCanvas.getContext("2d");
+        const offsetX = rect.left + window.scrollX;
+        const offsetY = rect.top + window.scrollY;
+
+        ctx.drawImage(
+          fullCanvas,
+          offsetX,
+          offsetY,
+          rect.width,
+          rect.height,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+        );
+
+        return {
+          url: cropCanvas.toDataURL("image/png"),
+          width: cropCanvas.width,
+          height: cropCanvas.height,
+        };
+      };
+
+      const capturedGroups = [];
+      for (const group of grouped) {
+        const total = group.items.length;
+        const capturedItems = [];
+        for (let i = 0; i < group.items.length; i += 1) {
+          const cp = group.items[i];
+          const part = i + 1;
+          const notesHtml = formatNotesHtml(cp?.snapshot?.notes || "");
+          const [notesImg, boardImg] = await Promise.all([
+            renderNotesImage(notesHtml, part, total),
+            captureBoardImage(cp.snapshot),
+          ]);
+          capturedItems.push({
+            part,
+            total,
+            notesImg,
+            boardImg,
+          });
+        }
+        capturedGroups.push({
+          timeStep: group.timeStep,
+          label: timeLabel(group.timeStep),
+          items: capturedItems,
+        });
+      }
+
+      //const headerHeight = 40;
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "pt",
+        format: "a4",
+      });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      let firstPage = true;
+
+      capturedGroups.forEach((group) => {
+        for (let i = 0; i < group.items.length; i += 2) {
+          const slice = group.items.slice(i, i + 2);
+          if (!firstPage) {
+            pdf.addPage("a4", "landscape");
+          }
+          firstPage = false;
+
+          // full page background: lighter theme blue (#132f4c)
+          pdf.setFillColor(19, 47, 76); // rgb of #132f4c
+          pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+          // header bar: darker blue (#0f1e30)
+          pdf.setFillColor(15, 30, 48); // rgb of #0f1e30
+          pdf.rect(0, 0, pageWidth, headerHeight, "F");
+
+          // title in header
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(18);
+          pdf.setTextColor(243, 246, 251); // #f3f6fb
+          // baseline a bit below top of bar
+          pdf.text(group.label, margin, headerHeight - 12);
+
+          // layout math: content area starts below header + margin
+          const availableHeight =
+            pageHeight -
+            margin * 2 -
+            headerHeight -
+            (slice.length === 2 ? rowGap : 0);
+
+          const slotHeight =
+            slice.length === 2 ? availableHeight / 2 : availableHeight;
+
+          const contentStartY = headerHeight + margin;
+
+          const boardMaxWidth = pageWidth - margin * 2 - notesWidth - columnGap;
+
+          slice.forEach((item, idx) => {
+            const slotY =
+              contentStartY +
+              (slice.length === 2 ? idx * (slotHeight + rowGap) : 0);
+
+            const noteScaled = scaleToFit(
+              item.notesImg?.width || 1,
+              item.notesImg?.height || 1,
+              notesWidth,
+              slotHeight
+            );
+            const boardScaled = scaleToFit(
+              item.boardImg?.width || 1,
+              item.boardImg?.height || 1,
+              boardMaxWidth,
+              slotHeight
+            );
+            const contentHeight = Math.max(noteScaled.h, boardScaled.h);
+            const offsetY = slotY + (slotHeight - contentHeight) / 2;
+
+            // NEW: clearer subtitle
+            if (item.total > 1) {
+              pdf.setFont("helvetica", "bold");
+              pdf.setFontSize(12);
+              pdf.setTextColor(243, 246, 251); // white
+              const subtitleY = offsetY - 6; // a bit above the notes card
+              pdf.text(
+                `Teil ${item.part} von ${item.total}`,
+                margin,
+                subtitleY
+              );
+            }
+
+            if (item.notesImg) {
+              pdf.addImage(
+                item.notesImg.url,
+                "PNG",
+                margin,
+                offsetY,
+                noteScaled.w,
+                noteScaled.h
+              );
+            }
+            if (item.boardImg) {
+              pdf.addImage(
+                item.boardImg.url,
+                "PNG",
+                margin + notesWidth + columnGap,
+                offsetY,
+                boardScaled.w,
+                boardScaled.h
+              );
+            }
+          });
+        }
+      });
+
+      pdf.save(`${loadName}_checkpoints.pdf`);
+    } catch (e) {
+      console.error("PDF Export fehlgeschlagen", e);
+    } finally {
+      applySnapshot(prevSnapshot);
+      setTimeStep(prevTime);
+      setCheckpointIndex(prevIndex);
+      resumeCheckpointTracking();
+      body.classList.remove("print-mode");
+    }
+  };
+
   return (
     <div className="page layout-row">
       <ShopSidebar
@@ -366,6 +677,7 @@ function App() {
           setBoardScale={setBoardScale}
           onEditResource={handleEditResource}
           onEditGood={handleEditGood}
+          onEditUnit={handleEditUnit}
           editingLocked={editingLocked}
         />
         <div className="workspace">
@@ -373,6 +685,8 @@ function App() {
             <Board
               viewRotation={viewRotation}
               boardTransform={boardTransform}
+              rotatedWidthPx={rotatedWidthPx}
+              rotatedHeightPx={rotatedHeightPx}
               viewWidth={viewWidth}
               viewHeight={viewHeight}
               viewColStart={viewColStart}
@@ -393,19 +707,9 @@ function App() {
               readyMap={readyMap}
               useShortNames={useShortNames}
             />
-            {status && (
-              <div
-                className="status"
-                style={{ marginTop: `${statusOffsetPx || 0}px` }}
-              >
-                {status}
-              </div>
-            )}
+            {status && <div className="status">{status}</div>}
             {carried && (
-              <div
-                className="carry-banner"
-                style={{ marginTop: `${statusOffsetPx || 0}px` }}
-              >
+              <div className="carry-banner">
                 Carrying {carried.def.name} - place, swap, or trash. Press Esc
                 to cancel.
               </div>
@@ -440,7 +744,6 @@ function App() {
             saves={saves}
             loadName={loadName}
             setLoadName={setLoadName}
-            toolbarOffset={toolbarOffsetPx}
             notes={notes}
             onChangeNotes={handleChangeNotes}
             selectMode={selectMode}
@@ -464,6 +767,7 @@ function App() {
             editingLocked={editingLocked}
             onOpenExport={openExportSaves}
             onOpenImport={openImportSaves}
+            onExportPdf={handleExportPdf}
             onDeleteSave={(name) => {
               deleteSave(name);
               setLoadName((prev) => (prev === name ? "" : prev));
@@ -530,6 +834,11 @@ function App() {
         unitModal={unitModal}
         onPurchase={handleUnitPurchase}
         onClose={() => setUnitModal(null)}
+      />
+      <EditUnitModal
+        modal={editUnitModal}
+        onSave={applyUnitEdit}
+        onClose={cancelEditUnit}
       />
       <EditGoodModal
         modal={editGoodModal}

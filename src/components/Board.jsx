@@ -3,6 +3,8 @@ import { useMemo } from "react";
 export function Board({
   viewRotation,
   boardTransform,
+  rotatedWidthPx,
+  rotatedHeightPx,
   viewWidth,
   viewHeight,
   viewColStart,
@@ -141,125 +143,143 @@ export function Board({
 
   return (
     <div className="board-wrapper">
+      {/*
+        Important: CSS transforms do not affect layout. When the board is rotated,
+        its visual bounding box becomes larger than its unrotated (layout) box.
+        By sizing an untransformed wrapper to the rotated bounding box, flex/grid
+        can place adjacent UI (like the ActionToolbar) correctly without hacks.
+      */}
       <div
-        className={`board-frame ${boardTransformClass}`}
+        className="board-transform-box"
         style={{
-          "--view-rotation": viewRotation,
-          "--cell-size": cellSizePx ? `${cellSizePx}px` : undefined,
-          transform: boardTransform,
+          width: Number.isFinite(rotatedWidthPx)
+            ? `${rotatedWidthPx}px`
+            : "auto",
+          height: Number.isFinite(rotatedHeightPx)
+            ? `${rotatedHeightPx}px`
+            : "auto",
         }}
       >
         <div
-          className="board"
-          style={{ "--board-cols": safeCols }}
-          ref={boardRef}
+          className={`board-frame ${boardTransformClass}`}
+          style={{
+            "--view-rotation": viewRotation,
+            "--cell-size": cellSizePx ? `${cellSizePx}px` : undefined,
+            transform: boardTransform,
+          }}
         >
-          {Array.from({ length: safeRows }).map((_, row) => (
-            <div
-              key={row}
-              className="board-row"
-              style={{ "--board-cols": safeCols }}
-            >
-              {Array.from({ length: safeCols }).map((_, col) => {
-                const globalCol = viewColStart + col;
-                const globalRow = viewRowStart + row;
-                const inPreview =
-                  previewOrigin &&
-                  globalCol >= previewOrigin.x &&
-                  globalCol < previewOrigin.x + previewOrigin.width &&
-                  globalRow >= previewOrigin.y &&
-                  globalRow < previewOrigin.y + previewOrigin.height;
-                const cellLocked = !isCellUnlocked(globalCol, globalRow);
-                return (
-                  <div
-                    key={`${globalCol}-${globalRow}`}
-                    className={`cell ${cellLocked ? "locked" : ""} ${
-                      inPreview ? "preview" : ""
-                    }`}
-                    title={titleMap[`${globalCol}-${globalRow}`] || undefined}
-                    onMouseEnter={() =>
-                      setHoverCell({ x: globalCol, y: globalRow })
-                    }
-                    onClick={() => handleCellClick(globalCol, globalRow)}
-                    onTouchMove={(e) => {
-                      e.preventDefault();
-                      setHoverCell({ x: globalCol, y: globalRow });
-                    }}
-                    onTouchEnd={(e) => {
-                      e.preventDefault();
-                      handleCellClick(globalCol, globalRow);
-                      onDropComplete?.();
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setHoverCell({ x: globalCol, y: globalRow });
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      handleCellClick(globalCol, globalRow);
-                      onDropComplete?.();
-                    }}
-                  />
-                );
-              })}
-            </div>
-          ))}
-          <div className="building-layer" style={{ pointerEvents: "none" }}>
-            {layout.map((b) => (
+          <div
+            className="board"
+            style={{ "--board-cols": safeCols }}
+            ref={boardRef}
+          >
+            {Array.from({ length: safeRows }).map((_, row) => (
               <div
-                key={b.id}
-                className={`building-rect ${
-                  buildLocks[b.id] ? "building-locked" : ""
-                } ${selectedIds.has(b.id) ? "building-selected" : ""}`}
-                title={libraryMap[b.defId]?.name || ""}
-                style={(() => {
-                  const baseColor =
-                    categoryColors[libraryMap[b.defId].category] || "#ffffff";
-                  const def = libraryMap[b.defId] || {};
-                  const hueShift =
-                    (def.category === "production"
-                      ? HUE_SHIFT_PRODUCTION[def.buildTime]
-                      : undefined) ??
-                    BUILD_TIME_HUE_SHIFT[def.buildTime] ??
-                    BUILD_TIME_HUE_SHIFT[0] ??
-                    0;
-                  const tinted = tintColor(
-                    baseColor,
-                    b.defId || String(b.id),
-                    0.28,
-                    1,
-                    hueShift
-                  );
-                  return {
-                    left: `calc(var(--cell-size) * ${b.x - viewColStart})`,
-                    top: `calc(var(--cell-size) * ${b.y - viewRowStart})`,
-                    width: `calc(var(--cell-size) * ${b.width})`,
-                    height: `calc(var(--cell-size) * ${b.height})`,
-                    pointerEvents: "none",
-                    backgroundColor: tinted.background,
-                    borderColor: tinted.border,
-                  };
-                })()}
+                key={row}
+                className="board-row"
+                style={{ "--board-cols": safeCols }}
               >
-                <div className="building-subgrid" />
-                <div
-                  className="building-label"
-                  style={{
-                    color: buildLocks[b.id]
-                      ? readyMap[b.id]
-                        ? "#ffeb3b"
-                        : "#9aa3b5"
-                      : readyMap[b.id]
-                      ? "#ffeb3b"
-                      : "#ffffff",
-                  }}
-                >
-                  {useShortNames && libraryMap[b.defId]?.short
-                    ? libraryMap[b.defId].short
-                    : libraryMap[b.defId].name}
-                </div>
+                {Array.from({ length: safeCols }).map((_, col) => {
+                  const globalCol = viewColStart + col;
+                  const globalRow = viewRowStart + row;
+                  const inPreview =
+                    previewOrigin &&
+                    globalCol >= previewOrigin.x &&
+                    globalCol < previewOrigin.x + previewOrigin.width &&
+                    globalRow >= previewOrigin.y &&
+                    globalRow < previewOrigin.y + previewOrigin.height;
+                  const cellLocked = !isCellUnlocked(globalCol, globalRow);
+                  return (
+                    <div
+                      key={`${globalCol}-${globalRow}`}
+                      className={`cell ${cellLocked ? "locked" : ""} ${
+                        inPreview ? "preview" : ""
+                      }`}
+                      title={titleMap[`${globalCol}-${globalRow}`] || undefined}
+                      onMouseEnter={() =>
+                        setHoverCell({ x: globalCol, y: globalRow })
+                      }
+                      onClick={() => handleCellClick(globalCol, globalRow)}
+                      onTouchMove={(e) => {
+                        e.preventDefault();
+                        setHoverCell({ x: globalCol, y: globalRow });
+                      }}
+                      onTouchEnd={(e) => {
+                        e.preventDefault();
+                        handleCellClick(globalCol, globalRow);
+                        onDropComplete?.();
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setHoverCell({ x: globalCol, y: globalRow });
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        handleCellClick(globalCol, globalRow);
+                        onDropComplete?.();
+                      }}
+                    />
+                  );
+                })}
               </div>
             ))}
+            <div className="building-layer" style={{ pointerEvents: "none" }}>
+              {layout.map((b) => (
+                <div
+                  key={b.id}
+                  className={`building-rect ${
+                    buildLocks[b.id] ? "building-locked" : ""
+                  } ${selectedIds.has(b.id) ? "building-selected" : ""}`}
+                  title={libraryMap[b.defId]?.name || ""}
+                  style={(() => {
+                    const baseColor =
+                      categoryColors[libraryMap[b.defId].category] || "#ffffff";
+                    const def = libraryMap[b.defId] || {};
+                    const hueShift =
+                      (def.category === "production"
+                        ? HUE_SHIFT_PRODUCTION[def.buildTime]
+                        : undefined) ??
+                      BUILD_TIME_HUE_SHIFT[def.buildTime] ??
+                      BUILD_TIME_HUE_SHIFT[0] ??
+                      0;
+                    const tinted = tintColor(
+                      baseColor,
+                      b.defId || String(b.id),
+                      0.28,
+                      1,
+                      hueShift
+                    );
+                    return {
+                      left: `calc(var(--cell-size) * ${b.x - viewColStart})`,
+                      top: `calc(var(--cell-size) * ${b.y - viewRowStart})`,
+                      width: `calc(var(--cell-size) * ${b.width})`,
+                      height: `calc(var(--cell-size) * ${b.height})`,
+                      pointerEvents: "none",
+                      backgroundColor: tinted.background,
+                      borderColor: tinted.border,
+                    };
+                  })()}
+                >
+                  <div className="building-subgrid" />
+                  <div
+                    className="building-label"
+                    style={{
+                      color: buildLocks[b.id]
+                        ? readyMap[b.id]
+                          ? "#ffeb3b"
+                          : "#9aa3b5"
+                        : readyMap[b.id]
+                        ? "#ffeb3b"
+                        : "#ffffff",
+                    }}
+                  >
+                    {useShortNames && libraryMap[b.defId]?.short
+                      ? libraryMap[b.defId].short
+                      : libraryMap[b.defId].name}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

@@ -11,6 +11,7 @@ export const useCheckpoints = ({
   const [checkpointIndex, setCheckpointIndex] = useState(null);
   const [editUnlocked, setEditUnlocked] = useState(false);
   const skipCheckpointUpdateRef = useRef(0);
+  const trackingPausedRef = useRef(false);
 
   const stableStringify = useCallback((val) => {
     if (val === null || typeof val !== "object") {
@@ -83,6 +84,7 @@ export const useCheckpoints = ({
       skipCheckpointUpdateRef.current -= 1;
       return;
     }
+    if (trackingPausedRef.current) return;
     if (isPast) return;
     const snapshot = buildSnapshot();
     const entry = makeCheckpoint(snapshot, timeStep ?? 1, false);
@@ -148,6 +150,14 @@ export const useCheckpoints = ({
       skipCheckpointUpdateRef.current,
       count
     );
+  }, []);
+
+  const pauseCheckpointTracking = useCallback(() => {
+    trackingPausedRef.current = true;
+  }, []);
+
+  const resumeCheckpointTracking = useCallback(() => {
+    trackingPausedRef.current = false;
   }, []);
 
   const canTimeBack = totalSteps > 0 && currentIndex > 0;
@@ -307,5 +317,7 @@ export const useCheckpoints = ({
     currentPart: getPartInfo(currentIndex).part,
     currentPartTotal: getPartInfo(currentIndex).total,
     suppressNextCheckpoint,
+    pauseCheckpointTracking,
+    resumeCheckpointTracking,
   };
 };

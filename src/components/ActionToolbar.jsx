@@ -9,6 +9,62 @@ import {
   Trash2,
 } from "lucide-react";
 
+export const NOTE_RULES = [
+  { regex: /\+/g, className: "notes-green" },
+  { regex: /-/g, className: "notes-red" },
+  { regex: />>/g, className: "notes-turquoise", fullLine: true },
+  { regex: /\(1h\)/g, className: "notes-yellow" },
+  { regex: /\(boost\)/g, className: "notes-yellow" },
+];
+
+const applyRuleToLineHtml = (lineHtml, rule) => {
+  if (!lineHtml) return lineHtml;
+
+  // FULL-LINE RULE
+  if (rule.fullLine) {
+    const match = lineHtml.match(rule.regex);
+    if (!match) return lineHtml; // nothing to do
+
+    // remove all spans from this line (wipe previous styling)
+    const plain = lineHtml.replace(/<span[^>]*>/g, "").replace(/<\/span>/g, "");
+
+    return `<span class="${rule.className}">${plain}</span>`;
+  }
+
+  // NORMAL RULE – only operate on text, not tags
+  const parts = lineHtml.split(/(<[^>]+>)/g);
+
+  const processed = parts.map((part) => {
+    // If this is a tag ("<...>"), never touch it
+    if (part.startsWith("<")) return part;
+
+    // Text chunk: apply regex and wrap matches in spans
+    return part.replace(rule.regex, (match) => {
+      return `<span class="${rule.className}">${match}</span>`;
+    });
+  });
+
+  return processed.join("");
+};
+
+export const formatNotesHtml = (text) => {
+  const raw = text || "";
+
+  // Start as plain text lines (no spans)
+  let htmlLines = raw.split(/\n/);
+
+  // Apply rules one by one, across all lines
+  for (const rule of NOTE_RULES) {
+    htmlLines = htmlLines.map((lineHtml) =>
+      applyRuleToLineHtml(lineHtml, rule)
+    );
+  }
+
+  const merged = htmlLines.join("<br />");
+
+  return merged || '<span class="notes-placeholder">Fuege Notizen hinzu</span>';
+};
+
 export function ActionToolbar({
   moveMode,
   sellMode,
@@ -38,6 +94,7 @@ export function ActionToolbar({
   onFindWorst,
   onOpenExport,
   onOpenImport,
+  onExportPdf,
   timeStep,
   canTimeBack,
   canTimeForward,
@@ -125,25 +182,7 @@ export function ActionToolbar({
     return processed.join("");
   };
 
-  const formattedNotes = useMemo(() => {
-    const raw = notes || "";
-
-    // Start as plain text lines (no spans)
-    let htmlLines = raw.split(/\n/);
-
-    // Apply rules one by one, across all lines
-    for (const rule of NOTE_RULES) {
-      htmlLines = htmlLines.map((lineHtml) =>
-        applyRuleToLineHtml(lineHtml, rule)
-      );
-    }
-
-    const merged = htmlLines.join("<br />");
-
-    return (
-      merged || '<span class="notes-placeholder">Fuege Notizen hinzu</span>'
-    );
-  }, [notes]);
+  const formattedNotes = useMemo(() => formatNotesHtml(notes), [notes]);
 
   const notesRef = useRef(null);
 
@@ -159,10 +198,7 @@ export function ActionToolbar({
   }, [notes]);
 
   return (
-    <div
-      className="actions-column"
-      style={{ marginLeft: `${toolbarOffset}px` }}
-    >
+    <div className="actions-column">
       <div className="actions-row time-row">
         <button
           className="action-button"
@@ -346,6 +382,13 @@ export function ActionToolbar({
         </button>
         <button className="action-button" onClick={onOpenImport}>
           Import
+        </button>
+        <button
+          className="action-button"
+          onClick={onExportPdf}
+          title="Aktuelle Datei als PDF exportieren"
+        >
+          File -&gt; PDF
         </button>
       </div>
       <div className="notes-card">

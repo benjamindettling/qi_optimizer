@@ -104,10 +104,17 @@ export const computeViewTransforms = (
   return {
     viewRotation,
     boardTransformClass,
+    // Offsets were used historically to "fake" layout accounting for transforms.
+    // Prefer using rotatedWidthPx/rotatedHeightPx to size an untransformed wrapper
+    // so flex/grid can layout correctly.
     toolbarOffsetPx,
     statusOffsetPx,
     boardTransform,
     regionTransform,
     cellSizePx,
+    rotatedWidthPx,
+    rotatedHeightPx,
+    layoutWidthPx,
+    layoutHeightPx,
   };
 };

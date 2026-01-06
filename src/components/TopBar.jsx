@@ -27,6 +27,7 @@ export function TopBar({
   setBoardScale,
   onEditResource,
   onEditGood,
+  onEditUnit,
   onOpenHelp,
   onOpenConfig,
   editingLocked = false,
@@ -41,8 +42,18 @@ export function TopBar({
       icon: suppliesIcon,
       value: resources.supplies,
     },
-    { key: "chronos", label: "Chronos", icon: chronosIcon, value: resources.chronos },
-    { key: "shards", label: "Scherben", icon: shardsIcon, value: resources.shards },
+    {
+      key: "chronos",
+      label: "Chronos",
+      icon: chronosIcon,
+      value: resources.chronos,
+    },
+    {
+      key: "shards",
+      label: "Scherben",
+      icon: shardsIcon,
+      value: resources.shards,
+    },
     {
       key: "quantumActions",
       label: "QA",
@@ -99,7 +110,7 @@ export function TopBar({
 
   return (
     <header className="topbar">
-      <div className="resource-stack">
+      <div className="topbar-stack">
         {resourceEntries.map((r) =>
           adminEnabled ? (
             <button
@@ -114,14 +125,18 @@ export function TopBar({
               <span>{formatNumber(r.value ?? 0)}</span>
             </button>
           ) : (
-            <div key={r.key} className="resource-line" title={r.title || r.label}>
+            <div
+              key={r.key}
+              className="resource-line"
+              title={r.title || r.label}
+            >
               <img src={r.icon} alt={r.label} />
               <span>{formatNumber(r.value ?? 0)}</span>
             </div>
           )
         )}
       </div>
-      <div className="goods-stack">
+      <div className="topbar-stack">
         {GOODS_TYPES.map((g) =>
           adminEnabled ? (
             <button
@@ -147,15 +162,27 @@ export function TopBar({
           )
         )}
       </div>
-      <div className="goods-stack">
-        {UNIT_TYPES.map((u) => (
-          <div key={u} className="resource-line" title={u}>
-            <img src={`/units/${u}.webp`} alt={u} />
-            <span>{formatNumber(resources.units?.[u] ?? 0)}</span>
-          </div>
-        ))}
+      <div className="topbar-stack">
+        {UNIT_TYPES.map((u) =>
+          adminEnabled ? (
+            <button
+              key={u}
+              className="resource-button"
+              title={u}
+              onClick={() => onEditUnit?.(u)}
+            >
+              <img src={`/units/${u}.webp`} alt={u} />
+              <span>{formatNumber(resources.units?.[u] ?? 0)}</span>
+            </button>
+          ) : (
+            <div key={u} className="resource-line" title={u}>
+              <img src={`/units/${u}.webp`} alt={u} />
+              <span>{formatNumber(resources.units?.[u] ?? 0)}</span>
+            </div>
+          )
+        )}
       </div>
-      <div className="boost-stack">
+      <div className="topbar-stack boost-stack">
         <div
           className="resource-line happiness"
           title={`Zufriedenheit: ${happyInfo.label}`}
@@ -191,7 +218,7 @@ export function TopBar({
           <span className="happy-label"></span>
           <span className="happy-boost">x{chronosMult}</span>
         </div>
-        <div className="resource-line population" title="Bevoelkerung">
+        <div className="resource-line" title="Bevoelkerung">
           <img src={populationIcon} alt="population" />
           <div>
             <span className="total-pop" title="Totale Bevoelkerung">
@@ -240,82 +267,88 @@ export function TopBar({
           </div>
         </div>
       </div>
-      <div className="actions">
-        <div className="view-switch">
-          <div className="view-buttons">
-            <button
-              className={viewMode === "down" ? "active" : ""}
-              onClick={() => setViewMode("down")}
-              title="Down view"
-            >
-              &#8595;
-            </button>
-            <button
-              className={viewMode === "diagonal" ? "active" : ""}
-              onClick={() => setViewMode("diagonal")}
-              title="Diagonal view"
-            >
-              &#8600;
-            </button>
-            <button
-              className={viewMode === "right" ? "active" : ""}
-              onClick={() => setViewMode("right")}
-              title="Right view"
-            >
-              &#8594;
-            </button>
-          </div>
+      <div className="actions actions-compact">
+        <div className="actions-row">
+          <div className="view-switch">
+            <div className="view-buttons">
+              <button
+                className={viewMode === "down" ? "active" : ""}
+                onClick={() => setViewMode("down")}
+                title="Down view"
+              >
+                &#8595;
+              </button>
+              <button
+                className={viewMode === "diagonal" ? "active" : ""}
+                onClick={() => setViewMode("diagonal")}
+                title="Diagonal view"
+              >
+                &#8600;
+              </button>
+              <button
+                className={viewMode === "right" ? "active" : ""}
+                onClick={() => setViewMode("right")}
+                title="Right view"
+              >
+                &#8594;
+              </button>
+            </div>
 
-          <div className="board-scale">
-            <input
-              type="range"
-              min={BOARD_SCALE_MIN}
-              max={BOARD_SCALE_MAX}
-              step={0.05}
-              value={boardScale}
-              onChange={(e) => setBoardScale?.(Number(e.target.value))}
-              title="Groesse Stadtanzeige"
-            />
+            <div className="board-scale">
+              <input
+                type="range"
+                min={BOARD_SCALE_MIN}
+                max={BOARD_SCALE_MAX}
+                step={0.05}
+                value={boardScale}
+                onChange={(e) => setBoardScale?.(Number(e.target.value))}
+                title="Groesse Stadtanzeige"
+              />
+            </div>
+          </div>
+          <div className="topbar-stack toggles-stack">
+            <label
+              className="infinite-toggle"
+              title="Admin-Modus: freies Bauen, Region-Tools, Ressourcenbearbeitung"
+            >
+              <input
+                type="checkbox"
+                disabled={editingLocked}
+                checked={!!adminMode}
+                onChange={(e) =>
+                  !editingLocked && onToggleAdmin?.(e.target.checked)
+                }
+              />
+              Admin
+            </label>
+            <label
+              className="infinite-toggle"
+              title="Gebaeudenamen abkuerzen"
+            >
+              <input
+                type="checkbox"
+                disabled={editingLocked}
+                checked={!!useShortNames}
+                onChange={(e) =>
+                  !editingLocked && setUseShortNames?.(e.target.checked)
+                }
+              />
+              Abkuerzen
+            </label>
           </div>
         </div>
-        <div className="goods-stack">
-          <label
-            className="infinite-toggle"
-            title="Admin-Modus: freies Bauen, Region-Tools, Ressourcenbearbeitung"
+        <div className="actions-row">
+          <button className="help-button" onClick={onOpenHelp} title="Hilfe">
+            Hilfe
+          </button>
+          <button
+            className="help-button"
+            onClick={onOpenConfig}
+            title="Konfiguration"
           >
-            <input
-              type="checkbox"
-              disabled={editingLocked}
-              checked={!!adminMode}
-              onChange={(e) =>
-                !editingLocked && onToggleAdmin?.(e.target.checked)
-              }
-            />
-            Admin
-          </label>
-          <label className="infinite-toggle" title="Gebaeudenamen abkuerzen">
-            <input
-              type="checkbox"
-              disabled={editingLocked}
-              checked={!!useShortNames}
-              onChange={(e) =>
-                !editingLocked && setUseShortNames?.(e.target.checked)
-              }
-            />
-            Abkuerzen
-          </label>
+            Config
+          </button>
         </div>
-
-        <button className="help-button" onClick={onOpenHelp} title="Hilfe">
-          Hilfe
-        </button>
-        <button
-          className="help-button"
-          onClick={onOpenConfig}
-          title="Konfiguration"
-        >
-          Config
-        </button>
       </div>
     </header>
   );

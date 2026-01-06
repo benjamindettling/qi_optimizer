@@ -72,25 +72,23 @@ body {
 .topbar {
   padding: 12px 18px;
   display: grid;
-  grid-template-columns: repeat(6, auto) 1fr;
+  grid-template-columns: repeat(5, auto) 1fr;
   align-items: center;
   background: #10253c;
   border-bottom: 1px solid #26435f;
   gap: 16px;
 }
 
-.resource-stack {
+.topbar-stack {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   color: #f0f4ff;
   font-weight: 700;
 }
 
-.goods-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.topbar-stack.boost-stack {
+  gap: 0px;
 }
 
 .meta-row {
@@ -104,11 +102,26 @@ body {
   align-items: center;
   gap: 12px;
 }
+.actions.actions-compact {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.actions.actions-compact .actions-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
 .view-switch {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+.toggles-stack {
+  gap: 4px;
 }
 
 .view-buttons {
@@ -245,10 +258,8 @@ button.active {
   gap: 8px;
 }
 
-
-
 .happy-detail-grid {
-  display: grid;
+  display: flex;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   align-items: start;
@@ -402,9 +413,6 @@ button.active {
   color: #e9ecf1;
 }
 
-
-
-
 .notes-autosize {
   position: relative;
   display: grid;
@@ -531,7 +539,7 @@ button.active {
   display: grid;
   grid-template-columns: 1fr;
   gap: 8px;
-  max-height: 320px;
+  max-height: 420px;
   overflow: auto;
 }
 
@@ -709,6 +717,7 @@ button.active {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow:hidden;
 }
 
 .region.unlocked {
@@ -730,11 +739,12 @@ button.active {
 
 .region-unlock-btn {
   position: absolute;
-  inset: 4px;
+  inset: 0px;
   background: transparent;
-  border: 1px dashed #5a8bd1;
-  border-radius: 4px;
+  border: 0px dashed #5a8bd1;
+  border-radius: 6px;
   cursor: pointer;
+  overflow: hidden;
 }
 
 .region-unlock-btn:disabled {
@@ -764,6 +774,11 @@ button.active {
   flex-direction: column;
   gap: 8px;
   flex: 1;
+}
+
+.board-transform-box {
+  position: relative;
+  display: inline-block;
 }
 
 .board-area {
