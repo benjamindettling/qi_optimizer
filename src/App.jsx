@@ -377,6 +377,8 @@ function App() {
       const rowGap = 16;
       const headerHeight = 40;
 
+      const PDF_BG_COLOR = "#132f4c"; // rgb(19, 47, 76) – same as pdf.setFillColor(19, 47, 76)
+
       const scaleToFit = (w, h, maxW, maxH) => {
         const ratio = Math.min(maxW / Math.max(w, 1), maxH / Math.max(h, 1), 1);
         return { w: w * ratio, h: h * ratio };
@@ -432,7 +434,7 @@ function App() {
         document.body.appendChild(wrapper);
         await waitForFrame();
         const canvas = await html2canvas(wrapper, {
-          backgroundColor: null,
+          backgroundColor: PDF_BG_COLOR,
           scale: 1,
           useCORS: true,
           allowTaint: true,
@@ -440,7 +442,7 @@ function App() {
         });
         wrapper.remove();
         return {
-          url: canvas.toDataURL("image/png"),
+          url: canvas.toDataURL("image/jpeg", 0.9),
           width: canvas.width,
           height: canvas.height,
         };
@@ -455,7 +457,7 @@ function App() {
         await waitForFrame();
 
         const fullCanvas = await html2canvas(document.body, {
-          backgroundColor: null,
+          backgroundColor: PDF_BG_COLOR,
           scale: 1,
           useCORS: true,
           allowTaint: true,
@@ -487,7 +489,7 @@ function App() {
         );
 
         return {
-          url: cropCanvas.toDataURL("image/png"),
+          url: cropCanvas.toDataURL("image/jpeg", 0.9),
           width: cropCanvas.width,
           height: cropCanvas.height,
         };
@@ -608,7 +610,7 @@ function App() {
             if (item.notesImg) {
               pdf.addImage(
                 item.notesImg.url,
-                "PNG",
+                "JPEG",
                 margin,
                 offsetY,
                 noteScaled.w,
@@ -618,8 +620,8 @@ function App() {
             if (item.boardImg) {
               pdf.addImage(
                 item.boardImg.url,
-                "PNG",
-                margin + notesWidth + columnGap,
+                "JPEG",
+                notesWidth + columnGap + margin,
                 offsetY,
                 boardScaled.w,
                 boardScaled.h
@@ -629,7 +631,7 @@ function App() {
         }
       });
 
-      pdf.save(`${loadName}_checkpoints.pdf`);
+      pdf.save(`${loadName}.pdf`);
     } catch (e) {
       console.error("PDF Export fehlgeschlagen", e);
     } finally {
