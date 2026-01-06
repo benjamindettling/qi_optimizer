@@ -124,6 +124,38 @@ body {
   gap: 4px;
 }
 
+.pdf-progress-modal .modal-card {
+  min-width: 260px;
+  align-items: center;
+}
+
+.pdf-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10px, 1fr));
+  gap: 4px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.pdf-progress-block {
+  display: block;
+  height: 12px;
+  border-radius: 3px;
+  background: #1e3450;
+  border: 1px solid #2c4a6b;
+}
+
+.pdf-progress-block.filled {
+  background: #2ecc71;
+  border-color: #27ae60;
+}
+
+.pdf-progress-text {
+  margin-top: 6px;
+  font-weight: 700;
+  color: #e9ecf1;
+}
+
 .view-buttons {
   display: flex;
   gap: 4px;

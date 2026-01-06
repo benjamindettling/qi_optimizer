@@ -32,6 +32,7 @@ function App() {
   const holdTriggeredRef = useRef(false);
   const boardRef = useRef(null);
   const [selectMode, setSelectMode] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(null);
   const {
     resources,
     layout,
@@ -282,6 +283,8 @@ function App() {
       const html2canvas = (await import("html2canvas")).default;
       const target = boardRef.current; // board only
       if (!target) return;
+      const shouldIgnore = (el) =>
+        el?.classList?.contains("pdf-progress-modal");
 
       // Using scale = 1 keeps the capture on the same pixel grid as your UI.
       const scale = 1;
@@ -293,6 +296,7 @@ function App() {
         useCORS: true,
         allowTaint: true,
         logging: false,
+        ignoreElements: shouldIgnore,
       });
 
       const rect = target.getBoundingClientRect();
@@ -340,6 +344,7 @@ function App() {
       return;
     }
 
+    setPdfProgress({ current: 0, total: checkpoints.length });
     const body = document.body;
     body.classList.add("print-mode");
     pauseCheckpointTracking();
@@ -455,6 +460,7 @@ function App() {
           useCORS: true,
           allowTaint: true,
           logging: false,
+          ignoreElements: (el) => el?.classList?.contains("pdf-progress-modal"),
         });
 
         const rect = target.getBoundingClientRect();
@@ -505,6 +511,11 @@ function App() {
             notesImg,
             boardImg,
           });
+          setPdfProgress((prev) =>
+            prev
+              ? { ...prev, current: Math.min(prev.current + 1, prev.total) }
+              : prev
+          );
         }
         capturedGroups.push({
           timeStep: group.timeStep,
@@ -627,6 +638,7 @@ function App() {
       setCheckpointIndex(prevIndex);
       resumeCheckpointTracking();
       body.classList.remove("print-mode");
+      setPdfProgress(null);
     }
   };
 
@@ -890,6 +902,27 @@ function App() {
         onCancel={closePastEditModal}
         currentName={loadName}
       />
+      {pdfProgress && (
+        <div className="modal pdf-progress-modal">
+          <div className="modal-card">
+            <h3 className="modal-title">PDF wird erstellt...</h3>
+            <div className="pdf-progress-bar">
+              {Array.from({ length: pdfProgress.total }).map((_, idx) => {
+                const filled = idx < pdfProgress.current;
+                return (
+                  <span
+                    key={idx}
+                    className={`pdf-progress-block ${filled ? "filled" : ""}`}
+                  />
+                );
+              })}
+            </div>
+            <div className="pdf-progress-text">
+              {pdfProgress.current} / {pdfProgress.total}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
