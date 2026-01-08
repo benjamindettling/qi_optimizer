@@ -81,3 +81,13 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     },
   };
 };
+
+// Convenience wrapper: return a complete initial game state without requiring
+// callers to manually build and pass the library dependencies.
+//
+// The PDF exporter uses this to capture the "base" (freshly loaded) setup for
+// Schritt 1.
+export const buildInitialState = () => {
+  const { libraryMap, townhallDef } = buildLibrary();
+  return buildInitialGameState({ libraryMap, townhallDef });
+};

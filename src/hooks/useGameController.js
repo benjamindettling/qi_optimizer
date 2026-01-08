@@ -1187,6 +1187,14 @@ export const useGameController = () => {
   const baseStats = computeStats(unlockedLayout, libraryMap);
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
   const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
+  const applyConfigBoosts = useCallback(
+    (base) => ({
+      ...base,
+      coinBoost: (base.coinBoost ?? 0) + coinBoostCfg,
+      supplyBoost: (base.supplyBoost ?? 0) + supplyBoostCfg,
+    }),
+    [coinBoostCfg, supplyBoostCfg]
+  );
   const qaBasePerHour = 5000 + Number(config?.qaBaseBonus ?? 0);
   const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);
   const qaRateFromBuildings = useMemo(
@@ -1198,11 +1206,7 @@ export const useGameController = () => {
     [layout, libraryMap]
   );
   const qaPerHour = qaBasePerHour + qaRateFromBuildings;
-  const statsWithConfig = {
-    ...baseStats,
-    coinBoost: (baseStats.coinBoost ?? 0) + coinBoostCfg,
-    supplyBoost: (baseStats.supplyBoost ?? 0) + supplyBoostCfg,
-  };
+  const statsWithConfig = applyConfigBoosts(baseStats);
   const stats = { ...statsWithConfig, qaPerHour, qaHoursPerHarvest };
   const happyInfo = happinessTier(
     stats.happinessProvided,
@@ -1999,7 +2003,9 @@ export const useGameController = () => {
     });
     if (unlockedAny) setBuildLocks(buildLocksAfter);
 
-    const effectiveStats = computeStats(layout, libraryMap);
+    const effectiveStats = applyConfigBoosts(
+      computeStats(layout, libraryMap)
+    );
     const baseQa = qaBasePerHour * qaHoursPerHarvest;
     const targets = isFullHarvest ? layout : readyOnes;
     harvestBuildings(targets, label, false, true, {
@@ -2023,6 +2029,7 @@ export const useGameController = () => {
     harvestBuildings,
     buildLocks,
     setBuildLocks,
+    applyConfigBoosts,
     computeStats,
     libraryMap,
     buildSnapshot,
@@ -2039,6 +2046,52 @@ export const useGameController = () => {
     setSelectedIds,
     setSelectedBuildingId,
   ]);
+
+
+  // Full-harvest helper for PDF export: always applies a full harvest cycle,
+  // without opening modals or writing history/status.
+  // IMPORTANT: During PDF export we may call this immediately after applying a snapshot.
+  // In that case, React state may not have re-rendered yet, so relying on the closure-captured
+  // `layout`/`buildLocks` can produce a harvest based on the *previous* (often base) layout.
+  //
+  // To keep export deterministic and fast, allow passing explicit overrides.
+  const harvestFullForPdf = useCallback(
+    (layoutOverride = null, buildLocksOverride = null) => {
+      // NOTE: During PDF export we already pause checkpoint tracking in App.jsx.
+      // We keep this function side-effect minimal (no notes/status changes).
+      const effectiveLayout = Array.isArray(layoutOverride)
+        ? layoutOverride
+        : layout;
+      const locksBefore = {
+        ...(buildLocksOverride && typeof buildLocksOverride === "object"
+          ? buildLocksOverride
+          : buildLocks),
+      };
+
+        const effectiveStats = applyConfigBoosts(
+          computeStats(effectiveLayout, libraryMap)
+        );
+      const baseQa = qaBasePerHour * qaHoursPerHarvest;
+
+      harvestBuildings(effectiveLayout, "Volle Ernte", true, true, {
+        statsOverride: effectiveStats,
+        buildLocksOverride: locksBefore,
+        extraQa: baseQa,
+        logStatus: false,
+      });
+    },
+    [
+      buildLocks,
+        applyConfigBoosts,
+        computeStats,
+        harvestBuildings,
+      layout,
+      libraryMap,
+      qaBasePerHour,
+      qaHoursPerHarvest,
+    ]
+  );
+
 
   // Close harvest modal after acknowledgment.
   const confirmHarvest = useCallback(() => {
@@ -2438,6 +2491,7 @@ export const useGameController = () => {
     handleSelectBuilding,
     finishProductions,
     harvestAll,
+    harvestFullForPdf,
     confirmHarvest,
     cancelHarvest,
     handleSaveState,

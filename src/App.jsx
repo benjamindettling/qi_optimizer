@@ -1,12 +1,18 @@
 // Top-level app composition: assembles board, sidebar, toolbars, and modals.
 
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import "./index.css";
 import { Board } from "./components/Board";
 import { TopBar } from "./components/TopBar";
 import { ShopSidebar } from "./components/ShopSidebar";
-import { ActionToolbar, formatNotesHtml } from "./components/ActionToolbar";
-import { REGION_MASK, REGION_COLS } from "./config/boardConfig";
+import { ActionToolbar } from "./components/ActionToolbar";
+import {
+  REGION_MASK,
+  REGION_COLS,
+  GOODS_TYPES,
+  UNIT_TYPES,
+} from "./config/boardConfig";
 import { UnlockRegionModal } from "./components/modals/UnlockRegionModal";
 import { ChooseGoodModal } from "./components/modals/ChooseGoodModal";
 import { GoodsPurchaseModal } from "./components/modals/GoodsPurchaseModal";
@@ -23,6 +29,8 @@ import { ImportSavesModal } from "./components/modals/ImportSavesModal";
 import { PastEditWarningModal } from "./components/modals/PastEditWarningModal";
 import { EditResourceModal } from "./components/modals/EditResourceModal";
 import { useGameController } from "./hooks/useGameController";
+import { buildInitialState } from "./state/initialState";
+import { buildSnapshot as buildSnapshotFromState } from "./state/snapshot";
 
 // Entry component that wires controller state into all UI pieces.
 function App() {
@@ -31,6 +39,7 @@ function App() {
   const suppressClickRef = useRef(false);
   const holdTriggeredRef = useRef(false);
   const boardRef = useRef(null);
+  const topBarRef = useRef(null);
   const [selectMode, setSelectMode] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(null);
   const {
@@ -109,6 +118,7 @@ function App() {
     toggleSelectId,
     clearSelection,
     harvestAll,
+    harvestFullForPdf,
     confirmHarvest,
     cancelHarvest,
     handleSaveState,
@@ -299,6 +309,8 @@ function App() {
         backgroundColor: null,
         scale,
         useCORS: true,
+        cacheBust: false,
+        imageTimeout: 0,
         allowTaint: true,
         logging: false,
         ignoreElements: shouldIgnore,
@@ -355,40 +367,153 @@ function App() {
     pauseCheckpointTracking();
     const prevSnapshot = buildSnapshot();
     const prevIndex = checkpointIndex;
-    const prevTime = timeStep;
 
     const waitForFrame = () =>
-      new Promise((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(resolve))
-      );
+      new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
-    const timeLabel = (step) => {
-      const stepVal = Math.max(1, Math.min(23, step ?? 1));
-      const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
-      const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
-      const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
-      return `Schritt ${stepVal}, ${dayNames[dayIndex]} ${period}`;
+    const preloadImages = async (urls, { timeoutMs = 5000 } = {}) => {
+      const unique = Array.from(new Set((urls || []).filter(Boolean)));
+      if (!unique.length) return;
+
+      const withTimeout = (p) =>
+        Promise.race([
+          p,
+          new Promise((resolve) => setTimeout(resolve, timeoutMs)),
+        ]);
+
+      await Promise.all(
+        unique.map((url) =>
+          withTimeout(
+            new Promise((resolve) => {
+              const img = new Image();
+              // Same-origin in your setup; still set to be safe.
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                // decode() avoids layout shifts during capture when supported
+                if (img.decode) {
+                  img
+                    .decode()
+                    .catch(() => {})
+                    .finally(resolve);
+                } else {
+                  resolve();
+                }
+              };
+              img.onerror = () => resolve();
+              img.src = url;
+            })
+          )
+        )
+      );
+    };
+
+    const preloadTopBarAssets = async () => {
+      // Root-level icons used in TopBar.
+      const baseIcons = [
+        "/money.webp",
+        "/supplies.webp",
+        "/chronos.webp",
+        "/population.webp",
+        "/shards.webp",
+        "/quantum_actions.webp",
+      ];
+
+      // Goods/units icons shown in the first 5 TopBar columns.
+      const goods = (GOODS_TYPES || []).map(
+        (g) => `/goods/${g === "Stein" ? "Backstein" : g}.webp`
+      );
+      const units = (UNIT_TYPES || []).map((u) => `/units/${u}.webp`);
+
+      await preloadImages([...baseIcons, ...goods, ...units]);
+    };
+
+    const waitForBoardReady = async (
+      rootEl,
+      { idleMs = 40, timeoutMs = 2000 } = {}
+    ) => {
+      if (!rootEl) {
+        // Fallback: still yield a couple frames to allow React to paint.
+        await waitForFrame();
+        await waitForFrame();
+        return;
+      }
+
+      // Fonts can affect layout; wait briefly if the API is available.
+      try {
+        if (document?.fonts?.ready) {
+          await Promise.race([
+            document.fonts.ready,
+            new Promise((r) => setTimeout(r, 500)),
+          ]);
+        }
+      } catch {
+        // ignore
+      }
+
+      // Wait for DOM to stop mutating for a short idle window.
+      await new Promise((resolve) => {
+        let done = false;
+        let idleTimer = null;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          if (idleTimer) clearTimeout(idleTimer);
+          observer.disconnect();
+          resolve();
+        };
+
+        const observer = new MutationObserver(() => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(finish, idleMs);
+        });
+
+        try {
+          observer.observe(rootEl, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            characterData: true,
+          });
+        } catch {
+          // If observe fails for any reason, fall back to frames.
+          finish();
+          return;
+        }
+
+        // Kick off idle timer in case no mutations happen.
+        idleTimer = setTimeout(finish, idleMs);
+
+        // Hard timeout guard.
+        setTimeout(finish, timeoutMs);
+      });
+
+      // Ensure at least one paint after the last mutation.
+      await waitForFrame();
     };
 
     try {
-      const [{ jsPDF }, html2canvas] = await Promise.all([
+      const PDF_BG_COLOR = "#132f4c";
+      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
         import("jspdf"),
-        import("html2canvas").then((m) => m.default),
+        import("html2canvas"),
       ]);
 
-      const notesWidth = 320;
-      const margin = 32;
-      const columnGap = 16;
-      const rowGap = 16;
+      // A4 landscape in points (jsPDF). Keep values local to allow easy tuning.
       const headerHeight = 40;
+      const margin = 18;
+      const columnGap = 18;
+      const rightGap = 14;
+      const leftColumnWidth = 320;
+      const leftRowGap = 12;
 
-      const PDF_BG_COLOR = "#132f4c"; // rgb(19, 47, 76) – same as pdf.setFillColor(19, 47, 76)
-
-      const scaleToFit = (w, h, maxW, maxH) => {
-        const ratio = Math.min(maxW / Math.max(w, 1), maxH / Math.max(h, 1), 1);
-        return { w: w * ratio, h: h * ratio };
+      const timeLabel = (step) => {
+        const found = checkpoints.find((c) => (c.timeStep ?? 1) === step);
+        const base = `Schritt ${step}`;
+        const title = found?.snapshot?.title;
+        return title ? `${base} ${title}` : base;
       };
 
+      // Group checkpoints by timeStep (= timestamp). Preserve insertion order.
       const grouped = [];
       checkpoints.forEach((cp) => {
         const step = cp.timeStep ?? 1;
@@ -400,93 +525,173 @@ function App() {
         group.items.push(cp);
       });
 
-      const renderNotesImage = async (html, part, total) => {
-        const wrapper = document.createElement("div");
-        wrapper.style.position = "absolute";
-        wrapper.style.left = "-9999px";
-        wrapper.style.top = "0";
-        wrapper.style.width = `${notesWidth}px`;
-        wrapper.style.padding = "0";
-        wrapper.style.boxSizing = "border-box";
-        wrapper.style.background = "transparent";
-        wrapper.style.border = "none";
-        wrapper.style.fontFamily = 'Consolas, "Courier New", monospace';
-        wrapper.style.fontSize = "13px";
-        wrapper.style.lineHeight = "1.4";
+      // --- Bauplan notes: render as PDF text (no screenshot) ---
+      // Notes are stored as plain text, but older exports/edits may include spans; strip any HTML tags.
+      const stripHtml = (s) =>
+        (s || "")
+          .replace(/<\/?span[^>]*>/gi, "")
+          .replace(/<br\s*\/?\s*>/gi, "\n")
+          .replace(/<[^>]+>/g, "")
+          .replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .trimEnd();
 
-        const style = document.createElement("style");
-        style.innerHTML = `
-    .notes-green { color: #2ecc71; }
-    .notes-red { color: #e74c3c; }
-    .notes-turquoise { color: #1abc9c; }
-    .notes-yellow { color: #f1c40f; }
-    .notes-placeholder { color: #94a3b8; }
-  `;
-        wrapper.appendChild(style);
-
-        // Dark themed notes card, matching app
-        const content = document.createElement("div");
-        content.style.padding = "10px 12px";
-        content.style.borderRadius = "10px";
-        content.style.background = "#0f1e30"; // dark blue card
-        content.style.border = "1px solid #1f3e63"; // theme border
-        content.style.color = "#f3f6fb"; // default text white
-        content.innerHTML =
-          html || '<span class="notes-placeholder">Fuege Notizen hinzu</span>';
-
-        wrapper.appendChild(content);
-
-        document.body.appendChild(wrapper);
-        await waitForFrame();
-        const canvas = await html2canvas(wrapper, {
-          backgroundColor: PDF_BG_COLOR,
-          scale: 1,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-        });
-        wrapper.remove();
-        return {
-          url: canvas.toDataURL("image/jpeg", 0.9),
-          width: canvas.width,
-          height: canvas.height,
-        };
+      const buildBauplanLines = (items) => {
+        const parts = items?.length || 0;
+        const lines = [];
+        for (let idx = 0; idx < parts; idx += 1) {
+          const cp = items[idx];
+          if (idx > 0) lines.push({ type: "sep" });
+          if (parts > 1) {
+            lines.push({
+              type: "title",
+              text: `Teil ${idx + 1} von ${parts}`,
+            });
+          }
+          const raw = stripHtml(cp?.snapshot?.notes || "");
+          const rawLines = raw.split(/\n/).map((l) => l.trimEnd());
+          const hasAny = rawLines.some((l) => l.trim().length > 0);
+          if (!hasAny) {
+            lines.push({ type: "text", text: "(keine Notizen)" });
+          } else {
+            rawLines.forEach((l) => {
+              if (!l.trim()) return;
+              lines.push({ type: "text", text: l });
+            });
+          }
+        }
+        return lines;
       };
 
-      const captureBoardImage = async (snapshot) => {
-        const target = boardRef.current;
-        if (!target) return null;
-        applySnapshot(snapshot);
-        setCheckpointIndex(null);
-        await waitForFrame();
-        await waitForFrame();
+      const drawBauplanTextBlock = (
+        pdf,
+        lines,
+        { x, y, width, maxHeight, lineHeight = 14, paddingX = 6, paddingY = 4 }
+      ) => {
+        const startY = y;
+        const innerW = Math.max(10, width - paddingX * 2);
+        let cursorY = y;
 
-        const fullCanvas = await html2canvas(document.body, {
-          backgroundColor: PDF_BG_COLOR,
-          scale: 1,
-          useCORS: true,
-          allowTaint: true,
-          logging: false,
-          ignoreElements: (el) => el?.classList?.contains("pdf-progress-modal"),
-        });
+        const setMono = (weight = "bold", size = 11) => {
+          // jsPDF has built-in "courier". Using monospaced makes inline highlight positioning reliable.
+          pdf.setFont("courier", weight);
+          pdf.setFontSize(size);
+        };
 
-        const rect = target.getBoundingClientRect();
+        const bgForLine = (t) => {
+          const s = (t || "").trimStart();
+          if (s.startsWith("->")) return { r: 7, g: 95, b: 167 }; // turquoise
+          if (s.startsWith("+")) return { r: 47, g: 138, b: 79 }; // green
+          // Important: differentiate '-' vs '->' (handled above)
+          if (s.startsWith("-")) return { r: 163, g: 41, b: 41 }; // red
+          return { r: 7, g: 95, b: 167 };
+        };
+
+        const highlightTokens = ["(1h)", "(boost)"];
+
+        const drawLineWithInlineHighlights = (text, { bg }) => {
+          if (!text) return;
+
+          // Full-line background (only when a rule applies). Default stays the page blue.
+          if (bg) {
+            pdf.setFillColor(bg.r, bg.g, bg.b);
+            pdf.rect(x, cursorY, width, lineHeight + paddingY, "F");
+          }
+
+          // Base text
+          setMono("bold", 14);
+          pdf.setTextColor(255, 255, 255);
+          const textY = cursorY + lineHeight; // baseline
+          pdf.text(text, x + paddingX, textY);
+
+          // Inline yellow backgrounds for tokens (apply even if line has colored bg)
+          // We'll paint yellow rects on top of the line bg and then redraw the token text.
+          setMono("bold", 14);
+          const baseX = x + paddingX;
+          const baseYTop = cursorY + 2;
+          const rectH = lineHeight + 1;
+
+          for (const token of highlightTokens) {
+            let fromIndex = 0;
+            while (true) {
+              const pos = text.indexOf(token, fromIndex);
+              if (pos === -1) break;
+              const before = text.slice(0, pos);
+              const tok = token;
+              const wBefore = pdf.getTextWidth(before);
+              const wTok = pdf.getTextWidth(tok);
+              pdf.setFillColor(184, 134, 11); // yellow
+              pdf.rect(baseX + wBefore - 1, baseYTop, wTok + 2, rectH, "F");
+              // Redraw token text (keep white as requested)
+              pdf.setTextColor(255, 255, 255);
+              pdf.text(tok, baseX + wBefore, textY);
+              fromIndex = pos + tok.length;
+            }
+          }
+
+          cursorY += lineHeight + paddingY;
+        };
+
+        // Iterate structured lines
+        for (const ln of lines || []) {
+          if (cursorY - startY > maxHeight - lineHeight * 1.5) {
+            // Overflow indicator
+            pdf.setTextColor(255, 255, 255);
+            setMono("normal", 11);
+            pdf.text("…", x + paddingX, cursorY + lineHeight);
+            cursorY += lineHeight;
+            break;
+          }
+
+          if (ln.type === "sep") {
+            pdf.setDrawColor(240, 244, 255);
+            pdf.setLineWidth(0.5);
+            pdf.line(x, cursorY + 6, x + width, cursorY + 6);
+            cursorY += 10;
+            continue;
+          }
+
+          if (ln.type === "title") {
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(11);
+            pdf.setTextColor(240, 244, 255);
+            pdf.text(ln.text || "", x + paddingX, cursorY + lineHeight);
+            cursorY += lineHeight + paddingY;
+            continue;
+          }
+
+          // Text line: apply prefix-based backgrounds and wrap.
+          const text = ln.text || "";
+          const bg = bgForLine(text);
+
+          setMono("normal", 11);
+          const wrapped = pdf.splitTextToSize(text, innerW);
+          wrapped.forEach((w) => drawLineWithInlineHighlights(w, { bg }));
+        }
+
+        return cursorY - startY;
+      };
+
+      const cropCanvasToDataUrl = async (fullCanvas, rect) => {
         const cropCanvas = document.createElement("canvas");
-        const cropWidth = Math.max(1, Math.round(rect.width));
-        const cropHeight = Math.max(1, Math.round(rect.height));
+        const scale = fullCanvas.width / document.body.scrollWidth;
+        const cropWidth = Math.max(1, Math.floor(rect.width * scale));
+        const cropHeight = Math.max(1, Math.floor(rect.height * scale));
         cropCanvas.width = cropWidth;
         cropCanvas.height = cropHeight;
-
         const ctx = cropCanvas.getContext("2d");
-        const offsetX = rect.left + window.scrollX;
-        const offsetY = rect.top + window.scrollY;
+
+        const offsetX = (rect.left + window.scrollX) * scale;
+        const offsetY = (rect.top + window.scrollY) * scale;
 
         ctx.drawImage(
           fullCanvas,
           offsetX,
           offsetY,
-          rect.width,
-          rect.height,
+          rect.width * scale,
+          rect.height * scale,
           0,
           0,
           cropWidth,
@@ -494,44 +699,146 @@ function App() {
         );
 
         return {
-          url: cropCanvas.toDataURL("image/jpeg", 0.9),
-          width: cropCanvas.width,
-          height: cropCanvas.height,
+          dataUrl: cropCanvas.toDataURL("image/png"),
+          width: cropWidth,
+          height: cropHeight,
         };
       };
 
-      const capturedGroups = [];
-      for (const group of grouped) {
-        const total = group.items.length;
-        const capturedItems = [];
-        for (let i = 0; i < group.items.length; i += 1) {
-          const cp = group.items[i];
-          const part = i + 1;
-          const notesHtml = formatNotesHtml(cp?.snapshot?.notes || "");
-          const [notesImg, boardImg] = await Promise.all([
-            renderNotesImage(notesHtml, part, total),
-            captureBoardImage(cp.snapshot),
-          ]);
-          capturedItems.push({
-            part,
-            total,
-            notesImg,
-            boardImg,
-          });
-          setPdfProgress((prev) =>
-            prev
-              ? { ...prev, current: Math.min(prev.current + 1, prev.total) }
-              : prev
-          );
-        }
-        capturedGroups.push({
-          timeStep: group.timeStep,
-          label: timeLabel(group.timeStep),
-          items: capturedItems,
-        });
-      }
+      const cropElementCanvasToDataUrl = (
+        elementCanvas,
+        rectWithinEl,
+        elementRect
+      ) => {
+        const cropCanvas = document.createElement("canvas");
+        const scale = elementCanvas.width / Math.max(1, elementRect.width);
+        const cropWidth = Math.max(1, Math.floor(rectWithinEl.width * scale));
+        const cropHeight = Math.max(1, Math.floor(rectWithinEl.height * scale));
+        cropCanvas.width = cropWidth;
+        cropCanvas.height = cropHeight;
+        const ctx = cropCanvas.getContext("2d");
 
-      //const headerHeight = 40;
+        const offsetX = rectWithinEl.left * scale;
+        const offsetY = rectWithinEl.top * scale;
+
+        ctx.drawImage(
+          elementCanvas,
+          offsetX,
+          offsetY,
+          rectWithinEl.width * scale,
+          rectWithinEl.height * scale,
+          0,
+          0,
+          cropWidth,
+          cropHeight
+        );
+
+        return {
+          dataUrl: cropCanvas.toDataURL("image/png"),
+          width: cropWidth,
+          height: cropHeight,
+        };
+      };
+
+      const captureBoardImage = async (snapshot) => {
+        const target = boardRef.current;
+        if (!target) return null;
+
+        flushSync(() => {
+          applySnapshot(snapshot);
+          setCheckpointIndex(null);
+        });
+
+        await waitForBoardReady(target);
+
+        // Ensure the PDF progress modal (and its backdrop) never gets captured.
+        const shouldIgnore = (el) =>
+          !!(
+            el?.classList?.contains("pdf-progress-modal") ||
+            el?.closest?.(".pdf-progress-modal")
+          );
+
+        const fullCanvas = await html2canvas(document.body, {
+          backgroundColor: PDF_BG_COLOR,
+          scale: 1,
+          useCORS: true,
+          cacheBust: false,
+          imageTimeout: 0,
+          allowTaint: true,
+          logging: false,
+          ignoreElements: shouldIgnore,
+        });
+
+        return cropCanvasToDataUrl(fullCanvas, target.getBoundingClientRect());
+      };
+
+      // Capture only the first 5 "columns" of the TopBar: Resources, Goods, Units, Boosts, Happiness.
+      const captureTopBarFiveCols = async (
+        snapshot,
+        { withFullHarvest } = {}
+      ) => {
+        const root =
+          topBarRef.current || document.querySelector("header.topbar");
+        const header = root?.querySelector
+          ? root.querySelector("header.topbar") || root
+          : root;
+
+        if (!header) return null;
+
+        flushSync(() => {
+          applySnapshot(snapshot);
+          setCheckpointIndex(null);
+        });
+        await waitForBoardReady(header);
+
+        if (withFullHarvest) {
+          flushSync(() => {
+            // Use explicit overrides so the harvest matches the just-applied snapshot
+            // even if React has not re-rendered yet.
+            harvestFullForPdf?.(snapshot?.layout, snapshot?.buildLocks);
+          });
+          await waitForBoardReady(header);
+        }
+
+        const children = Array.from(header.children || []);
+        const targets = children.slice(0, 5).filter(Boolean);
+        if (!targets.length) return null;
+
+        const rects = targets.map((el) => el.getBoundingClientRect());
+        const rect = {
+          left: Math.min(...rects.map((r) => r.left)),
+          top: Math.min(...rects.map((r) => r.top)),
+          width:
+            Math.max(...rects.map((r) => r.right)) -
+            Math.min(...rects.map((r) => r.left)),
+          height:
+            Math.max(...rects.map((r) => r.bottom)) -
+            Math.min(...rects.map((r) => r.top)),
+        };
+
+        const headerRect = header.getBoundingClientRect();
+
+        const headerCanvas = await html2canvas(header, {
+          backgroundColor: PDF_BG_COLOR,
+          scale: 1,
+          useCORS: true,
+          cacheBust: false,
+          imageTimeout: 0,
+          allowTaint: true,
+          logging: false,
+        });
+
+        const relRect = {
+          left: rect.left - headerRect.left,
+          top: rect.top - headerRect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+
+        return cropElementCanvasToDataUrl(headerCanvas, relRect, headerRect);
+      };
+
+      await preloadTopBarAssets();
 
       const pdf = new jsPDF({
         orientation: "landscape",
@@ -540,109 +847,170 @@ function App() {
       });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
+
+      const contentStartY = headerHeight + margin;
+      const contentHeight = pageHeight - headerHeight - margin * 2;
+
+      const leftX = margin;
+      const leftW = leftColumnWidth;
+
+      const rightX = margin + leftW + columnGap;
+      const rightW = pageWidth - rightX - margin;
+
       let firstPage = true;
 
-      capturedGroups.forEach((group) => {
-        for (let i = 0; i < group.items.length; i += 2) {
-          const slice = group.items.slice(i, i + 2);
-          if (!firstPage) {
-            pdf.addPage("a4", "landscape");
-          }
-          firstPage = false;
+      // Base snapshot for Schritt 1 "nach der Ernte" (no prior checkpoint).
+      const baseSnapshot = buildSnapshotFromState(buildInitialState());
 
-          // full page background: lighter theme blue (#132f4c)
-          pdf.setFillColor(19, 47, 76); // rgb of #132f4c
-          pdf.rect(0, 0, pageWidth, pageHeight, "F");
+      let prevForHarvestSnapshot = null;
 
-          // header bar: darker blue (#0f1e30)
-          pdf.setFillColor(15, 30, 48); // rgb of #0f1e30
-          pdf.rect(0, 0, pageWidth, headerHeight, "F");
+      for (let g = 0; g < grouped.length; g++) {
+        const group = grouped[g];
+        const step = group.timeStep;
+        const parts = group.items.length;
+        const lastCp = group.items[parts - 1];
 
-          // title in header
-          pdf.setFont("helvetica", "bold");
-          pdf.setFontSize(18);
-          pdf.setTextColor(243, 246, 251); // #f3f6fb
-          // baseline a bit below top of bar
-          pdf.text(group.label, margin, headerHeight - 12);
+        const harvestSourceSnapshot = prevForHarvestSnapshot ?? baseSnapshot;
 
-          // layout math: content area starts below header + margin
-          const availableHeight =
-            pageHeight -
-            margin * 2 -
-            headerHeight -
-            (slice.length === 2 ? rowGap : 0);
+        // Capture Ressourcen nach der Ernte
+        const resAfterHarvestImg = await captureTopBarFiveCols(
+          harvestSourceSnapshot,
+          { withFullHarvest: !!prevForHarvestSnapshot } // only harvest if there was a prior checkpoint
+        );
 
-          const slotHeight =
-            slice.length === 2 ? availableHeight / 2 : availableHeight;
+        // Capture boards for partial checkpoints, and build combined Bauplan notes as PDF text.
+        const boardImgs = [];
+        const bauplanLines = buildBauplanLines(group.items);
 
-          const contentStartY = headerHeight + margin;
-
-          const boardMaxWidth = pageWidth - margin * 2 - notesWidth - columnGap;
-
-          slice.forEach((item, idx) => {
-            const slotY =
-              contentStartY +
-              (slice.length === 2 ? idx * (slotHeight + rowGap) : 0);
-
-            const noteScaled = scaleToFit(
-              item.notesImg?.width || 1,
-              item.notesImg?.height || 1,
-              notesWidth,
-              slotHeight
-            );
-            const boardScaled = scaleToFit(
-              item.boardImg?.width || 1,
-              item.boardImg?.height || 1,
-              boardMaxWidth,
-              slotHeight
-            );
-            const contentHeight = Math.max(noteScaled.h, boardScaled.h);
-            const offsetY = slotY + (slotHeight - contentHeight) / 2;
-
-            // NEW: clearer subtitle
-            if (item.total > 1) {
-              pdf.setFont("helvetica", "bold");
-              pdf.setFontSize(12);
-              pdf.setTextColor(243, 246, 251); // white
-              const subtitleY = offsetY - 6; // a bit above the notes card
-              pdf.text(
-                `Teil ${item.part} von ${item.total}`,
-                margin,
-                subtitleY
-              );
-            }
-
-            if (item.notesImg) {
-              pdf.addImage(
-                item.notesImg.url,
-                "JPEG",
-                margin,
-                offsetY,
-                noteScaled.w,
-                noteScaled.h
-              );
-            }
-            if (item.boardImg) {
-              pdf.addImage(
-                item.boardImg.url,
-                "JPEG",
-                notesWidth + columnGap + margin,
-                offsetY,
-                boardScaled.w,
-                boardScaled.h
-              );
-            }
-          });
+        for (let i = 0; i < group.items.length; i += 1) {
+          const cp = group.items[i];
+          const boardImg = await captureBoardImage(cp.snapshot);
+          boardImgs.push(boardImg);
+          setPdfProgress((p) =>
+            p ? { ...p, current: Math.min(p.total, p.current + 1) } : p
+          );
         }
-      });
 
-      pdf.save(`${loadName}.pdf`);
+        // Capture Ressourcen nach dem Bau (TopBar of last partial checkpoint)
+        const resAfterBuildImg = await captureTopBarFiveCols(lastCp.snapshot, {
+          withFullHarvest: false,
+        });
+
+        // Prepare next iteration: the next step's harvest is based on the last partial of THIS step.
+        prevForHarvestSnapshot = lastCp.snapshot;
+
+        if (!firstPage) {
+          pdf.addPage("a4", "landscape");
+        }
+        firstPage = false;
+
+        // Background
+        pdf.setFillColor(19, 47, 76);
+        pdf.rect(0, 0, pageWidth, pageHeight, "F");
+
+        // Header bar
+        pdf.setFillColor(15, 30, 48);
+        pdf.rect(0, 0, pageWidth, headerHeight, "F");
+
+        // Header text
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(18);
+        pdf.setTextColor(243, 246, 251);
+        pdf.text(timeLabel(step), margin, headerHeight - 12);
+
+        // Left column layout
+        let yLeft = contentStartY;
+
+        const drawSectionTitle = (title) => {
+          pdf.setFont("helvetica", "bold");
+          pdf.setFontSize(15);
+          pdf.setTextColor(243, 246, 251);
+          pdf.text(title, leftX, yLeft + 12);
+          yLeft += 16;
+        };
+
+        const drawImageFitWidth = (img, maxHeight = null) => {
+          if (!img) return 0;
+          const scale = leftW / img.width;
+          let h = img.height * scale;
+          let w = leftW;
+          if (maxHeight !== null && h > maxHeight) {
+            const s2 = maxHeight / h;
+            h = maxHeight;
+            w = w * s2;
+          }
+          const x = leftX + (leftW - w) / 2;
+          pdf.addImage(img.dataUrl, "PNG", x, yLeft, w, h);
+          yLeft += h;
+          return h;
+        };
+
+        // Compute how much space to allocate to notes (whatever remains between the two topbars)
+        // First, estimate topbar heights after width-fit.
+        const estTopH = (img) => (img ? img.height * (leftW / img.width) : 0);
+
+        const labelsH = 16 * 3; // three section titles
+        const gapsH = leftRowGap * 2;
+        const topbarsH =
+          estTopH(resAfterHarvestImg) + estTopH(resAfterBuildImg);
+        const notesAvailable = contentHeight - labelsH - gapsH - topbarsH;
+
+        drawSectionTitle("Ressourcen nach der Ernte");
+        drawImageFitWidth(resAfterHarvestImg);
+        yLeft += leftRowGap;
+
+        drawSectionTitle("Bauplan");
+        // Draw Bauplan as real PDF text with conditional backgrounds.
+        const usedNotesH = drawBauplanTextBlock(pdf, bauplanLines, {
+          x: leftX,
+          y: yLeft,
+          width: leftW,
+          maxHeight: Math.max(40, notesAvailable),
+        });
+        yLeft += usedNotesH;
+        yLeft += leftRowGap;
+
+        drawSectionTitle("Ressourcen nach dem Bau");
+        drawImageFitWidth(resAfterBuildImg);
+
+        // Right column: partial checkpoint boards stacked vertically
+        const nBoards = boardImgs.length;
+        if (nBoards > 0) {
+          const totalGaps = rightGap * (nBoards - 1);
+          const slotH = (contentHeight - totalGaps) / nBoards;
+          let yRight = contentStartY;
+
+          for (let i = 0; i < nBoards; i += 1) {
+            const img = boardImgs[i];
+            if (!img) {
+              yRight += slotH + rightGap;
+              continue;
+            }
+            const scale = Math.min(rightW / img.width, slotH / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            const x = rightX + (rightW - w) / 2;
+            const y = yRight + (slotH - h) / 2;
+            pdf.addImage(img.dataUrl, "PNG", x, y, w, h);
+
+            yRight += slotH + rightGap;
+          }
+        }
+      }
+
+      pdf.save(`QI_${loadName}_export.pdf`);
     } catch (e) {
       console.error("PDF Export fehlgeschlagen", e);
+      alert("PDF Export fehlgeschlagen. Details in der Konsole.");
     } finally {
-      applySnapshot(prevSnapshot);
-      setTimeStep(prevTime);
-      setCheckpointIndex(prevIndex);
+      try {
+        flushSync(() => {
+          applySnapshot(prevSnapshot);
+          setCheckpointIndex(prevIndex);
+        });
+      } catch {
+        // ignore
+      }
       resumeCheckpointTracking();
       body.classList.remove("print-mode");
       setPdfProgress(null);
@@ -718,25 +1086,27 @@ function App() {
       />
 
       <div className="content-column">
-        <TopBar
-          resources={resources}
-          stats={stats}
-          happyInfo={happyInfo}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          adminMode={adminMode}
-          onToggleAdmin={handleToggleInfinite}
-          useShortNames={useShortNames}
-          setUseShortNames={setUseShortNames}
-          onOpenConfig={() => setConfigModal(true)}
-          onOpenHelp={() => setHelpModal(true)}
-          boardScale={boardScale}
-          setBoardScale={setBoardScale}
-          onEditResource={handleEditResource}
-          onEditGood={handleEditGood}
-          onEditUnit={handleEditUnit}
-          editingLocked={editingLocked}
-        />
+        <div ref={topBarRef}>
+          <TopBar
+            resources={resources}
+            stats={stats}
+            happyInfo={happyInfo}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            adminMode={adminMode}
+            onToggleAdmin={handleToggleInfinite}
+            useShortNames={useShortNames}
+            setUseShortNames={setUseShortNames}
+            onOpenConfig={() => setConfigModal(true)}
+            onOpenHelp={() => setHelpModal(true)}
+            boardScale={boardScale}
+            setBoardScale={setBoardScale}
+            onEditResource={handleEditResource}
+            onEditGood={handleEditGood}
+            onEditUnit={handleEditUnit}
+            editingLocked={editingLocked}
+          />
+        </div>{" "}
         <div className="workspace">
           <div className="board-area">
             <Board
