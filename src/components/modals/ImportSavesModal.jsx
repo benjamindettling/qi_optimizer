@@ -9,6 +9,7 @@ const parseFile = async (file) => {
     name: entry.name || `import-${idx + 1}`,
     snapshot: entry.snapshot,
     checkpoints: entry.checkpoints ?? [],
+    meta: entry.meta ?? {},
     selected: true,
     editing: false,
   }));
@@ -70,6 +71,7 @@ export function ImportSavesModal({ open, onClose, onImport }) {
         name: e.name,
         snapshot: e.snapshot,
         checkpoints: e.checkpoints ?? [],
+        meta: e.meta ?? {},
       }));
     onImport?.(selectedEntries);
   };

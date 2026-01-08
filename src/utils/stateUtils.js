@@ -18,14 +18,6 @@ export const serializeState = (state) => ({
   nextId: state.nextId,
   readyMap: { ...(state.readyMap ?? {}) },
   selectedCategory: state.selectedCategory,
-  infiniteResources: state.infiniteResources ?? false,
-  infiniteBackup: state.infiniteBackup
-    ? {
-        ...state.infiniteBackup,
-        goods: { ...(state.infiniteBackup.goods ?? {}) },
-        units: { ...(state.infiniteBackup.units ?? {}) },
-      }
-    : null,
   notes: state.notes ?? "",
   buildLocks: { ...(state.buildLocks ?? {}) },
   selectedIds: Array.from(state.selectedIds ?? []),

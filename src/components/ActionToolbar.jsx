@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDropdownMenu } from "../hooks/useDropdownMenu";
+import { useStorageEstimate } from "../hooks/useStorageEstimate";
 import {
   ArrowLeft,
   ArrowRight,
@@ -7,6 +8,8 @@ import {
   Move,
   Plus,
   Trash2,
+  Undo,
+  Redo,
 } from "lucide-react";
 
 export const NOTE_RULES = [
@@ -16,6 +19,8 @@ export const NOTE_RULES = [
   { regex: /\(1h\)/g, className: "notes-yellow" },
   { regex: /\(boost\)/g, className: "notes-yellow" },
 ];
+
+const EXTRA_TOOLS_STORAGE_KEY = "qi_extraToolsCollapsed";
 
 const applyRuleToLineHtml = (lineHtml, rule) => {
   if (!lineHtml) return lineHtml;
@@ -65,6 +70,40 @@ export const formatNotesHtml = (text) => {
   return merged || '<span class="notes-placeholder">Fuege Notizen hinzu</span>';
 };
 
+function StorageInfoInline() {
+  const { supported, usage, quota, indexedDB, percent, formatBytes } =
+    useStorageEstimate({ intervalMs: 30 });
+
+  if (!supported) {
+    return (
+      <div style={{ fontSize: 13, opacity: 0.8 }}>
+        Storage info not available in this browser.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ fontSize: 13, lineHeight: 1.4 }}>
+      <div>
+        <strong>Speicher benutzt:</strong> {formatBytes(usage)}
+      </div>
+      <div>
+        <strong>Freier Speicher:</strong> {formatBytes(quota)}
+      </div>
+      {indexedDB != null && (
+        <div>
+          <strong>IndexedDB used:</strong> {formatBytes(indexedDB)}
+        </div>
+      )}
+      {percent != null && (
+        <div>
+          <strong>Verwendet:</strong> {percent.toFixed(1)}%
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ActionToolbar({
   moveMode,
   sellMode,
@@ -79,7 +118,9 @@ export function ActionToolbar({
   harvestIsPartial = false,
   onSave,
   onLoad,
-  saves,
+  saves = {},
+  snapshots = [],
+  selectedSnapshotName = null,
   loadName,
   setLoadName,
   toolbarOffset = 0,
@@ -95,6 +136,10 @@ export function ActionToolbar({
   onOpenExport,
   onOpenImport,
   onExportPdf,
+  onCreateSnapshot,
+  onLoadSnapshot,
+  onSnapshotBack,
+  onSnapshotForward,
   timeStep,
   canTimeBack,
   canTimeForward,
@@ -115,7 +160,10 @@ export function ActionToolbar({
   const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
   const stepLabel = `Schritt ${stepVal}, ${dayNames[dayIndex]} ${period}`;
 
-  const saveKeys = Object.keys(saves).sort((a, b) => a.localeCompare(b));
+  const saveKeys = Object.entries(saves || {})
+    .filter(([, entry]) => !entry?.meta?.isSnapshot)
+    .map(([name]) => name)
+    .sort((a, b) => a.localeCompare(b));
   const {
     ref: saveMenuRef,
     isOpen: isSaveMenuOpen,
@@ -196,6 +244,35 @@ export function ActionToolbar({
   useEffect(() => {
     resizeNotes();
   }, [notes]);
+
+  const selectedSnapshotIdx = snapshots.findIndex(
+    (s) => s.name === selectedSnapshotName
+  );
+  const canSnapshotBack = selectedSnapshotIdx > 0;
+  const canSnapshotForward =
+    selectedSnapshotIdx >= 0 && selectedSnapshotIdx < snapshots.length - 1;
+
+  const [extraToolsCollapsed, setExtraToolsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = localStorage.getItem(EXTRA_TOOLS_STORAGE_KEY);
+      if (raw === "true") return true;
+      if (raw === "false") return false;
+    } catch {}
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        EXTRA_TOOLS_STORAGE_KEY,
+        extraToolsCollapsed ? "true" : "false"
+      );
+    } catch (e) {
+      console.error("Failed to persist extra tools toggle", e);
+    }
+  }, [extraToolsCollapsed]);
 
   return (
     <div className="actions-column">
@@ -301,6 +378,25 @@ export function ActionToolbar({
           </div>
         </>
       )}
+
+      <div className="actions-row">
+        <button
+          className="action-button"
+          onClick={onSnapshotBack}
+          disabled={!canSnapshotBack}
+          title="Vorherigen Snapshot laden"
+        >
+          <Undo />
+        </button>
+        <button
+          className="action-button"
+          onClick={onSnapshotForward}
+          disabled={!canSnapshotForward}
+          title="Naechsten Snapshot laden"
+        >
+          <Redo />
+        </button>
+      </div>
 
       <div className="actions-row">
         <button
@@ -419,45 +515,98 @@ export function ActionToolbar({
           />
         </div>
       </div>
-      <button
-        onClick={onToggleRefund}
-        className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
-        title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
-      >
-        Volle Erstattung
-      </button>
       <div className="actions-row">
+        <span>
+          <b>Weitere Tools:</b>
+        </span>
         <button
-          className={`mode-button select ${selectMode ? "active-mode" : ""}`}
-          onClick={onToggleSelectMode}
-          title="Markiere Geb\u00e4ude rot, ohne sie zu \u00e4ndern"
+          className="action-button"
+          onClick={() => setExtraToolsCollapsed((prev) => !prev)}
+          title={
+            extraToolsCollapsed
+              ? "Weitere Tools einblenden"
+              : "Weitere Tools ausblenden"
+          }
         >
-          <span>Select</span>
-          <label className="select-auto">
-            <input
-              type="checkbox"
-              checked={autoSelectNew}
-              onClick={(e) => e.stopPropagation()}
-              onChange={() => onToggleAutoSelectNew?.()}
-              title="Neue Geb\u00e4ude automatisch markieren"
-            />
-          </label>
-        </button>
-        <button
-          className="action-button print"
-          onClick={onPrintBoard}
-          title="Screenshot des aktuellen Aufbaus herunterladen"
-        >
-          Print
+          {extraToolsCollapsed ? "Einblenden" : "Ausblenden"}
         </button>
       </div>
-      <button
-        className="action-button worst"
-        onClick={onFindWorst}
-        title="Berechne, welche Wohn-/Produktionsgeb\u00e4ude beim Entfernen den h\u00f6chsten Ertrag \u00fcbrig lassen"
-      >
-        Finde schlechtestes
-      </button>
+      {!extraToolsCollapsed && (
+        <>
+          <button
+            onClick={onToggleRefund}
+            className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
+            title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
+          >
+            Volle Erstattung
+          </button>
+          <div className="actions-row">
+            <button
+              className={`mode-button select ${
+                selectMode ? "active-mode" : ""
+              }`}
+              onClick={onToggleSelectMode}
+              title="Markiere Geb\u00e4ude rot, ohne sie zu \u00e4ndern"
+            >
+              <span>Select</span>
+              <label className="select-auto">
+                <input
+                  type="checkbox"
+                  checked={autoSelectNew}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => onToggleAutoSelectNew?.()}
+                  title="Neue Geb\u00e4ude automatisch markieren"
+                />
+              </label>
+            </button>
+            <button
+              className="action-button print"
+              onClick={onPrintBoard}
+              title="Screenshot des aktuellen Aufbaus herunterladen"
+            >
+              Print
+            </button>
+          </div>
+          <button
+            className="action-button worst"
+            onClick={onFindWorst}
+            title="Berechne, welche Wohn-/Produktionsgeb\u00e4ude beim Entfernen den h\u00f6chsten Ertrag \u00fcbrig lassen"
+          >
+            Finde schlechtestes
+          </button>
+          {/*
+          <div className="actions-row snapshot-row">
+            <button
+              className="action-button snapshot"
+              onClick={() => onCreateSnapshot?.()}
+              title="Versteckten Snapshot des aktuellen Aufbaus speichern"
+            >
+              Snapshot
+            </button>
+            
+            <div className="snapshot-list">
+              {snapshots.length === 0 ? (
+                <span className="snapshot-empty">Keine Snapshots</span>
+              ) : (
+                snapshots.map((snap) => (
+                  <button
+                    type="button"
+                    key={snap.name}
+                    className={`snapshot-pill ${
+                      snap.name === selectedSnapshotName ? "selected" : ""
+                    }`}
+                    onClick={() => onLoadSnapshot?.(snap.name)}
+                    title={snap.label}
+                  >
+                    {snap.index ?? "?"}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          */}
+        </>
+      )}
     </div>
   );
 }

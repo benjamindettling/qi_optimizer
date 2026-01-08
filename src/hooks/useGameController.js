@@ -62,6 +62,7 @@ const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
 const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
 const INFINITE_STORAGE_KEY = "qi_infiniteResources";
 const SHORTNAME_STORAGE_KEY = "qi_useShortNames";
+const SNAPSHOT_LIMIT = BigInt;
 
 // Primary controller that exposes all state and actions for the app.
 export const useGameController = () => {
@@ -130,9 +131,6 @@ export const useGameController = () => {
     } catch {}
     return initialState.infiniteResources;
   });
-  const [infiniteBackup, setInfiniteBackup] = useState(
-    initialState.infiniteBackup
-  );
   const [carried, setCarried] = useState(initialState.carried);
   const [moveSnapshot, setMoveSnapshot] = useState(initialState.moveSnapshot);
   const [harvestModal, setHarvestModal] = useState(initialState.harvestModal);
@@ -307,11 +305,43 @@ export const useGameController = () => {
     saves,
     loadName,
     setLoadName,
+    savesLoaded,
     setAllSaves,
     saveSnapshot,
     loadSnapshot,
     deleteSave,
   } = useSaves();
+  const visibleSaves = useMemo(() => {
+    const next = {};
+    Object.entries(saves || {}).forEach(([name, entry]) => {
+      if (entry?.meta?.isSnapshot) return;
+      next[name] = entry;
+    });
+    return next;
+  }, [saves]);
+  const snapshots = useMemo(() => {
+    const raw = Object.entries(saves || {})
+      .filter(([, entry]) => entry?.meta?.isSnapshot)
+      .map(([name, entry]) => ({ name, meta: entry.meta || {} }));
+    const sorted = [...raw].sort((a, b) => {
+      const ai = a.meta.snapshotIndex ?? 0;
+      const bi = b.meta.snapshotIndex ?? 0;
+      if (ai && bi && ai !== bi) return ai - bi;
+      const ac = a.meta.createdAt || "";
+      const bc = b.meta.createdAt || "";
+      if (ac && bc && ac !== bc) return ac.localeCompare(bc);
+      return a.name.localeCompare(b.name);
+    });
+    return sorted.map((entry, idx) => {
+      const index = entry.meta.snapshotIndex ?? idx;
+      const label = entry.meta.label || `Snapshot ${index}`;
+      const log = entry.meta.log || "";
+      return { name: entry.name, index, label, log };
+    });
+  }, [saves]);
+  const initialSnapshotMadeRef = useRef(false);
+  const [selectedSnapshotName, setSelectedSnapshotName] = useState(null);
+  const [activeSnapshotName, setActiveSnapshotName] = useState(null);
 
   useEffect(() => {
     if (!townhallDef) return;
@@ -403,8 +433,11 @@ export const useGameController = () => {
     ? libraryMap[selectedBuildingId]
     : null;
 
+  const lastStatusRef = useRef("");
+
   const updateStatus = useCallback((msg) => {
     setStatus(msg);
+    lastStatusRef.current = msg || "";
   }, []);
 
   // Capture a serializable snapshot of the current game state.
@@ -424,8 +457,6 @@ export const useGameController = () => {
         refundMode,
         boostMode,
         selectedCategory,
-        infiniteResources,
-        infiniteBackup,
         notes,
         timeStep,
         loadName,
@@ -445,8 +476,6 @@ export const useGameController = () => {
       sellMode,
       refundMode,
       selectedCategory,
-      infiniteResources,
-      infiniteBackup,
       notes,
       timeStep,
       selectedIds,
@@ -474,8 +503,6 @@ export const useGameController = () => {
         setTimeStep,
         setLoadName,
         setNotes,
-        setInfiniteResources,
-        setInfiniteBackup,
         setSelectedIds,
         nextIdRef: nextId,
         townhallDef,
@@ -494,9 +521,8 @@ export const useGameController = () => {
       setRefundMode,
       setSelectedCategory,
       setTimeStep,
+      setLoadName,
       setNotes,
-      setInfiniteResources,
-      setInfiniteBackup,
       setSelectedIds,
       townhallDef,
     ]
@@ -551,6 +577,21 @@ export const useGameController = () => {
     timeStep,
   ]);
 
+  const [pendingAutoSnapshot, setPendingAutoSnapshot] = useState(null);
+
+  const requestAutoSnapshot = useCallback(
+    (options = {}) => {
+      const { waitForCheckpoint = true } = options;
+      const tailUid = checkpoints[checkpoints.length - 1]?.uid ?? null;
+      setPendingAutoSnapshot({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        waitForCheckpoint,
+        tailUid,
+      });
+    },
+    [checkpoints]
+  );
+
   const handleAddCheckpointPart = useCallback(() => {
     suppressNextCheckpoint(2);
     setNotes("");
@@ -558,6 +599,7 @@ export const useGameController = () => {
     setSelectedBuildingId(null);
     setTimeout(() => {
       addCheckpointPart();
+      requestAutoSnapshot();
     }, 0);
   }, [
     suppressNextCheckpoint,
@@ -565,6 +607,7 @@ export const useGameController = () => {
     setSelectedIds,
     setSelectedBuildingId,
     addCheckpointPart,
+    requestAutoSnapshot,
   ]);
 
   const handleToggleInfinite = useCallback(
@@ -644,6 +687,68 @@ export const useGameController = () => {
     [resources, editingLocked, infiniteResources, updateStatus]
   );
 
+  const handleSetGoodsUnlocks = useCallback(
+    (nextIdx) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      const idxRaw = Number(nextIdx);
+      if (!Number.isFinite(idxRaw)) return;
+      const maxIdx = REGION_GOODS_COSTS.length - 1;
+      const prevIdx = Math.min(Math.max(goodsUnlocks ?? 0, 0), maxIdx);
+      const clampedIdx = Math.min(Math.max(idxRaw, 0), maxIdx);
+      if (clampedIdx === prevIdx) return;
+      const prevCost = REGION_GOODS_COSTS[prevIdx];
+      const nextCost = REGION_GOODS_COSTS[clampedIdx];
+      setGoodsUnlocks(clampedIdx);
+      updateStatus(
+        `naechste Region: ${formatNumber(prevCost)} -> ${formatNumber(
+          nextCost
+        )} Gueter`
+      );
+      requestAutoSnapshot();
+    },
+    [
+      editingLocked,
+      goodsUnlocks,
+      setGoodsUnlocks,
+      updateStatus,
+      requestAutoSnapshot,
+    ]
+  );
+
+  const handleSetShardUnlocks = useCallback(
+    (nextIdx) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      const idxRaw = Number(nextIdx);
+      if (!Number.isFinite(idxRaw)) return;
+      const maxIdx = REGION_SHARD_COSTS.length - 1;
+      const prevIdx = Math.min(Math.max(shardUnlocks ?? 0, 0), maxIdx);
+      const clampedIdx = Math.min(Math.max(idxRaw, 0), maxIdx);
+      if (clampedIdx === prevIdx) return;
+      const prevCost = REGION_SHARD_COSTS[prevIdx];
+      const nextCost = REGION_SHARD_COSTS[clampedIdx];
+      setShardUnlocks(clampedIdx);
+      updateStatus(
+        `naechste Region: ${formatNumber(prevCost)} -> ${formatNumber(
+          nextCost
+        )} Scherben`
+      );
+      requestAutoSnapshot();
+    },
+    [
+      editingLocked,
+      shardUnlocks,
+      setShardUnlocks,
+      updateStatus,
+      requestAutoSnapshot,
+    ]
+  );
+
   const applyGoodEdit = useCallback((amount, applyAll = false) => {
     if (!editGoodModal?.goodKey && !applyAll) return;
     const nextVal = Math.max(0, Math.floor(Number(amount) || 0));
@@ -666,6 +771,7 @@ export const useGameController = () => {
     });
     updateStatus(label);
     setEditGoodModal(null);
+    requestAutoSnapshot();
   });
 
   const cancelEditGood = useCallback(() => {
@@ -702,8 +808,16 @@ export const useGameController = () => {
       setResources((prev) => ({ ...prev, [editResourceModal.key]: nextVal }));
       updateStatus(label);
       setEditResourceModal(null);
+      requestAutoSnapshot();
     },
-    [branchFromPast, editResourceModal, resources, setResources, updateStatus]
+    [
+      branchFromPast,
+      editResourceModal,
+      resources,
+      setResources,
+      updateStatus,
+      requestAutoSnapshot,
+    ]
   );
 
   const cancelEditResource = useCallback(() => {
@@ -727,11 +841,11 @@ export const useGameController = () => {
           [editUnitModal.unitKey]: nextVal,
         },
       }));
-
       updateStatus(label);
       setEditUnitModal(null);
+      requestAutoSnapshot();
     },
-    [editUnitModal, resources, setResources, updateStatus]
+    [editUnitModal, resources, setResources, updateStatus, requestAutoSnapshot]
   );
 
   const cancelEditUnit = useCallback(() => {
@@ -793,21 +907,187 @@ export const useGameController = () => {
     ]
   );
 
+  const handleTakeSnapshot = useCallback(() => {
+    const orderedSnapshots = snapshots;
+    const activeIdx =
+      activeSnapshotName &&
+      orderedSnapshots.some((snap) => snap.name === activeSnapshotName)
+        ? orderedSnapshots.findIndex((snap) => snap.name === activeSnapshotName)
+        : -1;
+    const deleteNames = new Set(
+      activeIdx >= 0 && activeIdx < orderedSnapshots.length - 1
+        ? orderedSnapshots.slice(activeIdx + 1).map((snap) => snap.name)
+        : []
+    );
+    const remainingSnapshots = orderedSnapshots.filter(
+      (snap) => !deleteNames.has(snap.name)
+    );
+    const maxIndex = remainingSnapshots.reduce(
+      (max, entry) => Math.max(max, entry.index ?? -1),
+      -1
+    );
+    let index = maxIndex + 1;
+    let snapshotName = `__snapshot_${index}`;
+
+    const totalAfterAdd = remainingSnapshots.length + 1;
+    if (totalAfterAdd > SNAPSHOT_LIMIT) {
+      const removeCount = totalAfterAdd - SNAPSHOT_LIMIT;
+      remainingSnapshots.slice(0, removeCount).forEach((snap) => {
+        deleteNames.add(snap.name);
+      });
+    }
+
+    while (saves[snapshotName] && !deleteNames.has(snapshotName)) {
+      index += 1;
+      snapshotName = `__snapshot_${index}`;
+    }
+    snapshots
+      .filter((snap) => (snap.index ?? -1) > index)
+      .forEach((snap) => {
+        deleteNames.add(snap.name);
+      });
+    deleteNames.delete(snapshotName);
+
+    const namesToDelete = Array.from(deleteNames);
+    if (namesToDelete.length > 0) {
+      setAllSaves((prev) => {
+        const next = { ...prev };
+        for (const name of namesToDelete) {
+          delete next[name];
+        }
+        return next;
+      });
+    }
+
+    const label = `Snapshot ${index}`;
+
+    // Current UI state
+    const snapshot = buildSnapshot();
+
+    // Use the last checkpoint snapshot as the “base” snapshot, as before
+    const latestCp = checkpoints[checkpoints.length - 1];
+    const snapshotForSave = latestCp?.snapshot ?? snapshot;
+    const stepForSave = latestCp?.timeStep ?? timeStep ?? 1;
+
+    // Build the checkpoint list to save
+    const rawCheckpointsForSave = makeCheckpointsForSave(
+      snapshotForSave,
+      stepForSave
+    );
+
+    // If we are editing a past checkpoint, ensure the checkpoint at checkpointIndex
+    // in the saved list actually reflects the current state (snapshot).
+    const patchedCheckpointsForSave =
+      isPast && checkpointIndex !== null
+        ? rawCheckpointsForSave.map((cp, idx) =>
+            idx === checkpointIndex
+              ? {
+                  ...cp,
+                  snapshot,
+                  // keep existing timeStep or fall back to current one
+                  timeStep: cp.timeStep ?? stepForSave,
+                }
+              : cp
+          )
+        : rawCheckpointsForSave;
+
+    const checkpointsForSave = patchedCheckpointsForSave.map((cp) => ({
+      ...cp,
+      snapshot: { ...(cp.snapshot ?? {}), loadName: snapshotName },
+    }));
+
+    saveSnapshot(snapshotName, {
+      snapshot: { ...snapshotForSave, loadName: snapshotName },
+      checkpoints: checkpointsForSave,
+      meta: {
+        isSnapshot: true,
+        snapshotIndex: index,
+        createdAt: new Date().toISOString(),
+        label,
+        log: lastStatusRef.current || "",
+      },
+    });
+
+    setSelectedSnapshotName(snapshotName);
+    setActiveSnapshotName(snapshotName);
+    //updateStatus(`${label} gespeichert`);
+  }, [
+    snapshots,
+    activeSnapshotName,
+    saves,
+    deleteSave,
+    buildSnapshot,
+    checkpoints,
+    timeStep,
+    makeCheckpointsForSave,
+    checkpointIndex,
+    isPast,
+    saveSnapshot,
+  ]);
+
+  useEffect(() => {
+    if (!savesLoaded) return;
+    if (initialSnapshotMadeRef.current) return;
+    initialSnapshotMadeRef.current = true;
+    handleTakeSnapshot();
+  }, [handleTakeSnapshot, savesLoaded]);
+
+  useEffect(() => {
+    if (!savesLoaded) return;
+    if (!snapshots.length) {
+      setSelectedSnapshotName(null);
+      return;
+    }
+    const exists = snapshots.some((s) => s.name === selectedSnapshotName);
+    if (!exists) {
+      setSelectedSnapshotName(snapshots[0].name);
+    }
+  }, [snapshots, selectedSnapshotName, savesLoaded]);
+
   // Load a named snapshot and clear transient UI state.
   const handleLoadState = useCallback(
-    (name) => {
+    (name, options = {}) => {
       if (!name) return;
       const saved = loadSnapshot(name);
       const snap = saved?.snapshot ?? saved;
       if (!snap) return;
-      const label = `Load ${name}`;
-      applySnapshot(snap);
+      const isSnapshot = !!saved?.meta?.isSnapshot;
+      const snapIdx = saved?.meta?.snapshotIndex;
+      const logText = saved?.meta?.log;
+      const label =
+        options.statusOverride ??
+        (isSnapshot
+          ? logText
+            ? `Snapshot '${logText}'`
+            : snapIdx
+            ? `Snapshot ${snapIdx} geladen`
+            : "Snapshot geladen"
+          : `Load ${name}`);
+      const snapshotToApply = isSnapshot ? { ...snap } : snap;
+      if (isSnapshot && snapshotToApply.loadName !== undefined) {
+        delete snapshotToApply.loadName;
+      }
+      applySnapshot(snapshotToApply);
       applyLoadedCheckpoints(saved?.checkpoints ?? [], 1, snap?.timeStep ?? 1);
       setCarried(null);
       setMoveSnapshot(null);
-      setMoveMode(false);
-      setLoadName(name);
+      if (isSnapshot) {
+        setMoveMode(false);
+        setSellMode(false);
+        setRefundMode(false);
+        setBoostMode(false);
+        setSelectedBuildingId(null);
+        setSelectedSnapshotName(name);
+        setActiveSnapshotName(name);
+      } else {
+        setMoveMode(false);
+        setLoadName(name);
+        setActiveSnapshotName(null);
+      }
       updateStatus(label);
+      if (options.createSnapshot && !isSnapshot) {
+        requestAutoSnapshot({ waitForCheckpoint: false });
+      }
     },
     [
       applySnapshot,
@@ -816,6 +1096,13 @@ export const useGameController = () => {
       setLoadName,
       applyLoadedCheckpoints,
       buildSnapshot,
+      setSelectedBuildingId,
+      setSellMode,
+      setRefundMode,
+      setBoostMode,
+      setMoveMode,
+      requestAutoSnapshot,
+      setActiveSnapshotName,
     ]
   );
 
@@ -831,7 +1118,8 @@ export const useGameController = () => {
     enableEditFromPast();
     updateStatus("Bearbeitung aktiviert. Zukuenftige Checkpoints entfernt.");
     setPastEditModal(false);
-  }, [enableEditFromPast, updateStatus]);
+    requestAutoSnapshot();
+  }, [enableEditFromPast, updateStatus, requestAutoSnapshot]);
 
   const handleCopyAndEnableEdit = useCallback(() => {
     const base = (loadName || "").trim();
@@ -843,7 +1131,10 @@ export const useGameController = () => {
     }
     const snapshot = buildSnapshot();
     const latestCp = checkpoints[checkpoints.length - 1];
-    const snapshotForSave = latestCp?.snapshot ?? snapshot;
+    const snapshotForSave =
+      isPast && checkpointIndex !== null
+        ? snapshot
+        : latestCp?.snapshot ?? snapshot;
     const stepForSave = latestCp?.timeStep ?? timeStep ?? 1;
     const checkpointsForSave = makeCheckpointsForSave(
       snapshotForSave,
@@ -997,6 +1288,10 @@ export const useGameController = () => {
         setExportModal(false);
         return;
       }
+
+      const stripSignatures = (checkpoints = []) =>
+        (checkpoints || []).map(({ signature, ...rest }) => rest);
+
       const payload = {
         version: 1,
         savedAt: new Date().toISOString(),
@@ -1005,7 +1300,8 @@ export const useGameController = () => {
           .map((name) => ({
             name,
             snapshot: saves[name].snapshot,
-            checkpoints: saves[name].checkpoints ?? [],
+            checkpoints: stripSignatures(saves[name].checkpoints),
+            meta: saves[name].meta ?? {},
           })),
       };
       const now = new Date();
@@ -1042,6 +1338,7 @@ export const useGameController = () => {
             next[entry.name] = {
               snapshot: entry.snapshot,
               checkpoints: entry.checkpoints ?? [],
+              meta: entry.meta ?? {},
             };
           }
         });
@@ -1200,6 +1497,9 @@ export const useGameController = () => {
         setUnlockGoodSelect(null);
         return;
       }
+
+      let didUnlock = false;
+
       if (method === "goods") {
         if (goodsUnlocks >= REGION_GOODS_COSTS.length - 1) {
           updateStatus("Keine weiteren Gueter-Erweiterungen verfuegbar.");
@@ -1244,6 +1544,7 @@ export const useGameController = () => {
           prev.map((val, i) => (i === idx ? true : val))
         );
         updateStatus(label);
+        didUnlock = true;
       } else {
         if (
           !infiniteResources &&
@@ -1266,10 +1567,15 @@ export const useGameController = () => {
           prev.map((val, i) => (i === idx ? true : val))
         );
         updateStatus(label);
+        didUnlock = true;
       }
       setFastBuyTarget(null);
       setUnlockChoice(null);
       setUnlockGoodSelect(null);
+
+      if (didUnlock) {
+        requestAutoSnapshot({ waitForCheckpoint: false });
+      }
     },
     [
       applyAdjustGoods,
@@ -1345,6 +1651,7 @@ export const useGameController = () => {
         return next;
       });
       updateStatus("Admin: +1 Region");
+      requestAutoSnapshot({ waitForCheckpoint: false });
     },
     [
       debugRegions,
@@ -1353,6 +1660,7 @@ export const useGameController = () => {
       buildSnapshot,
       setUnlockedRegions,
       updateStatus,
+      requestAutoSnapshot,
     ]
   );
 
@@ -1378,6 +1686,7 @@ export const useGameController = () => {
         return next;
       });
       updateStatus("Admin: -1 Region");
+      requestAutoSnapshot({ waitForCheckpoint: false });
     },
     [
       debugRegions,
@@ -1386,6 +1695,7 @@ export const useGameController = () => {
       buildSnapshot,
       setUnlockedRegions,
       updateStatus,
+      requestAutoSnapshot,
     ]
   );
 
@@ -1643,6 +1953,7 @@ export const useGameController = () => {
     updateStatus(label);
     setSelectedIds(new Set());
     setSelectedBuildingId(null);
+    requestAutoSnapshot();
   }, [
     buildSnapshot,
     layout,
@@ -1705,6 +2016,7 @@ export const useGameController = () => {
       setSelectedIds(new Set());
       setSelectedBuildingId(null);
     }
+    requestAutoSnapshot();
   }, [
     layout,
     readyMap,
@@ -1756,20 +2068,37 @@ export const useGameController = () => {
     return () => clearTimeout(timer);
   }, [notes, isPast, overwriteCheckpointAtIndex, buildSnapshot]);
 
-  // Selection helpers.
-  const toggleSelectId = useCallback((id) => {
-    if (editingLocked) {
-      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
-      return;
+  useEffect(() => {
+    if (!pendingAutoSnapshot) return;
+    if (carried) return; // move/swap not completed yet
+
+    if (pendingAutoSnapshot.waitForCheckpoint) {
+      const currentTailUid = checkpoints[checkpoints.length - 1]?.uid ?? null;
+      if (currentTailUid === pendingAutoSnapshot.tailUid) return; // wait for checkpoint update
     }
-    if (!id) return;
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+
+    setPendingAutoSnapshot(null);
+    handleTakeSnapshot();
+  }, [pendingAutoSnapshot, carried, checkpoints, handleTakeSnapshot]);
+
+  // Selection helpers.
+  const toggleSelectId = useCallback(
+    (id) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (!id) return;
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      });
+      requestAutoSnapshot();
+    },
+    [editingLocked, updateStatus, requestAutoSnapshot]
+  );
 
   const clearSelection = useCallback(() => {
     if (editingLocked) {
@@ -1784,7 +2113,7 @@ export const useGameController = () => {
     (x, y) => {
       const target = findTargetInstance(layout, x, y);
       if (carried) {
-        dropCarried({
+        const dropResult = dropCarried({
           carried,
           x,
           y,
@@ -1799,6 +2128,9 @@ export const useGameController = () => {
           setMoveMode,
           updateStatus,
         });
+        if (dropResult?.ok && dropResult?.done) {
+          requestAutoSnapshot({ waitForCheckpoint: false });
+        }
         return;
       }
 
@@ -1833,6 +2165,7 @@ export const useGameController = () => {
             overwriteCheckpointAtIndex(buildSnapshot());
           }, 0);
         }
+        requestAutoSnapshot();
         return;
       }
 
@@ -1852,6 +2185,7 @@ export const useGameController = () => {
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
           updateStatus(`Boosted ${def.name}`);
         }
+        requestAutoSnapshot();
         return;
       }
 
@@ -1909,6 +2243,7 @@ export const useGameController = () => {
             overwriteCheckpointAtIndex(buildSnapshot());
           }, 0);
         }
+        requestAutoSnapshot();
         return;
       }
 
@@ -1942,6 +2277,7 @@ export const useGameController = () => {
         readyMap[target.id] === true
       ) {
         harvestBuildings([target], "Geerntet", true);
+        requestAutoSnapshot();
         return;
       }
 
@@ -1991,6 +2327,7 @@ export const useGameController = () => {
       buildLocks,
       findTargetInstance,
       autoSelectNew,
+      handleTakeSnapshot,
     ]
   );
 
@@ -2029,9 +2366,9 @@ export const useGameController = () => {
     setAutoSelectNew,
     unlockedRegions,
     goodsUnlocks,
-    setGoodsUnlocks,
     shardUnlocks,
-    setShardUnlocks,
+    setGoodsUnlocks: handleSetGoodsUnlocks,
+    setShardUnlocks: handleSetShardUnlocks,
     goodsModal,
     setGoodsModal,
     unitModal,
@@ -2061,6 +2398,8 @@ export const useGameController = () => {
     refundMode,
     boostMode,
     saves,
+    visibleSaves,
+    snapshots,
     loadName,
     setLoadName,
     harvestModal,
@@ -2102,6 +2441,7 @@ export const useGameController = () => {
     confirmHarvest,
     cancelHarvest,
     handleSaveState,
+    handleTakeSnapshot,
     handleLoadState,
     deleteSave,
     worstModal,
@@ -2175,5 +2515,7 @@ export const useGameController = () => {
     setEditUnitModal,
     applyUnitEdit,
     cancelEditUnit,
+    selectedSnapshotName,
+    setSelectedSnapshotName,
   };
 };

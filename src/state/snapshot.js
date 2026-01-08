@@ -15,8 +15,6 @@ export const buildSnapshot = (state) =>
     refundMode: state.refundMode,
     boostMode: state.boostMode,
     selectedCategory: state.selectedCategory,
-    infiniteResources: state.infiniteResources,
-    infiniteBackup: state.infiniteBackup,
     notes: state.notes,
     selectedIds: Array.from(state.selectedIds ?? []),
     timeStep: state.timeStep,
@@ -39,8 +37,6 @@ export const applySnapshot = (snapshot, setters) => {
     setSelectedCategory,
     setTimeStep,
     setNotes,
-    setInfiniteResources,
-    setInfiniteBackup,
     setBuildLocks,
     setSelectedIds,
     setSelectedBuildingId,
@@ -52,9 +48,12 @@ export const applySnapshot = (snapshot, setters) => {
   setResources(snapshot.resources);
   setLayout(snapshot.layout);
   setUnlockedRegions(snapshot.unlockedRegions);
-  if (snapshot.goodsUnlocks !== undefined) setGoodsUnlocks(snapshot.goodsUnlocks);
-  if (snapshot.shardUnlocks !== undefined) setShardUnlocks(snapshot.shardUnlocks);
-  if (snapshot.nextId !== undefined && nextIdRef) nextIdRef.current = snapshot.nextId;
+  if (snapshot.goodsUnlocks !== undefined)
+    setGoodsUnlocks(snapshot.goodsUnlocks);
+  if (snapshot.shardUnlocks !== undefined)
+    setShardUnlocks(snapshot.shardUnlocks);
+  if (snapshot.nextId !== undefined && nextIdRef)
+    nextIdRef.current = snapshot.nextId;
   if (snapshot.readyMap) setReadyMap(snapshot.readyMap);
   if (setMoveMode) setMoveMode(!!snapshot.moveMode);
   if (setSellMode) setSellMode(!!snapshot.sellMode);
@@ -67,12 +66,6 @@ export const applySnapshot = (snapshot, setters) => {
   }
   if (setLoadName && snapshot.loadName !== undefined) {
     setLoadName(snapshot.loadName ?? "");
-  }
-  if (setInfiniteResources && snapshot.infiniteResources !== undefined) {
-    setInfiniteResources(snapshot.infiniteResources);
-  }
-  if (setInfiniteBackup !== undefined) {
-    setInfiniteBackup(snapshot.infiniteBackup ?? null);
   }
   if (setBuildLocks) {
     setBuildLocks(snapshot.buildLocks ?? {});

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 
 export function ExportSavesModal({ open, saves = {}, onClose, onExport }) {
-  const names = Object.keys(saves);
+  const names = Object.entries(saves || {})
+    .filter(([, entry]) => !entry?.meta?.isSnapshot)
+    .map(([name]) => name);
   const [selected, setSelected] = useState(new Set());
 
   useEffect(() => {

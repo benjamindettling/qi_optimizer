@@ -51,7 +51,7 @@ export const dropCarried = ({
   );
   if (!areaOk) {
     updateStatus("Cannot place here.");
-    return;
+    return { ok: false, done: false, swapped: carriedSwapped };
   }
 
   if (overlap) {
@@ -65,25 +65,36 @@ export const dropCarried = ({
         width: def.width,
         height: def.height,
       };
+      // layout stays an ARRAY
       return [...filtered, placed];
     });
+
+    // Still carry the swapped-out building
     setCarried({
       instance: { ...overlap },
       def: libraryMap[overlap.defId],
       swapped: true,
     });
+
     setReadyMap((prev) => ({
       ...prev,
       [carried.instance.id]:
         carried.instance.ready ?? prev[carried.instance.id] ?? false,
       [overlap.id]: prev[overlap.id] ?? false,
     }));
+
     setBuildLocks((prev) => ({
       ...prev,
       [carried.instance.id]:
         carried.instance.locked ?? prev[carried.instance.id] ?? false,
       [overlap.id]: prev[overlap.id] ?? false,
     }));
+
+    const label = "Swapped Buildings";
+    updateStatus(label);
+
+    // IMPORTANT: the move is NOT finished, we still carry a building
+    return { ok: true, done: false, swapped: true, label };
   } else {
     setLayout((prev) => [
       ...prev,
@@ -105,12 +116,13 @@ export const dropCarried = ({
       [carried.instance.id]:
         carried.instance.locked ?? prev[carried.instance.id] ?? false,
     }));
-  const label = carriedSwapped
-    ? "Swapped Buildings"
-    : `Moved ${def?.name ?? "Gebaeude"}`;
-  updateStatus(label);
-  setCarried(null);
-}
+    const label = carriedSwapped
+      ? "Swapped Buildings"
+      : `Moved ${def?.name ?? "Gebaeude"}`;
+    updateStatus(label);
+    setCarried(null);
+    return { ok: true, done: true, swapped: carriedSwapped, label };
+  }
 };
 
 export const handleSaleOrRefund = ({

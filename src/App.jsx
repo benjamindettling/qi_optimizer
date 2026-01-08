@@ -70,6 +70,8 @@ function App() {
     refundMode,
     boostMode,
     saves,
+    visibleSaves,
+    snapshots,
     loadName,
     setLoadName,
     harvestModal,
@@ -110,6 +112,7 @@ function App() {
     confirmHarvest,
     cancelHarvest,
     handleSaveState,
+    handleTakeSnapshot,
     handleLoadState,
     deleteSave,
     handleGoodsPurchase,
@@ -177,6 +180,8 @@ function App() {
     applySnapshot,
     pauseCheckpointTracking,
     resumeCheckpointTracking,
+    selectedSnapshotName,
+    setSelectedSnapshotName,
   } = useGameController();
 
   const adminMode = infiniteResources;
@@ -644,6 +649,44 @@ function App() {
     }
   };
 
+  const findSnapshotByName = (name) =>
+    snapshots.find((s) => s.name === name) || null;
+
+  const buildSnapshotStatus = (prefix, logText) => {
+    if (prefix && logText) return `${prefix} '${logText}'`;
+    if (prefix) return prefix;
+    if (logText) return `Snapshot '${logText}'`;
+    return undefined;
+  };
+
+  const handleLoadSnapshot = (name, statusOverride) => {
+    if (!name) return;
+    setSelectMode(false);
+    setSelectedSnapshotName(name);
+    handleLoadState(name, { statusOverride });
+  };
+  const selectedSnapshotIdx = snapshots.findIndex(
+    (s) => s.name === selectedSnapshotName
+  );
+  const handleSnapshotBack = () => {
+    if (selectedSnapshotIdx > 0) {
+      const prev = snapshots[selectedSnapshotIdx - 1];
+      const after = snapshots[selectedSnapshotIdx];
+      const statusOverride = buildSnapshotStatus("Zurueck", after?.log);
+      if (prev) handleLoadSnapshot(prev.name, statusOverride);
+    }
+  };
+  const handleSnapshotForward = () => {
+    if (
+      selectedSnapshotIdx >= 0 &&
+      selectedSnapshotIdx < snapshots.length - 1
+    ) {
+      const next = snapshots[selectedSnapshotIdx + 1];
+      const statusOverride = buildSnapshotStatus("Vorwaerts", next?.log);
+      if (next) handleLoadSnapshot(next.name, statusOverride);
+    }
+  };
+
   return (
     <div className="page layout-row">
       <ShopSidebar
@@ -723,10 +766,7 @@ function App() {
             />
             {status && <div className="status">{status}</div>}
             {carried && (
-              <div className="carry-banner">
-                Carrying {carried.def.name} - place, swap, or trash. Press Esc
-                to cancel.
-              </div>
+              <div className="carry-banner">Carrying {carried.def.name}</div>
             )}
           </div>
           <ActionToolbar
@@ -754,8 +794,14 @@ function App() {
             boostMode={boostMode}
             harvestAll={harvestAll}
             onSave={handleSaveState}
-            onLoad={handleLoadState}
-            saves={saves}
+            onLoad={(name) => handleLoadState(name, { createSnapshot: true })}
+            saves={visibleSaves}
+            snapshots={snapshots}
+            onCreateSnapshot={handleTakeSnapshot}
+            onLoadSnapshot={handleLoadSnapshot}
+            selectedSnapshotName={selectedSnapshotName}
+            onSnapshotBack={handleSnapshotBack}
+            onSnapshotForward={handleSnapshotForward}
             loadName={loadName}
             setLoadName={setLoadName}
             notes={notes}
@@ -883,7 +929,7 @@ function App() {
       />
       <ExportSavesModal
         open={!!exportModal}
-        saves={saves}
+        saves={visibleSaves}
         onClose={() => setExportModal(false)}
         onExport={handleExportSelected}
       />
