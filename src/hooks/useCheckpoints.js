@@ -249,6 +249,21 @@ export const useCheckpoints = ({
     [normalizeCheckpoints, setTimeStep]
   );
 
+  const updateCheckpoints = useCallback(
+    (updater) => {
+      if (typeof updater !== "function") return;
+      setCheckpoints((prev) => {
+        const next = updater(prev);
+        if (!Array.isArray(next)) return prev;
+        return next.map((cp) => ({
+          ...cp,
+          signature: makeSignature(cp.snapshot),
+        }));
+      });
+    },
+    [makeSignature]
+  );
+
   const makeCheckpointsForSave = useCallback(
     (snapshot, tStep) => {
       const stepVal = tStep ?? timeStep ?? 1;
@@ -311,6 +326,7 @@ export const useCheckpoints = ({
     branchFromPast,
     trimFutureCheckpoints,
     applyLoadedCheckpoints,
+    updateCheckpoints,
     makeCheckpointsForSave,
     overwriteCheckpointAtIndex,
     addCheckpointPart,

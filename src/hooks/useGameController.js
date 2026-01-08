@@ -543,6 +543,7 @@ export const useGameController = () => {
     branchFromPast,
     trimFutureCheckpoints,
     applyLoadedCheckpoints,
+    updateCheckpoints,
     makeCheckpointsForSave,
     addCheckpointPart,
     currentPart,
@@ -2112,6 +2113,50 @@ export const useGameController = () => {
     [updateStatus]
   );
 
+  const applyStartBonusToCheckpoints = useCallback(
+    (coinsDelta, suppliesDelta) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      const coins = Number(coinsDelta ?? 0) || 0;
+      const supplies = Number(suppliesDelta ?? 0) || 0;
+      updateCheckpoints((prev) =>
+        (prev || []).map((cp) => {
+          const snapshot = cp.snapshot ?? {};
+          const resourcesSnapshot = snapshot.resources ?? {};
+          return {
+            ...cp,
+            snapshot: {
+              ...snapshot,
+              resources: {
+                ...resourcesSnapshot,
+                coins: (resourcesSnapshot.coins ?? 0) + coins,
+                supplies: (resourcesSnapshot.supplies ?? 0) + supplies,
+                goods: { ...(resourcesSnapshot.goods ?? {}) },
+                units: { ...(resourcesSnapshot.units ?? {}) },
+              },
+            },
+          };
+        })
+      );
+      setResources((prev) => ({
+        ...prev,
+        coins: (prev.coins ?? 0) + coins,
+        supplies: (prev.supplies ?? 0) + supplies,
+      }));
+      updateStatus("Fügte Startboni auf alle Checkpoints hinzu");
+      requestAutoSnapshot({ waitForCheckpoint: false });
+    },
+    [
+      editingLocked,
+      requestAutoSnapshot,
+      setResources,
+      updateCheckpoints,
+      updateStatus,
+    ]
+  );
+
   // Persist note edits when viewing past checkpoints after state flushes.
   useEffect(() => {
     if (!isPast) return;
@@ -2559,6 +2604,7 @@ export const useGameController = () => {
     setConfigModal,
     config,
     updateConfig,
+    applyStartBonusToCheckpoints,
     applyGoodEdit,
     cancelEditGood,
     editResourceModal,

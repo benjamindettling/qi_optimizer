@@ -3,7 +3,13 @@ import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import qaIcon from "/quantum_actions.webp";
 
-export function ConfigModal({ open, onClose, config, onSave }) {
+export function ConfigModal({
+  open,
+  onClose,
+  config,
+  onSave,
+  onApplyStartBonus,
+}) {
   const [draft, setDraft] = useState(config);
 
   useEffect(() => {
@@ -19,6 +25,12 @@ export function ConfigModal({ open, onClose, config, onSave }) {
   const handleSave = () => {
     onSave(draft);
     onClose();
+  };
+
+  const handleApplyStartBonus = () => {
+    const coins = Number(draft.extraCoins ?? 0) || 0;
+    const supplies = Number(draft.extraSupplies ?? 0) || 0;
+    onApplyStartBonus?.(coins, supplies);
   };
 
   const numberProps = {
@@ -118,11 +130,22 @@ export function ConfigModal({ open, onClose, config, onSave }) {
           </label>
         </div>
         <div className="config-footer">
-          <span>
-            QA Einstellungen greifen sofort; alle uebrigen Aenderungen werden
-            beim naechsten Neuladen aktiv.
-          </span>
           <div className="config-actions">
+            <button onClick={handleApplyStartBonus}>
+              <span>+Extra Start</span>
+              <img
+                src={moneyIcon}
+                alt="coins"
+                className="inline-icon"
+              />
+              <span>/</span>
+              <img
+                src={suppliesIcon}
+                alt="supplies"
+                className="inline-icon"
+              />
+              <span>auf alle Schritte</span>
+            </button>
             <button onClick={handleSave}>Speichern</button>
             <button onClick={onClose}>Abbrechen</button>
           </div>

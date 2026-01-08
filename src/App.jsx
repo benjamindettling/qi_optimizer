@@ -146,6 +146,7 @@ function App() {
     setConfigModal,
     config,
     updateConfig,
+    applyStartBonusToCheckpoints,
     editGoodModal,
     applyGoodEdit,
     cancelEditGood,
@@ -1296,6 +1297,7 @@ function App() {
         onClose={() => setConfigModal(false)}
         config={config}
         onSave={updateConfig}
+        onApplyStartBonus={applyStartBonusToCheckpoints}
       />
       <ExportSavesModal
         open={!!exportModal}
