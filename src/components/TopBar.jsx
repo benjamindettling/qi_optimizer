@@ -254,7 +254,7 @@ export function TopBar({
                     <span
                       className="happy-delta"
                       style={{
-                        color: row.delta < 0 ? "#6de38f" : "#ff7676",
+                        color: row.delta <= 0 ? "#6de38f" : "#ff7676",
                       }}
                     >
                       {row.delta > 0 ? "+" : row.delta < 0 ? "-" : ""}
@@ -321,10 +321,7 @@ export function TopBar({
               />
               Admin
             </label>
-            <label
-              className="infinite-toggle"
-              title="Gebaeudenamen abkuerzen"
-            >
+            <label className="infinite-toggle" title="Gebaeudenamen abkuerzen">
               <input
                 type="checkbox"
                 disabled={editingLocked}

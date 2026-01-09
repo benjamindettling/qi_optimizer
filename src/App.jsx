@@ -493,7 +493,7 @@ function App() {
     };
 
     try {
-      const PDF_BG_COLOR = "#132f4c";
+      const PDF_BG_COLOR = "#132f4c"; //background title
       const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
         import("jspdf"),
         import("html2canvas"),
@@ -906,17 +906,18 @@ function App() {
         firstPage = false;
 
         // Background
-        pdf.setFillColor(19, 47, 76);
+        pdf.setFillColor(13, 27, 42);
+
         pdf.rect(0, 0, pageWidth, pageHeight, "F");
 
         // Header bar
-        pdf.setFillColor(15, 30, 48);
+        pdf.setFillColor(16, 37, 60);
         pdf.rect(0, 0, pageWidth, headerHeight, "F");
 
         // Header text
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(18);
-        pdf.setTextColor(243, 246, 251);
+        pdf.setTextColor(255, 255, 255);
         pdf.text(timeLabel(step), margin, headerHeight - 12);
 
         // Left column layout
