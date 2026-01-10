@@ -1,5 +1,4 @@
 import military from "../data/military.json";
-
 export const REGION_SIZE = 4;
 export const REGION_COLS = 7;
 export const REGION_ROWS = 7;
@@ -13,10 +12,36 @@ export const BOARD_SCALE_MIN = 0.6;
 export const BOARD_SCALE_MAX = 1.4;
 export const BOARD_SCALE_DEFAULT = 1.0;
 export const REGION_GOODS_COSTS = [
-  30, 60, 90, 130, 180, 240, 310, 390, 480, 580, 700,
+  30,
+  60,
+  90,
+  130,
+  180,
+  240,
+  310,
+  390,
+  480,
+  580,
+  700,
+  Infinity,
 ];
 export const REGION_SHARD_COSTS = [
-  100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800,
+  100,
+  150,
+  200,
+  250,
+  300,
+  350,
+  400,
+  450,
+  500,
+  550,
+  600,
+  650,
+  700,
+  750,
+  800,
+  Infinity,
 ];
 export const GOODS_TYPES = [
   "Kupfer",

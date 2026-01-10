@@ -1917,6 +1917,7 @@ export const useGameController = () => {
       setFastBuyModal(null);
       setFastBuyTarget(null);
       updateStatus(label);
+      requestAutoSnapshot({ waitForCheckpoint: false });
     },
     [
       applyAdjustGoods,
@@ -1926,6 +1927,7 @@ export const useGameController = () => {
       fastBuyModal,
       fastBuyTarget,
       resources,
+      requestAutoSnapshot,
       updateStatus,
       infiniteResources,
     ]

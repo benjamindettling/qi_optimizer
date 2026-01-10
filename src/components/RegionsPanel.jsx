@@ -1,6 +1,17 @@
 import { REGION_GOODS_COSTS, REGION_SHARD_COSTS } from "../config/boardConfig";
 import { formatNumber } from "../utils/formatNumber";
 import { RegionBadge } from "./RegionBadge";
+import { Infinity as InfinityIcon } from "lucide-react";
+
+const isInfinityCost = (value) =>
+  value === "Infinity" || value === Infinity || value === Number.POSITIVE_INFINITY;
+
+const renderCostValue = (value) =>
+  isInfinityCost(value) ? (
+    <InfinityIcon className="inline-icon" aria-label="Infinity" title="Infinity" />
+  ) : (
+    formatNumber(value)
+  );
 
 export function RegionsPanel({
   viewMode,
@@ -59,7 +70,9 @@ export function RegionsPanel({
                 onUnlock={() => handleUnlockRegion?.(idx)}
                 debugMode={adminMode}
                 onDebugUnlock={() => adminMode && onDebugUnlockRegion?.(idx)}
-                onDebugLock={() => adminMode && onDebugLockRegion?.(idx, isBase)}
+                onDebugLock={() =>
+                  adminMode && onDebugLockRegion?.(idx, isBase)
+                }
               />
             );
           })}
@@ -70,47 +83,71 @@ export function RegionsPanel({
         Kosten skalieren mit jedem Kauf. Aktuell:{" "}
         <span className={adminMode ? "cost-debug" : ""}>
           {adminMode ? (
-            <select
-              value={goodsUnlocks}
-              onChange={(e) => {
-                const idx = Number(e.target.value);
-                if (Number.isFinite(idx) && onSetGoodsUnlocks)
-                  onSetGoodsUnlocks(idx);
-              }}
-            >
-              {REGION_GOODS_COSTS.map((cost, idx) => (
-                <option key={idx} value={idx}>
-                  {formatNumber(cost)}
-                </option>
-              ))}
-            </select>
+            <span className="cost-select">
+              <select
+                value={goodsUnlocks}
+                onChange={(e) => {
+                  const idx = Number(e.target.value);
+                  if (Number.isFinite(idx) && onSetGoodsUnlocks)
+                    onSetGoodsUnlocks(idx);
+                }}
+              >
+                {REGION_GOODS_COSTS.map((cost, idx) => (
+                  <option key={idx} value={idx}>
+                    {isInfinityCost(cost) ? "Infinity" : formatNumber(cost)}
+                  </option>
+                ))}
+              </select>
+              {isInfinityCost(currentGoodsCost) ? (
+                <>
+                  {" "}
+                  <InfinityIcon
+                    className="inline-icon"
+                    aria-label="Infinity"
+                    title="Infinity"
+                  />
+                </>
+              ) : null}
+            </span>
           ) : (
-            `${formatNumber(currentGoodsCost)} Güter`
+            <span>{renderCostValue(currentGoodsCost)} Gueter</span>
           )}
         </span>{" "}
         or{" "}
         <span className={adminMode ? "cost-debug" : ""}>
           {adminMode ? (
-            <select
-              value={shardUnlocks}
-              onChange={(e) => {
-                const idx = Number(e.target.value);
-                if (Number.isFinite(idx) && onSetShardUnlocks)
-                  onSetShardUnlocks(idx);
-              }}
-            >
-              {REGION_SHARD_COSTS.map((cost, idx) => (
-                <option key={idx} value={idx}>
-                  {formatNumber(cost)}
-                </option>
-              ))}
-            </select>
+            <span className="cost-select">
+              <select
+                value={shardUnlocks}
+                onChange={(e) => {
+                  const idx = Number(e.target.value);
+                  if (Number.isFinite(idx) && onSetShardUnlocks)
+                    onSetShardUnlocks(idx);
+                }}
+              >
+                {REGION_SHARD_COSTS.map((cost, idx) => (
+                  <option key={idx} value={idx}>
+                    {isInfinityCost(cost) ? "Infinity" : formatNumber(cost)}
+                  </option>
+                ))}
+              </select>
+              {isInfinityCost(currentShardCost) ? (
+                <>
+                  {" "}
+                  <InfinityIcon
+                    className="inline-icon"
+                    aria-label="Infinity"
+                    title="Infinity"
+                  />
+                </>
+              ) : null}
+            </span>
           ) : (
-            `${formatNumber(currentShardCost)} Scherben`
+            <span>{renderCostValue(currentShardCost)} Scherben</span>
           )}
         </span>
         . <br></br>
-        Werte ändern automatisch, oder können im Admin-Modus bearbeitet werden
+        Werte aendern automatisch, oder koennen im Admin-Modus bearbeitet werden
       </div>
     </div>
   );

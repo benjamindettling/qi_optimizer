@@ -1,5 +1,16 @@
 // src/components/modals/UnlockRegionModal.jsx
 import { formatNumber } from "../../utils/formatNumber";
+import { Infinity as InfinityIcon } from "lucide-react";
+
+const isInfinityCost = (value) =>
+  value === "Infinity" || value === Infinity || value === Number.POSITIVE_INFINITY;
+
+const renderCostValue = (value) =>
+  isInfinityCost(value) ? (
+    <InfinityIcon className="inline-icon" aria-label="Infinity" title="Infinity" />
+  ) : (
+    formatNumber(value)
+  );
 
 /**
  * Modal for choosing how to unlock a region (goods vs shards).
@@ -41,14 +52,14 @@ export function UnlockRegionModal({
             disabled={!allowGoods}
           >
             <img src={goodsIcon} alt="Goods" className="inline-icon" />
-            {formatNumber(goodsCost)}
+            {renderCostValue(goodsCost)}
           </button>
           <button
             onClick={() => onUnlockWithShards(idx)}
             disabled={!allowShards}
           >
             <img src={shardsIcon} alt="Shards" className="inline-icon" />
-            {formatNumber(shardCost)}
+            {renderCostValue(shardCost)}
           </button>
         </div>
         <div className="modal-actions">

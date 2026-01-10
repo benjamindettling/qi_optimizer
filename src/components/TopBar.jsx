@@ -321,16 +321,13 @@ export function TopBar({
               />
               Admin
             </label>
-            <label className="infinite-toggle" title="Gebaeudenamen abkuerzen">
+            <label className="infinite-toggle" title="Gebäudenamen abkürzen">
               <input
                 type="checkbox"
-                disabled={editingLocked}
                 checked={!!useShortNames}
-                onChange={(e) =>
-                  !editingLocked && setUseShortNames?.(e.target.checked)
-                }
+                onChange={(e) => setUseShortNames?.(e.target.checked)}
               />
-              Abkuerzen
+              Abkürzen
             </label>
           </div>
         </div>
