@@ -467,6 +467,21 @@ button.active {
   border-color: #0d5fa7;
 }
 
+.action-button.smart-harvest {
+  background: #1a6a85;
+  border-color: #2f85a0;
+}
+
+.action-button.smart-invest {
+  background: #1f6a4a;
+  border-color: #2f8a63;
+}
+
+.action-button.smart-invest-results {
+  background: #46556a;
+  border-color: #5b6f88;
+}
+
 .notes-card {
   display: flex;
   flex-direction: column;
@@ -1103,6 +1118,115 @@ button.active {
 .harvest-heading {
   font-weight: 700;
   color: #e9ecf1;
+}
+
+.smart-harvest-modal {
+  width: 420px;
+}
+
+.smart-harvest-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smart-harvest-log {
+  background: #132f4c;
+  border: 1px solid #1f3e63;
+  border-radius: 8px;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.smart-harvest-line {
+  color: #e9ecf1;
+  font-weight: 600;
+}
+
+.smart-harvest-empty {
+  color: #c3d2e5;
+  font-size: 12px;
+}
+
+.smart-harvest-summary {
+  font-weight: 700;
+  color: #e9ecf1;
+}
+
+.smart-invest-modal {
+  width: 460px;
+}
+
+.smart-invest-progress {
+  font-weight: 700;
+  color: #e9ecf1;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.smart-invest-inline {
+  color: #cfe2ff;
+}
+
+.smart-invest-section {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #1f3e63;
+  border-radius: 8px;
+  background: #132f4c;
+}
+
+.smart-invest-section-title {
+  font-weight: 700;
+  color: #e9ecf1;
+  margin-bottom: 4px;
+}
+
+.smart-invest-results {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.smart-invest-result {
+  text-align: left;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #355d91;
+  background: #132f4c;
+  color: #e9ecf1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.smart-invest-result:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.smart-invest-rank {
+  font-weight: 700;
+}
+
+.smart-invest-line {
+  font-size: 13px;
+}
+
+.smart-invest-error {
+  margin-bottom: 10px;
+  color: #f2c94c;
+  font-weight: 700;
+}
+
+.smart-invest-empty {
+  color: #c3d2e5;
+  font-size: 12px;
 }
 
 .warning-body {

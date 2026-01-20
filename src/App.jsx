@@ -19,6 +19,8 @@ import { GoodsPurchaseModal } from "./components/modals/GoodsPurchaseModal";
 import { UnitsPurchaseModal } from "./components/modals/UnitsPurchaseModal";
 import { FastBuyModal } from "./components/modals/FastBuyModal";
 import { HarvestModal } from "./components/modals/HarvestModal";
+import { SmartHarvestModal } from "./components/modals/SmartHarvestModal";
+import { SmartInvestModal } from "./components/modals/SmartInvestModal";
 import { HelpModal } from "./components/modals/HelpModal";
 import { ConfigModal } from "./components/modals/ConfigModal";
 import { EditGoodModal } from "./components/modals/EditGoodModal";
@@ -84,6 +86,10 @@ function App() {
     loadName,
     setLoadName,
     harvestModal,
+    smartHarvestModal,
+    smartInvestModal,
+    smartInvestResults,
+    smartInvestRunning,
     stats,
     happyInfo,
     previewOrigin,
@@ -118,6 +124,12 @@ function App() {
     toggleSelectId,
     clearSelection,
     harvestAll,
+    handleSmartHarvest,
+    handleSmartInvest,
+    openSmartInvestResults,
+    continueSmartInvest,
+    closeSmartInvestModal,
+    applySmartInvestResult,
     harvestFullForPdf,
     confirmHarvest,
     cancelHarvest,
@@ -193,6 +205,7 @@ function App() {
     resumeCheckpointTracking,
     selectedSnapshotName,
     setSelectedSnapshotName,
+    confirmSmartHarvest,
   } = useGameController();
 
   const adminMode = infiniteResources;
@@ -317,23 +330,41 @@ function App() {
         ignoreElements: shouldIgnore,
       });
 
+      const root = document.documentElement;
+      const fullWidth = Math.max(
+        root.scrollWidth,
+        body.scrollWidth,
+        root.clientWidth
+      );
+      const fullHeight = Math.max(
+        root.scrollHeight,
+        body.scrollHeight,
+        root.clientHeight
+      );
+      const scaleX = fullCanvas.width / Math.max(1, fullWidth);
+      const scaleY = fullCanvas.height / Math.max(1, fullHeight);
+
       const rect = target.getBoundingClientRect();
       const cropCanvas = document.createElement("canvas");
-      const cropWidth = Math.max(1, Math.round(rect.width * scale));
-      const cropHeight = Math.max(1, Math.round(rect.height * scale));
+      const left = (rect.left + window.scrollX) * scaleX;
+      const top = (rect.top + window.scrollY) * scaleY;
+      const right = (rect.right + window.scrollX) * scaleX;
+      const bottom = (rect.bottom + window.scrollY) * scaleY;
+      const offsetX = Math.round(left);
+      const offsetY = Math.round(top);
+      const cropWidth = Math.max(1, Math.round(right) - offsetX);
+      const cropHeight = Math.max(1, Math.round(bottom) - offsetY);
       cropCanvas.width = cropWidth;
       cropCanvas.height = cropHeight;
 
       const ctx = cropCanvas.getContext("2d");
-      const offsetX = (rect.left + window.scrollX) * scale;
-      const offsetY = (rect.top + window.scrollY) * scale;
 
       ctx.drawImage(
         fullCanvas,
         offsetX,
         offsetY,
-        rect.width * scale,
-        rect.height * scale,
+        cropWidth,
+        cropHeight,
         0,
         0,
         cropWidth,
@@ -677,22 +708,38 @@ function App() {
 
       const cropCanvasToDataUrl = async (fullCanvas, rect) => {
         const cropCanvas = document.createElement("canvas");
-        const scale = fullCanvas.width / document.body.scrollWidth;
-        const cropWidth = Math.max(1, Math.floor(rect.width * scale));
-        const cropHeight = Math.max(1, Math.floor(rect.height * scale));
+        const root = document.documentElement;
+        const bodyEl = document.body;
+        const fullWidth = Math.max(
+          root.scrollWidth,
+          bodyEl.scrollWidth,
+          root.clientWidth
+        );
+        const fullHeight = Math.max(
+          root.scrollHeight,
+          bodyEl.scrollHeight,
+          root.clientHeight
+        );
+        const scaleX = fullCanvas.width / Math.max(1, fullWidth);
+        const scaleY = fullCanvas.height / Math.max(1, fullHeight);
+        const left = (rect.left + window.scrollX) * scaleX;
+        const top = (rect.top + window.scrollY) * scaleY;
+        const right = (rect.right + window.scrollX) * scaleX;
+        const bottom = (rect.bottom + window.scrollY) * scaleY;
+        const offsetX = Math.round(left);
+        const offsetY = Math.round(top);
+        const cropWidth = Math.max(1, Math.round(right) - offsetX);
+        const cropHeight = Math.max(1, Math.round(bottom) - offsetY);
         cropCanvas.width = cropWidth;
         cropCanvas.height = cropHeight;
         const ctx = cropCanvas.getContext("2d");
-
-        const offsetX = (rect.left + window.scrollX) * scale;
-        const offsetY = (rect.top + window.scrollY) * scale;
 
         ctx.drawImage(
           fullCanvas,
           offsetX,
           offsetY,
-          rect.width * scale,
-          rect.height * scale,
+          cropWidth,
+          cropHeight,
           0,
           0,
           cropWidth,
@@ -1165,6 +1212,13 @@ function App() {
             harvestIsPartial={harvestIsPartial}
             boostMode={boostMode}
             harvestAll={harvestAll}
+            onSmartHarvest={handleSmartHarvest}
+            onSmartInvest={handleSmartInvest}
+            onOpenSmartInvestResults={openSmartInvestResults}
+            smartInvestResultsAvailable={
+              (smartInvestResults?.length ?? 0) > 0
+            }
+            smartInvestRunning={smartInvestRunning}
             onSave={handleSaveState}
             onLoad={(name) => handleLoadState(name, { createSnapshot: true })}
             saves={visibleSaves}
@@ -1255,6 +1309,16 @@ function App() {
         harvestModal={harvestModal}
         onConfirm={confirmHarvest}
         onCancel={cancelHarvest}
+      />
+      <SmartHarvestModal
+        smartHarvestModal={smartHarvestModal}
+        onConfirm={confirmSmartHarvest}
+      />
+      <SmartInvestModal
+        smartInvestModal={smartInvestModal}
+        onClose={closeSmartInvestModal}
+        onApplyResult={applySmartInvestResult}
+        onContinue={continueSmartInvest}
       />
 
       <GoodsPurchaseModal

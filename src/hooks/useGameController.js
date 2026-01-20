@@ -27,6 +27,12 @@ import {
   computeStats,
   hasPopulationForDef,
 } from "../utils/stateUtils";
+import { solveTilingMask } from "../utils/tilingSolver";
+import {
+  applyTilingSolution,
+  buildTilingGroups,
+  buildTilingMask,
+} from "../utils/tilingTranslator";
 import { isAreaFree } from "../utils/layoutUtils";
 import { useResources } from "./useResources";
 import { useRegionAccess } from "./useRegionAccess";
@@ -77,6 +83,8 @@ export const useGameController = () => {
   );
 
   const nextId = useRef(2);
+  const smartInvestRunningRef = useRef(false);
+  const smartInvestStepResolveRef = useRef(null);
   const adjustedInitialResources = useMemo(() => {
     const base = initialState.resources;
     const goodsStart = config.goodsStartBonus ?? 0;
@@ -135,6 +143,10 @@ export const useGameController = () => {
   const [carried, setCarried] = useState(initialState.carried);
   const [moveSnapshot, setMoveSnapshot] = useState(initialState.moveSnapshot);
   const [harvestModal, setHarvestModal] = useState(initialState.harvestModal);
+  const [smartHarvestModal, setSmartHarvestModal] = useState(null);
+  const [smartInvestModal, setSmartInvestModal] = useState(null);
+  const [smartInvestResults, setSmartInvestResults] = useState(null);
+  const [smartInvestRunning, setSmartInvestRunning] = useState(false);
   const [goodsModal, setGoodsModal] = useState(initialState.goodsModal);
   const [unitModal, setUnitModal] = useState(initialState.unitModal);
   const [fastBuyModal, setFastBuyModal] = useState(initialState.fastBuyModal);
@@ -1507,7 +1519,7 @@ export const useGameController = () => {
       let didUnlock = false;
 
       if (method === "goods") {
-        if (goodsUnlocks >= REGION_GOODS_COSTS.length - 1) {
+        if (goodsUnlocks >= REGION_GOODS_COSTS.length) {
           updateStatus("Keine weiteren Gueter-Erweiterungen verfuegbar.");
           return;
         }
@@ -2007,17 +2019,16 @@ export const useGameController = () => {
     });
     if (unlockedAny) setBuildLocks(buildLocksAfter);
 
-    const effectiveStats = applyConfigBoosts(
-      computeStats(layout, libraryMap)
-    );
-    const baseQa = qaBasePerHour * qaHoursPerHarvest;
-    const targets = isFullHarvest ? layout : readyOnes;
-    harvestBuildings(targets, label, false, true, {
-      statsOverride: effectiveStats,
-      buildLocksOverride: locksBefore,
-      extraQa: baseQa,
-      logStatus: false,
-    });
+    const effectiveStats = applyConfigBoosts(computeStats(layout, libraryMap));
+      const baseQa = qaBasePerHour * qaHoursPerHarvest;
+      const extraQa = isFullHarvest ? baseQa : 0;
+      const targets = isFullHarvest ? layout : readyOnes;
+      harvestBuildings(targets, label, false, true, {
+        statsOverride: effectiveStats,
+        buildLocksOverride: locksBefore,
+        extraQa,
+        logStatus: false,
+      });
     if (isFullHarvest) {
       setTimeStep((prev) => Math.min(23, prev + 1));
     }
@@ -2051,6 +2062,754 @@ export const useGameController = () => {
     setSelectedBuildingId,
   ]);
 
+  const runSmartHarvestSimulation = useCallback(
+    (input = {}) => {
+      const {
+        layout: startLayout = layout,
+        readyMap: startReadyMap = readyMap,
+        buildLocks: startBuildLocks = buildLocks,
+        resources: startResources = resources,
+        nextId: startNextId = nextId.current,
+        timeStep: startTimeStep = timeStep ?? 1,
+        mask: maskOverride = null,
+        logActions = false,
+      } = input;
+
+      const log = [];
+      const addLog = logActions ? (msg) => log.push(msg) : () => {};
+
+      const churchDef = libraryMap["culture:kirche"];
+      if (!churchDef) {
+        addLog("Abbruch: Kirche nicht gefunden.");
+        return { ok: false, log, reason: "church_missing" };
+      }
+
+      let simLayout = startLayout.map((b) => ({ ...b }));
+      let simReadyMap = { ...startReadyMap };
+      let simBuildLocks = { ...startBuildLocks };
+      let simResources = cloneResources(startResources);
+      let simNextId = startNextId;
+      let simTimeStep = startTimeStep;
+
+      const baseQa = qaBasePerHour * qaHoursPerHarvest;
+      simReadyMap = finishProductionsReadyMap(
+        simLayout,
+        libraryMap,
+        simReadyMap,
+        simBuildLocks
+      );
+      if (!infiniteResources && baseQa > 0) {
+        simResources.quantumActions =
+          (simResources.quantumActions ?? 0) + baseQa;
+      }
+      simTimeStep = Math.min(23, simTimeStep + 1);
+
+      const mask =
+        maskOverride ??
+        buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
+
+      const computeUnlockedStats = () => {
+        const active = simLayout.filter((b) => !simBuildLocks[b.id]);
+        return computeStats(active, libraryMap);
+      };
+
+      const computeHappyInfo = () => {
+        const base = computeUnlockedStats();
+        const happy = happinessTier(
+          base.happinessProvided,
+          base.happinessRequired
+        );
+        const freePop = (base.people ?? 0) - (base.peopleReq ?? 0);
+        return { base, happy, freePop };
+      };
+
+      const buildHarvestStats = (useLockedLayout = false) => {
+        const base = useLockedLayout
+          ? computeStats(simLayout, libraryMap)
+          : computeUnlockedStats();
+        return applyConfigBoosts(base);
+      };
+
+      const applyResourceDelta = (delta, sign = 1) => {
+        if (infiniteResources) return;
+        simResources.coins =
+          (simResources.coins ?? 0) + sign * (delta.coins ?? 0);
+        simResources.supplies =
+          (simResources.supplies ?? 0) + sign * (delta.supplies ?? 0);
+        simResources.chronos =
+          (simResources.chronos ?? 0) + sign * (delta.chronos ?? 0);
+      };
+
+      const simulateHarvest = (
+        instances,
+        stats,
+        options = { extraQa: 0, buildLocksOverride: null }
+      ) => {
+        if (!instances.length) return;
+        const locks = options.buildLocksOverride ?? simBuildLocks;
+        const lockedIds = [];
+        const harvestable = [];
+        const lockedCulture = [];
+        instances.forEach((inst) => {
+          if (locks[inst.id]) {
+            const def = libraryMap[inst.defId];
+            if (def?.category === "culture") {
+              lockedCulture.push(inst);
+            } else {
+              lockedIds.push(inst.id);
+            }
+          } else {
+            harvestable.push(inst);
+          }
+        });
+
+        const total =
+          harvestable.length > 0
+            ? aggregateHarvest(harvestable, libraryMap, stats, {
+                qaHoursPerHarvest,
+              })
+            : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+
+        const qaFromLockedCulture = lockedCulture.reduce(
+          (acc, inst) =>
+            acc +
+            (libraryMap[inst.defId]?.quantumActions ?? 0) * qaHoursPerHarvest,
+          0
+        );
+        total.qa =
+          (total.qa ?? 0) + qaFromLockedCulture + (options.extraQa ?? 0);
+
+        if (!infiniteResources) {
+          simResources.coins = (simResources.coins ?? 0) + (total.coins ?? 0);
+          simResources.supplies =
+            (simResources.supplies ?? 0) + (total.supplies ?? 0);
+          simResources.chronos =
+            (simResources.chronos ?? 0) + (total.chronos ?? 0);
+          simResources.quantumActions =
+            (simResources.quantumActions ?? 0) + (total.qa ?? 0);
+          simResources.goods = simResources.goods ?? {};
+          GOODS_TYPES.forEach((g) => {
+            simResources.goods[g] =
+              (simResources.goods[g] ?? 0) + (total.goods?.[g] ?? 0);
+          });
+        }
+
+        instances.forEach((inst) => {
+          simReadyMap[inst.id] = false;
+        });
+        const unlockIds = [
+          ...lockedIds,
+          ...lockedCulture.map((inst) => inst.id),
+        ];
+        unlockIds.forEach((id) => {
+          simBuildLocks[id] = false;
+        });
+      };
+
+      const ensureFreePopulation = () => {
+        const { freePop } = computeHappyInfo();
+        return freePop >= 0;
+      };
+
+      if (!ensureFreePopulation()) {
+        addLog("Abbruch: Freie Bevoelkerung unter 0.");
+        return { ok: false, log, reason: "population" };
+      }
+
+      const multiHouseDefId = "housing:mehrgeschossiges_haus";
+      const estateDefId = "housing:gutshaus";
+      const targetRatio = 1.5;
+      const maxSteps = 200;
+      let ok = false;
+      let failureReason = "";
+
+      for (let step = 0; step < maxSteps; step += 1) {
+        const { happy } = computeHappyInfo();
+        if ((happy.ratio ?? 0) >= targetRatio) {
+          ok = true;
+          break;
+        }
+
+        let placedChurch = false;
+        const canAffordChurch =
+          infiniteResources ||
+          canAffordResources(simResources, churchDef.cost);
+        if (canAffordChurch) {
+          const { groups, blocks } = buildTilingGroups(simLayout, [
+            { ...churchDef, count: 1 },
+          ]);
+          const placements = solveTilingMask(mask, blocks, { allowGaps: true });
+          if (placements) {
+            const applied = applyTilingSolution(placements, groups, simNextId);
+            if (!applied) {
+              failureReason = "Tiling konnte nicht uebertragen werden.";
+              break;
+            }
+            simLayout = applied.layout;
+            simNextId = applied.nextId;
+            applied.created.forEach((created) => {
+              simReadyMap[created.id] = false;
+              simBuildLocks[created.id] = churchDef.buildTime === 10;
+            });
+            applyResourceDelta(churchDef.cost, -1);
+            addLog("Setze Kirche");
+            placedChurch = true;
+            if (!ensureFreePopulation()) {
+              failureReason = "Freie Bevoelkerung unter 0.";
+              break;
+            }
+          }
+        }
+
+        if (placedChurch) continue;
+
+        const target =
+          simLayout.find((b) => b.defId === multiHouseDefId) ||
+          simLayout.find((b) => b.defId === estateDefId);
+        if (!target) {
+          failureReason = "Keine passenden Wohngebaeude mehr.";
+          break;
+        }
+
+        if (simReadyMap[target.id] === true) {
+          const statsForHarvest = buildHarvestStats(false);
+          simulateHarvest([target], statsForHarvest);
+        }
+
+        const refundDelta = computeSaleOrRefund(target, libraryMap, false);
+        applyResourceDelta(refundDelta, 1);
+
+        simLayout = simLayout.filter((b) => b.id !== target.id);
+        delete simReadyMap[target.id];
+        delete simBuildLocks[target.id];
+
+        addLog(`Zerstoere ${libraryMap[target.defId]?.name ?? "Wohngebaeude"}`);
+
+        if (!ensureFreePopulation()) {
+          failureReason = "Freie Bevoelkerung unter 0.";
+          break;
+        }
+      }
+
+      if (!ok) {
+        addLog(`Abbruch: ${failureReason || "Keine Loesung gefunden."}`);
+        return { ok: false, log, reason: failureReason || "no_solution" };
+      }
+
+      addLog("150% erreicht -> Ernte Rest");
+      const harvestTargets = simLayout.filter((b) => simReadyMap[b.id] === true);
+      const finalHarvestStats = buildHarvestStats(true);
+      simulateHarvest(harvestTargets, finalHarvestStats, { extraQa: baseQa });
+
+      addLog(
+        `Neuer Stand: ${formatNumber(simResources.coins ?? 0)} Muenzen, ${formatNumber(
+          simResources.supplies ?? 0
+        )} Vorraete, ${formatNumber(simResources.chronos ?? 0)} Chronos`
+      );
+
+      return {
+        ok: true,
+        log,
+        layout: simLayout,
+        readyMap: simReadyMap,
+        buildLocks: simBuildLocks,
+        resources: simResources,
+        nextId: simNextId,
+        timeStep: simTimeStep,
+      };
+    },
+    [
+      layout,
+      readyMap,
+      buildLocks,
+      resources,
+      timeStep,
+      libraryMap,
+      cloneResources,
+      qaBasePerHour,
+      qaHoursPerHarvest,
+      infiniteResources,
+      isCellUnlocked,
+      applyConfigBoosts,
+      computeStats,
+      buildTilingMask,
+      BOARD_WIDTH,
+      BOARD_HEIGHT,
+      solveTilingMask,
+      buildTilingGroups,
+      applyTilingSolution,
+      canAffordResources,
+      computeSaleOrRefund,
+      formatNumber,
+      happinessTier,
+      GOODS_TYPES,
+      aggregateHarvest,
+      finishProductionsReadyMap,
+      nextId,
+    ]
+  );
+
+  const handleSmartHarvest = useCallback(() => {
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
+    if (carried) {
+      updateStatus("Bitte zuerst das getragene Gebaeude ablegen.");
+      return;
+    }
+
+    const result = runSmartHarvestSimulation({ logActions: true });
+    if (!result.ok) {
+      setSmartHarvestModal({
+        success: false,
+        log: result.log,
+        resources: {
+          coins: resources.coins ?? 0,
+          supplies: resources.supplies ?? 0,
+          chronos: resources.chronos ?? 0,
+          quantumActions: resources.quantumActions ?? 0,
+        },
+      });
+      updateStatus("Schlaue Ernte abgebrochen.");
+      return;
+    }
+
+    trimFutureCheckpoints();
+    setCheckpointIndex(null);
+    setEditUnlocked(false);
+    branchFromPast();
+    setLayout(result.layout);
+    setResources(result.resources);
+    setReadyMap(result.readyMap);
+    setBuildLocks(result.buildLocks);
+    setTimeStep(result.timeStep);
+    nextId.current = result.nextId;
+    setSmartHarvestModal({
+      success: true,
+      log: result.log,
+      resources: {
+        coins: result.resources.coins ?? 0,
+        supplies: result.resources.supplies ?? 0,
+        chronos: result.resources.chronos ?? 0,
+        quantumActions: result.resources.quantumActions ?? 0,
+      },
+    });
+    updateStatus("Schlaue Ernte");
+    requestAutoSnapshot();
+  }, [
+    editingLocked,
+    updateStatus,
+    carried,
+    resources,
+    setCheckpointIndex,
+    setEditUnlocked,
+    trimFutureCheckpoints,
+    branchFromPast,
+    setSmartHarvestModal,
+    runSmartHarvestSimulation,
+    setResources,
+    setLayout,
+    setReadyMap,
+    setBuildLocks,
+    setTimeStep,
+    requestAutoSnapshot,
+  ]);
+
+  const handleSmartInvest = useCallback(async () => {
+    if (editingLocked) {
+      updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+      return;
+    }
+    if (carried) {
+      updateStatus("Bitte zuerst das getragene Gebaeude ablegen.");
+      return;
+    }
+    if (smartInvestRunningRef.current) {
+      updateStatus("Schlauer Invest laeuft bereits.");
+      return;
+    }
+
+    smartInvestRunningRef.current = true;
+    setSmartInvestRunning(true);
+    setSmartInvestModal({ phase: "running", churchCount: 0 });
+
+    const churchDef = libraryMap["culture:kirche"];
+    const gutDef = libraryMap["housing:gutshaus"];
+    const mehrDef = libraryMap["housing:mehrgeschossiges_haus"];
+    if (!churchDef || !gutDef || !mehrDef) {
+      const missing = [];
+      if (!churchDef) missing.push("Kirche");
+      if (!gutDef) missing.push("Gutshaus");
+      if (!mehrDef) missing.push("Mehrgeschossiges Haus");
+      const error = `Abbruch: ${missing.join(", ")} nicht gefunden.`;
+      setSmartInvestResults([]);
+      setSmartInvestModal({ phase: "results", results: [], error });
+      setSmartInvestRunning(false);
+      smartInvestRunningRef.current = false;
+      updateStatus("Schlauer Invest abgebrochen.");
+      return;
+    }
+
+    const baseLayout = layout.map((b) => ({ ...b }));
+    const baseResources = cloneResources(resources);
+    const baseReadyMap = { ...readyMap };
+    const baseBuildLocks = { ...buildLocks };
+
+    const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
+    const availableCells = mask.reduce(
+      (acc, row) => acc + row.filter(Boolean).length,
+      0
+    );
+    const existingArea = baseLayout.reduce(
+      (acc, b) => acc + (b.width ?? 0) * (b.height ?? 0),
+      0
+    );
+    const extraCells = availableCells - existingArea;
+    if (extraCells < 0) {
+      const error = "Abbruch: Layout passt nicht in die freigegebene Flaeche.";
+      setSmartInvestResults([]);
+      setSmartInvestModal({ phase: "results", results: [], error });
+      setSmartInvestRunning(false);
+      smartInvestRunningRef.current = false;
+      updateStatus("Schlauer Invest abgebrochen.");
+      return;
+    }
+
+    const sleep = () => new Promise((resolve) => setTimeout(resolve, 0));
+    const waitForContinue = () =>
+      new Promise((resolve) => {
+        smartInvestStepResolveRef.current = resolve;
+      });
+
+    const sumCost = (cost, count) => ({
+      coins: (cost?.coins ?? 0) * count,
+      supplies: (cost?.supplies ?? 0) * count,
+      chronos: (cost?.chronos ?? 0) * count,
+    });
+
+    const addCost = (a, b) => ({
+      coins: (a?.coins ?? 0) + (b?.coins ?? 0),
+      supplies: (a?.supplies ?? 0) + (b?.supplies ?? 0),
+      chronos: (a?.chronos ?? 0) + (b?.chronos ?? 0),
+    });
+
+    const subtractResources = (base, cost) => {
+      const next = cloneResources(base);
+      next.coins = (next.coins ?? 0) - (cost?.coins ?? 0);
+      next.supplies = (next.supplies ?? 0) - (cost?.supplies ?? 0);
+      next.chronos = (next.chronos ?? 0) - (cost?.chronos ?? 0);
+      return next;
+    };
+
+    const maxCountForCost = (res, cost) => {
+      const limits = ["coins", "supplies", "chronos"].map((key) => {
+        const unit = cost?.[key] ?? 0;
+        if (!unit) return Infinity;
+        const have = res?.[key] ?? 0;
+        return Math.floor(have / unit);
+      });
+      return Math.max(0, Math.min(...limits));
+    };
+
+    const canAffordTotal = (res, cost) =>
+      infiniteResources || canAffordResources(res, cost);
+
+    const churchArea = (churchDef.width ?? 0) * (churchDef.height ?? 0);
+    const gutArea = (gutDef.width ?? 0) * (gutDef.height ?? 0);
+    const mehrArea = (mehrDef.width ?? 0) * (mehrDef.height ?? 0);
+
+    const maxChurchByArea = churchArea
+      ? Math.floor(extraCells / churchArea)
+      : 0;
+    const maxChurchByBudget = infiniteResources
+      ? maxChurchByArea
+      : maxCountForCost(baseResources, churchDef.cost);
+    const maxChurch = Math.max(
+      0,
+      Math.min(maxChurchByArea, maxChurchByBudget)
+    );
+
+    const buildCandidateLayout = (churchCount, gutCount, mehrCount) => {
+      const extras = [];
+      if (churchCount > 0) {
+        extras.push({ ...churchDef, count: churchCount });
+      }
+      if (gutCount > 0) {
+        extras.push({ ...gutDef, count: gutCount });
+      }
+      if (mehrCount > 0) {
+        extras.push({ ...mehrDef, count: mehrCount });
+      }
+      const { groups, blocks } = buildTilingGroups(baseLayout, extras);
+      const placements = solveTilingMask(mask, blocks, { allowGaps: true });
+      if (!placements) return null;
+      return applyTilingSolution(placements, groups, nextId.current);
+    };
+
+    const countDefs = (candidateLayout) =>
+      candidateLayout.reduce(
+        (acc, b) => {
+          if (b.defId === churchDef.defId) acc.church += 1;
+          if (b.defId === gutDef.defId) acc.gut += 1;
+          if (b.defId === mehrDef.defId) acc.mehr += 1;
+          return acc;
+        },
+        { church: 0, gut: 0, mehr: 0 }
+      );
+
+    const insertTopResult = (list, result) => {
+      const next = [...list, result].sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        const as = a.resources?.supplies ?? 0;
+        const bs = b.resources?.supplies ?? 0;
+        if (bs !== as) return bs - as;
+        const ac = a.resources?.chronos ?? 0;
+        const bc = b.resources?.chronos ?? 0;
+        return bc - ac;
+      });
+      return next.slice(0, 3);
+    };
+
+    const results = [];
+    let bestOverall = -Infinity;
+    let outerMisses = 0;
+    let resultId = 1;
+
+    for (let churchCount = 0; churchCount <= maxChurch; churchCount += 1) {
+      setSmartInvestModal({ phase: "running", churchCount, gutCount: 0 });
+      await sleep();
+
+      const costChurches = sumCost(churchDef.cost, churchCount);
+      if (!canAffordTotal(baseResources, costChurches)) break;
+      const areaChurches = churchCount * churchArea;
+      if (areaChurches > extraCells) break;
+
+      const remainingAfterChurch = subtractResources(
+        baseResources,
+        costChurches
+      );
+      const maxGutshausByArea = gutArea
+        ? Math.floor((extraCells - areaChurches) / gutArea)
+        : 0;
+      const maxGutshausByBudget = infiniteResources
+        ? maxGutshausByArea
+        : maxCountForCost(remainingAfterChurch, gutDef.cost);
+      const maxGutshaus = Math.max(
+        0,
+        Math.min(maxGutshausByArea, maxGutshausByBudget)
+      );
+
+      let bestInner = -Infinity;
+      let improvedOverall = false;
+      let foundAny = false;
+
+      for (let gutCount = 0; gutCount <= maxGutshaus; gutCount += 1) {
+        setSmartInvestModal({ phase: "running", churchCount, gutCount });
+        await sleep();
+        const costGut = sumCost(gutDef.cost, gutCount);
+        const baseCost = addCost(costChurches, costGut);
+        if (!canAffordTotal(baseResources, baseCost)) break;
+        const areaUsed = areaChurches + gutCount * gutArea;
+        if (areaUsed > extraCells) break;
+
+        const remainingAfterBase = subtractResources(baseResources, baseCost);
+        const maxMehrByArea = mehrArea
+          ? Math.floor((extraCells - areaUsed) / mehrArea)
+          : 0;
+        const maxMehrByBudget = infiniteResources
+          ? maxMehrByArea
+          : maxCountForCost(remainingAfterBase, mehrDef.cost);
+        let maxMehr = Math.max(
+          0,
+          Math.min(maxMehrByArea, maxMehrByBudget)
+        );
+
+        let candidate = null;
+        for (let mehrCount = maxMehr; mehrCount >= 0; mehrCount -= 1) {
+          const totalCost = addCost(baseCost, sumCost(mehrDef.cost, mehrCount));
+          if (!canAffordTotal(baseResources, totalCost)) continue;
+          const resourcesAfterPurchase = subtractResources(
+            baseResources,
+            totalCost
+          );
+
+          const applied = buildCandidateLayout(
+            churchCount,
+            gutCount,
+            mehrCount
+          );
+          if (!applied) continue;
+
+          const nextReadyMap = { ...baseReadyMap };
+          const nextBuildLocks = { ...baseBuildLocks };
+          applied.created.forEach((created) => {
+            nextReadyMap[created.id] = false;
+            nextBuildLocks[created.id] =
+              libraryMap[created.defId]?.buildTime === 10;
+          });
+
+          const simResult = runSmartHarvestSimulation({
+            layout: applied.layout,
+            readyMap: nextReadyMap,
+            buildLocks: nextBuildLocks,
+            resources: resourcesAfterPurchase,
+            nextId: applied.nextId,
+            timeStep: timeStep ?? 1,
+            mask,
+            logActions: false,
+          });
+
+          if (!simResult.ok) continue;
+
+          candidate = {
+            id: `invest-${resultId++}`,
+            score: simResult.resources.coins ?? 0,
+            resources: simResult.resources,
+            layout: simResult.layout,
+            readyMap: simResult.readyMap,
+            buildLocks: simResult.buildLocks,
+            timeStep: simResult.timeStep,
+            nextId: simResult.nextId,
+            counts: countDefs(simResult.layout),
+          };
+          break;
+        }
+
+        if (!candidate) {
+          continue;
+        }
+
+        foundAny = true;
+        if (candidate.score > bestInner) {
+          bestInner = candidate.score;
+        } else {
+          break;
+        }
+
+        if (candidate.score > bestOverall) {
+          bestOverall = candidate.score;
+          improvedOverall = true;
+        }
+
+        results.splice(0, results.length, ...insertTopResult(results, candidate));
+
+        setSmartInvestModal({
+          phase: "step",
+          churchCount,
+          gutCount,
+          lastResult: candidate,
+          bestResult: results[0] ?? null,
+        });
+        await waitForContinue();
+      }
+
+      if (!foundAny) {
+        outerMisses += 1;
+      } else if (improvedOverall) {
+        outerMisses = 0;
+      } else {
+        outerMisses += 1;
+      }
+
+      if (outerMisses >= 4) break;
+    }
+
+    const error =
+      results.length === 0
+        ? "Keine Ergebnisse fuer das aktuelle Budget gefunden."
+        : null;
+
+    setSmartInvestResults(results);
+    setSmartInvestModal({ phase: "results", results, error });
+    setSmartInvestRunning(false);
+    smartInvestRunningRef.current = false;
+    updateStatus("Schlauer Invest abgeschlossen.");
+  }, [
+    editingLocked,
+    updateStatus,
+    carried,
+    libraryMap,
+    buildTilingMask,
+    BOARD_WIDTH,
+    BOARD_HEIGHT,
+    isCellUnlocked,
+    layout,
+    resources,
+    cloneResources,
+    infiniteResources,
+    canAffordResources,
+    buildTilingGroups,
+    solveTilingMask,
+    applyTilingSolution,
+    readyMap,
+    buildLocks,
+    runSmartHarvestSimulation,
+    timeStep,
+  ]);
+
+  const openSmartInvestResults = useCallback(() => {
+    if (!smartInvestResults) return;
+    setSmartInvestModal({ phase: "results", results: smartInvestResults });
+  }, [smartInvestResults]);
+
+  const continueSmartInvest = useCallback(() => {
+    const resolver = smartInvestStepResolveRef.current;
+    if (resolver) {
+      smartInvestStepResolveRef.current = null;
+      resolver();
+    }
+  }, []);
+
+  const closeSmartInvestModal = useCallback(() => {
+    setSmartInvestModal(null);
+  }, []);
+
+  const applySmartInvestResult = useCallback(
+    (result) => {
+      if (!result) return;
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (carried) {
+        updateStatus("Bitte zuerst das getragene Gebaeude ablegen.");
+        return;
+      }
+      trimFutureCheckpoints();
+      setCheckpointIndex(null);
+      setEditUnlocked(false);
+      branchFromPast();
+      setLayout(result.layout);
+      setResources(result.resources);
+      setReadyMap(result.readyMap);
+      setBuildLocks(result.buildLocks);
+      setTimeStep(result.timeStep);
+      nextId.current = result.nextId;
+      setSelectedIds(new Set());
+      setSelectedBuildingId(null);
+      setSmartInvestModal(null);
+      updateStatus("Schlauer Invest angewendet.");
+      requestAutoSnapshot();
+    },
+    [
+      editingLocked,
+      updateStatus,
+      carried,
+      trimFutureCheckpoints,
+      setCheckpointIndex,
+      setEditUnlocked,
+      branchFromPast,
+      setLayout,
+      setResources,
+      setReadyMap,
+      setBuildLocks,
+      setTimeStep,
+      requestAutoSnapshot,
+      setSelectedIds,
+      setSelectedBuildingId,
+    ]
+  );
 
   // Full-harvest helper for PDF export: always applies a full harvest cycle,
   // without opening modals or writing history/status.
@@ -2072,9 +2831,9 @@ export const useGameController = () => {
           : buildLocks),
       };
 
-        const effectiveStats = applyConfigBoosts(
-          computeStats(effectiveLayout, libraryMap)
-        );
+      const effectiveStats = applyConfigBoosts(
+        computeStats(effectiveLayout, libraryMap)
+      );
       const baseQa = qaBasePerHour * qaHoursPerHarvest;
 
       harvestBuildings(effectiveLayout, "Volle Ernte", true, true, {
@@ -2086,16 +2845,15 @@ export const useGameController = () => {
     },
     [
       buildLocks,
-        applyConfigBoosts,
-        computeStats,
-        harvestBuildings,
+      applyConfigBoosts,
+      computeStats,
+      harvestBuildings,
       layout,
       libraryMap,
       qaBasePerHour,
       qaHoursPerHarvest,
     ]
   );
-
 
   // Close harvest modal after acknowledgment.
   const confirmHarvest = useCallback(() => {
@@ -2105,6 +2863,10 @@ export const useGameController = () => {
   // Close harvest modal without extra action.
   const cancelHarvest = useCallback(() => {
     setHarvestModal(null);
+  }, []);
+
+  const confirmSmartHarvest = useCallback(() => {
+    setSmartHarvestModal(null);
   }, []);
 
   // Update freeform notes tied to the current city state.
@@ -2504,6 +3266,10 @@ export const useGameController = () => {
     loadName,
     setLoadName,
     harvestModal,
+    smartHarvestModal,
+    smartInvestModal,
+    smartInvestResults,
+    smartInvestRunning,
     stats,
     happyInfo,
     previewOrigin,
@@ -2539,9 +3305,16 @@ export const useGameController = () => {
     handleSelectBuilding,
     finishProductions,
     harvestAll,
+    handleSmartHarvest,
+    handleSmartInvest,
+    openSmartInvestResults,
+    continueSmartInvest,
+    closeSmartInvestModal,
+    applySmartInvestResult,
     harvestFullForPdf,
     confirmHarvest,
     cancelHarvest,
+    confirmSmartHarvest,
     handleSaveState,
     handleTakeSnapshot,
     handleLoadState,

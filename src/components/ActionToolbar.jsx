@@ -115,6 +115,11 @@ export function ActionToolbar({
   onToggleBoost,
   finishProductions,
   harvestAll,
+  onSmartHarvest,
+  onSmartInvest,
+  onOpenSmartInvestResults,
+  smartInvestResultsAvailable = false,
+  smartInvestRunning = false,
   harvestIsPartial = false,
   onSave,
   onLoad,
@@ -605,6 +610,39 @@ export function ActionToolbar({
             </div>
           </div>
           */}
+        </>
+      )}
+      {!isPast && (
+        <>
+          <div className="actions-row">
+            <button
+              className="action-button smart-harvest"
+              onClick={onSmartHarvest}
+              title="Schlaue Ernte: Bauen, Entfernen, Ernten mit Zufriedenheit"
+            >
+              Schlaue Ernte
+            </button>
+          </div>
+          <div className="actions-row">
+            <button
+              className="action-button smart-invest"
+              onClick={onSmartInvest}
+              disabled={smartInvestRunning}
+              title="Schlauer Invest: Beste Ernte fuer ein Budget finden"
+            >
+              {smartInvestRunning ? "Schlauer Invest..." : "Schlauer Invest"}
+            </button>
+          </div>
+          <div className="actions-row">
+            <button
+              className="action-button smart-invest-results"
+              onClick={onOpenSmartInvestResults}
+              disabled={!smartInvestResultsAvailable || smartInvestRunning}
+              title="Letzte Schlauer-Invest-Ergebnisse anzeigen"
+            >
+              Resultate
+            </button>
+          </div>
         </>
       )}
     </div>
