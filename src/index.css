@@ -215,6 +215,11 @@ button.active {
   height: 22px;
 }
 
+.text-negative {
+  color: #ff7676;
+  font-weight: 700;
+}
+
 .resource-button {
   display: inline-flex;
   align-items: center;

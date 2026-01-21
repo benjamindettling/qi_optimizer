@@ -26,19 +26,28 @@ export const buildUnlockChoiceState = ({
   libraryMap,
   currentGoodsCost,
   currentShardCost,
+  allowNegativeShards = false,
 }) => {
+  const isInfinityCost = (value) =>
+    value === "Infinity" ||
+    value === Infinity ||
+    value === Number.POSITIVE_INFINITY;
   const hasAnyGoodEnough = GOODS_TYPES.some((g) =>
     canAffordSingleGood(resources.goods, g, currentGoodsCost)
   );
   const hasGoodsBuilding = layout.some(
     (inst) => libraryMap[inst.defId]?.category === "goods"
   );
+  const shardsEnough = (resources.shards ?? 0) >= currentShardCost;
+  const shardsAllowed =
+    !isInfinityCost(currentShardCost) &&
+    (allowNegativeShards || shardsEnough);
   return {
     idx,
     goodsCost: currentGoodsCost,
     shardCost: currentShardCost,
     allowGoods: hasAnyGoodEnough || hasGoodsBuilding,
-    allowShards: (resources.shards ?? 0) >= currentShardCost,
+    allowShards: shardsAllowed,
   };
 };
 

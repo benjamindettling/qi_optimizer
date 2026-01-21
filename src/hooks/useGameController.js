@@ -76,6 +76,7 @@ export const useGameController = () => {
   const { library, libraryMap, categories, categoryColors, townhallDef } =
     useMemo(() => buildLibrary(), []);
   const { config, updateConfig } = useConfig();
+  const allowNegativeShards = !!config?.allowNegativeShards;
 
   const initialState = useMemo(
     () => buildInitialGameState({ libraryMap, townhallDef }),
@@ -1407,6 +1408,7 @@ export const useGameController = () => {
     layout,
     selectedIds,
     libraryMap,
+    allowNegativeShards,
   });
 
   // Collect production for a set of buildings and update readiness.
@@ -1525,6 +1527,10 @@ export const useGameController = () => {
         updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
         return;
       }
+      const isInfinityCost = (value) =>
+        value === "Infinity" ||
+        value === Infinity ||
+        value === Number.POSITIVE_INFINITY;
       const row = Math.floor(idx / REGION_COLS);
       const col = idx % REGION_COLS;
       if (REGION_MASK[row][col] === "N") return;
@@ -1536,6 +1542,7 @@ export const useGameController = () => {
           libraryMap,
           currentGoodsCost,
           currentShardCost,
+          allowNegativeShards,
         });
         setUnlockChoice(choice);
         setUnlockGoodSelect(null);
@@ -1590,8 +1597,13 @@ export const useGameController = () => {
         updateStatus(label);
         didUnlock = true;
       } else {
+        if (isInfinityCost(currentShardCost)) {
+          updateStatus("Keine weiteren Scherben-Erweiterungen verfuegbar.");
+          return;
+        }
         if (
           !infiniteResources &&
+          !allowNegativeShards &&
           (effectiveResources.shards ?? 0) < currentShardCost
         ) {
           updateStatus("Need more shards to unlock.");
@@ -1634,6 +1646,7 @@ export const useGameController = () => {
       updateStatus,
       infiniteResources,
       requestAutoSnapshot,
+      allowNegativeShards,
     ],
   );
 
@@ -3063,7 +3076,31 @@ export const useGameController = () => {
 
       if (boostMode && target) {
         const def = libraryMap[target.defId];
+        const boostCostForDef = (value) => {
+          const buildTime = Number(value?.buildTime ?? 0);
+          if (buildTime === 1) return 75;
+          if (buildTime === 10) return 95;
+          return 50;
+        };
+        const canSpendShards = (cost) =>
+          infiniteResources ||
+          cost <= 0 ||
+          allowNegativeShards ||
+          (resources.shards ?? 0) >= cost;
+        const spendShards = (cost) => {
+          if (infiniteResources || cost <= 0) return;
+          setResources((prev) => ({
+            ...prev,
+            shards: (prev.shards ?? 0) - cost,
+          }));
+        };
         if (buildLocks[target.id]) {
+          const cost = 50;
+          if (!canSpendShards(cost)) {
+            updateStatus("Need more shards.");
+            return;
+          }
+          spendShards(cost);
           if (def?.category === "culture") {
             harvestBuildings([target], "Harvest", true);
             updateStatus(`Unlocked ${def.name}`);
@@ -3072,8 +3109,14 @@ export const useGameController = () => {
             updateStatus(`Unlocked ${def.name}`);
           }
         } else if (readyMap[target.id] === true) {
-          // Do nothing for harvestable buildings in boost mode.
+          harvestBuildings([target], "Harvest", true);
         } else {
+          const cost = boostCostForDef(def);
+          if (!canSpendShards(cost)) {
+            updateStatus("Need more shards.");
+            return;
+          }
+          spendShards(cost);
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
           updateStatus(`Boosted ${def.name}`);
         }
@@ -3207,6 +3250,8 @@ export const useGameController = () => {
       selectedDef,
       stats,
       resources,
+      allowNegativeShards,
+      setResources,
       effectiveResources,
       applySpend,
       moveMode,

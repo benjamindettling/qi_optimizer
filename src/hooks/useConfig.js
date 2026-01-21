@@ -10,6 +10,7 @@ const defaultConfig = {
   supplyBoost: 0,
   qaBaseBonus: 0,
   qaHarvestHours: 12,
+  allowNegativeShards: false,
 };
 
 export function useConfig() {

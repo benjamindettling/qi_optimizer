@@ -1292,6 +1292,8 @@ function App() {
         }}
         onUnlockWithShards={(idx) => handleUnlockRegion(idx, "shards")}
         onCancel={() => setUnlockChoice(null)}
+        shards={resources?.shards ?? 0}
+        allowNegativeShards={!!config?.allowNegativeShards}
       />
 
       <ChooseGoodModal

@@ -19,7 +19,12 @@ export function useRegionAccess({
   resources,
   layout,
   libraryMap,
+  allowNegativeShards = false,
 }) {
+  const isInfinityCost = (value) =>
+    value === "Infinity" ||
+    value === Infinity ||
+    value === Number.POSITIVE_INFINITY;
   const currentGoodsCost = useMemo(
     () =>
       REGION_GOODS_COSTS[
@@ -73,10 +78,18 @@ export function useRegionAccess({
 
   const canAnyUnlock = useMemo(
     () =>
-      (resources.shards ?? 0) >= currentShardCost ||
+      (!isInfinityCost(currentShardCost) &&
+        (allowNegativeShards ||
+          (resources.shards ?? 0) >= currentShardCost)) ||
       hasAnyGoodsProducer ||
       hasAnyGoodsEnough,
-    [resources.shards, currentShardCost, hasAnyGoodsProducer, hasAnyGoodsEnough]
+    [
+      resources.shards,
+      currentShardCost,
+      hasAnyGoodsProducer,
+      hasAnyGoodsEnough,
+      allowNegativeShards,
+    ]
   );
 
   return {

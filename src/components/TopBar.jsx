@@ -33,6 +33,7 @@ export function TopBar({
   editingLocked = false,
 }) {
   const adminEnabled = adminMode && !editingLocked;
+  const shardsNegative = (resources.shards ?? 0) < 0;
 
   const resourceEntries = [
     { key: "coins", label: "Muenzen", icon: moneyIcon, value: resources.coins },
@@ -53,6 +54,7 @@ export function TopBar({
       label: "Scherben",
       icon: shardsIcon,
       value: resources.shards,
+      valueClass: shardsNegative ? "text-negative" : "",
     },
     {
       key: "quantumActions",
@@ -122,7 +124,7 @@ export function TopBar({
               }
             >
               <img src={r.icon} alt={r.label} />
-              <span>{formatNumber(r.value ?? 0)}</span>
+              <span className={r.valueClass}>{formatNumber(r.value ?? 0)}</span>
             </button>
           ) : (
             <div
@@ -131,7 +133,7 @@ export function TopBar({
               title={r.title || r.label}
             >
               <img src={r.icon} alt={r.label} />
-              <span>{formatNumber(r.value ?? 0)}</span>
+              <span className={r.valueClass}>{formatNumber(r.value ?? 0)}</span>
             </div>
           )
         )}

@@ -128,6 +128,16 @@ export function ConfigModal({
               }
             />
           </label>
+          <label className="config-row">
+            <Label text="Erlaube negative Scherben" />
+            <input
+              type="checkbox"
+              checked={!!draft.allowNegativeShards}
+              onChange={(e) =>
+                updateField("allowNegativeShards", e.target.checked)
+              }
+            />
+          </label>
         </div>
         <div className="config-footer">
           <div className="config-actions">
