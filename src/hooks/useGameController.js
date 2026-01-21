@@ -1228,13 +1228,17 @@ export const useGameController = () => {
   );
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
   const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
+  const armyBoostRedCfg = Number(config?.armyBoostRed ?? 0) / 100;
+  const armyBoostBlueCfg = Number(config?.armyBoostBlue ?? 0) / 100;
   const applyConfigBoosts = useCallback(
     (base) => ({
       ...base,
       coinBoost: (base.coinBoost ?? 0) + coinBoostCfg,
       supplyBoost: (base.supplyBoost ?? 0) + supplyBoostCfg,
+      armyBoostRed: (base.armyBoostRed ?? 0) + armyBoostRedCfg,
+      armyBoostBlue: (base.armyBoostBlue ?? 0) + armyBoostBlueCfg,
     }),
-    [coinBoostCfg, supplyBoostCfg],
+    [coinBoostCfg, supplyBoostCfg, armyBoostRedCfg, armyBoostBlueCfg],
   );
   const qaBasePerHour = 5000 + Number(config?.qaBaseBonus ?? 0);
   const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import qaIcon from "/quantum_actions.webp";
+import armyRedIcon from "/red_both_qi.webp";
+import armyBlueIcon from "/blue_both_qi.webp";
 
 export function ConfigModal({
   open,
@@ -102,6 +104,26 @@ export function ConfigModal({
               value={draft.supplyBoost ?? 0}
               onChange={(e) =>
                 updateField("supplyBoost", Number(e.target.value) || 0)
+              }
+            />
+          </label>
+          <label className="config-row">
+            <Label icon={armyRedIcon} text="Angriff Boost (% additiv)" />
+            <input
+              {...numberProps}
+              value={draft.armyBoostRed ?? 0}
+              onChange={(e) =>
+                updateField("armyBoostRed", Number(e.target.value) || 0)
+              }
+            />
+          </label>
+          <label className="config-row">
+            <Label icon={armyBlueIcon} text="Angriff Boost (% additiv)" />
+            <input
+              {...numberProps}
+              value={draft.armyBoostBlue ?? 0}
+              onChange={(e) =>
+                updateField("armyBoostBlue", Number(e.target.value) || 0)
               }
             />
           </label>

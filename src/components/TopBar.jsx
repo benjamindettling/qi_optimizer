@@ -4,6 +4,8 @@ import chronosIcon from "/chronos.webp";
 import populationIcon from "/population.webp";
 import shardsIcon from "/shards.webp";
 import qaIcon from "/quantum_actions.webp";
+import armyRedIcon from "/red_both_qi.webp";
+import armyBlueIcon from "/blue_both_qi.webp";
 import {
   GOODS_TYPES,
   UNIT_TYPES,
@@ -109,6 +111,14 @@ export function TopBar({
     1
   ).toFixed(2);
   const chronosMult = (happyInfo.ratio ?? 1).toFixed(2);
+  const attackRedPct = Math.round((stats.armyBoostRed ?? 0) * 100);
+  const attackBluePct = Math.round((stats.armyBoostBlue ?? 0) * 100);
+  const attackRedLabel = `${attackRedPct >= 0 ? "+" : ""}${formatNumber(
+    attackRedPct,
+  )}%`;
+  const attackBlueLabel = `${attackBluePct >= 0 ? "+" : ""}${formatNumber(
+    attackBluePct,
+  )}%`;
 
   return (
     <header className="topbar">
@@ -135,7 +145,7 @@ export function TopBar({
               <img src={r.icon} alt={r.label} />
               <span className={r.valueClass}>{formatNumber(r.value ?? 0)}</span>
             </div>
-          )
+          ),
         )}
       </div>
       <div className="topbar-stack">
@@ -161,7 +171,7 @@ export function TopBar({
               />
               <span>{formatNumber(resources.goods[g] ?? 0)}</span>
             </div>
-          )
+          ),
         )}
       </div>
       <div className="topbar-stack">
@@ -181,8 +191,16 @@ export function TopBar({
               <img src={`/units/${u}.webp`} alt={u} />
               <span>{formatNumber(resources.units?.[u] ?? 0)}</span>
             </div>
-          )
+          ),
         )}
+        <div className="resource-line" title="Angriff Boost">
+          <img src={armyRedIcon} alt="attack boost" />
+          <span>{formatNumber(attackRedPct)}%</span>
+        </div>
+        <div className="resource-line" title="Angriff Boost">
+          <img src={armyBlueIcon} alt="attack boost" />
+          <span>{formatNumber(attackBluePct)}%</span>
+        </div>
       </div>
       <div className="topbar-stack boost-stack">
         <div
@@ -230,7 +248,7 @@ export function TopBar({
             <span title="Freie Bevoelkerung">
               free:{" "}
               {formatNumber(
-                Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0))
+                Math.max(0, (stats.people ?? 0) - (stats.peopleReq ?? 0)),
               )}
             </span>
           </div>

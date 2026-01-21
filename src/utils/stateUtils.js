@@ -74,6 +74,8 @@ export const computeStats = (layout, libraryMap) => {
     baseGoods: GOODS_TYPES.reduce((acc, key) => ({ ...acc, [key]: 0 }), {}),
     coinBoost: 0,
     supplyBoost: 0,
+    armyBoostRed: 0,
+    armyBoostBlue: 0,
     people: 0,
     peopleReq: 0,
     happinessProvided: 0,
@@ -122,6 +124,10 @@ export const computeStats = (layout, libraryMap) => {
       }
       case "decoration": {
         totals.happinessRequired += def.happinessCost ?? 0;
+        if (def.armyBoost) {
+          totals.armyBoostRed += def.armyBoost.red ?? 0;
+          totals.armyBoostBlue += def.armyBoost.blue ?? 0;
+        }
         break;
       }
       case "military": {
