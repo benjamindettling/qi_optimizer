@@ -79,7 +79,7 @@ export const useGameController = () => {
 
   const initialState = useMemo(
     () => buildInitialGameState({ libraryMap, townhallDef }),
-    [libraryMap, townhallDef]
+    [libraryMap, townhallDef],
   );
 
   const nextId = useRef(2);
@@ -94,7 +94,7 @@ export const useGameController = () => {
       supplies: (base.supplies ?? 0) + (config.extraSupplies ?? 0),
       goods: GOODS_TYPES.reduce(
         (acc, g) => ({ ...acc, [g]: (base.goods[g] ?? 0) + goodsStart }),
-        {}
+        {},
       ),
       units: { ...(base.units ?? {}) },
     };
@@ -111,18 +111,18 @@ export const useGameController = () => {
 
   const [layout, setLayout] = useState(initialState.layout);
   const [unlockedRegions, setUnlockedRegions] = useState(
-    initialState.unlockedRegions
+    initialState.unlockedRegions,
   );
   const [goodsUnlocks, setGoodsUnlocks] = useState(initialState.goodsUnlocks);
   const [shardUnlocks, setShardUnlocks] = useState(initialState.shardUnlocks);
   const [selectedCategory, setSelectedCategory] = useState(
-    initialState.selectedCategory
+    initialState.selectedCategory,
   );
   const [selectedBuildingId, setSelectedBuildingId] = useState(
-    initialState.selectedBuildingId
+    initialState.selectedBuildingId,
   );
   const [selectedIds, setSelectedIds] = useState(
-    () => new Set(initialState.selectedIds || [])
+    () => new Set(initialState.selectedIds || []),
   );
 
   const [hoverCell, setHoverCell] = useState(initialState.hoverCell);
@@ -151,13 +151,13 @@ export const useGameController = () => {
   const [unitModal, setUnitModal] = useState(initialState.unitModal);
   const [fastBuyModal, setFastBuyModal] = useState(initialState.fastBuyModal);
   const [fastBuyTarget, setFastBuyTarget] = useState(
-    initialState.fastBuyTarget
+    initialState.fastBuyTarget,
   );
   const [helpModal, setHelpModal] = useState(initialState.helpModal);
   const [configModal, setConfigModal] = useState(initialState.configModal);
   const [editResourceModal, setEditResourceModal] = useState(null);
   const [editGoodModal, setEditGoodModal] = useState(
-    initialState.editGoodModal
+    initialState.editGoodModal,
   );
   const [editUnitModal, setEditUnitModal] = useState(null);
   const [autoSelectNew, setAutoSelectNew] = useState(false);
@@ -168,7 +168,7 @@ export const useGameController = () => {
   const [timeStep, setTimeStep] = useState(initialState.timeStep ?? 1);
   const [unlockChoice, setUnlockChoice] = useState(initialState.unlockChoice);
   const [unlockGoodSelect, setUnlockGoodSelect] = useState(
-    initialState.unlockGoodSelect
+    initialState.unlockGoodSelect,
   );
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window === "undefined") return initialState.viewMode;
@@ -235,7 +235,7 @@ export const useGameController = () => {
     try {
       localStorage.setItem(
         INFINITE_STORAGE_KEY,
-        infiniteResources ? "true" : "false"
+        infiniteResources ? "true" : "false",
       );
     } catch (e) {
       console.error("Failed to persist infinite toggle", e);
@@ -247,7 +247,7 @@ export const useGameController = () => {
     try {
       localStorage.setItem(
         SHORTNAME_STORAGE_KEY,
-        useShortNames ? "true" : "false"
+        useShortNames ? "true" : "false",
       );
     } catch (e) {
       console.error("Failed to persist short-names toggle", e);
@@ -260,7 +260,7 @@ export const useGameController = () => {
       goods: { ...(obj?.goods ?? {}) },
       units: { ...(obj?.units ?? {}) },
     }),
-    []
+    [],
   );
 
   const effectiveResources = useMemo(() => {
@@ -287,7 +287,7 @@ export const useGameController = () => {
       if (infiniteResources) return;
       spendResources(cost);
     },
-    [infiniteResources, spendResources]
+    [infiniteResources, spendResources],
   );
 
   const applyRefund = useCallback(
@@ -295,7 +295,7 @@ export const useGameController = () => {
       if (infiniteResources) return;
       refundResources(delta);
     },
-    [infiniteResources, refundResources]
+    [infiniteResources, refundResources],
   );
 
   const applyAdjustGoods = useCallback(
@@ -303,7 +303,7 @@ export const useGameController = () => {
       if (infiniteResources) return;
       adjustGoods(good, delta);
     },
-    [infiniteResources, adjustGoods]
+    [infiniteResources, adjustGoods],
   );
 
   const applyAdjustUnits = useCallback(
@@ -311,7 +311,7 @@ export const useGameController = () => {
       if (infiniteResources) return;
       adjustUnits(unit, delta);
     },
-    [infiniteResources, adjustUnits]
+    [infiniteResources, adjustUnits],
   );
 
   const {
@@ -374,7 +374,7 @@ export const useGameController = () => {
         townhallDef.width,
         townhallDef.height,
         null,
-        isUnlocked
+        isUnlocked,
       );
 
     setLayout((prevLayout) => {
@@ -494,7 +494,7 @@ export const useGameController = () => {
       selectedIds,
       loadName,
       selectedBuildingId,
-    ]
+    ],
   );
 
   // Restore a serialized snapshot into state.
@@ -538,7 +538,7 @@ export const useGameController = () => {
       setNotes,
       setSelectedIds,
       townhallDef,
-    ]
+    ],
   );
 
   const {
@@ -603,7 +603,7 @@ export const useGameController = () => {
         tailUid,
       });
     },
-    [checkpoints]
+    [checkpoints],
   );
 
   const handleAddCheckpointPart = useCallback(() => {
@@ -632,7 +632,7 @@ export const useGameController = () => {
       }
       setInfiniteResources(!!checked);
     },
-    [editingLocked, updateStatus]
+    [editingLocked, updateStatus],
   );
 
   // Clears interaction modes and deselects building.
@@ -662,7 +662,7 @@ export const useGameController = () => {
         value: current,
       });
     },
-    [resources, editingLocked, infiniteResources, updateStatus]
+    [resources, editingLocked, infiniteResources, updateStatus],
   );
 
   // Admin editor: set goods amount.
@@ -680,7 +680,7 @@ export const useGameController = () => {
       const current = resources?.goods?.[goodKey] ?? 0;
       setEditGoodModal({ goodKey, value: current });
     },
-    [resources, editingLocked, updateStatus, infiniteResources]
+    [resources, editingLocked, updateStatus, infiniteResources],
   );
 
   // Admin editor: set unit amount.
@@ -698,7 +698,7 @@ export const useGameController = () => {
       const current = resources?.units?.[unitKey] ?? 0;
       setEditUnitModal({ unitKey, value: current });
     },
-    [resources, editingLocked, infiniteResources, updateStatus]
+    [resources, editingLocked, infiniteResources, updateStatus],
   );
 
   const handleSetGoodsUnlocks = useCallback(
@@ -718,8 +718,8 @@ export const useGameController = () => {
       setGoodsUnlocks(clampedIdx);
       updateStatus(
         `naechste Region: ${formatNumber(prevCost)} -> ${formatNumber(
-          nextCost
-        )} Gueter`
+          nextCost,
+        )} Gueter`,
       );
       requestAutoSnapshot();
     },
@@ -729,7 +729,7 @@ export const useGameController = () => {
       setGoodsUnlocks,
       updateStatus,
       requestAutoSnapshot,
-    ]
+    ],
   );
 
   const handleSetShardUnlocks = useCallback(
@@ -749,8 +749,8 @@ export const useGameController = () => {
       setShardUnlocks(clampedIdx);
       updateStatus(
         `naechste Region: ${formatNumber(prevCost)} -> ${formatNumber(
-          nextCost
-        )} Scherben`
+          nextCost,
+        )} Scherben`,
       );
       requestAutoSnapshot();
     },
@@ -760,7 +760,7 @@ export const useGameController = () => {
       setShardUnlocks,
       updateStatus,
       requestAutoSnapshot,
-    ]
+    ],
   );
 
   const applyGoodEdit = useCallback((amount, applyAll = false) => {
@@ -817,7 +817,7 @@ export const useGameController = () => {
       const resLabel =
         RESOURCE_LABELS[editResourceModal.key] || editResourceModal.key;
       const label = `${resLabel}: ${formatNumber(prevVal)} -> ${formatNumber(
-        nextVal
+        nextVal,
       )}`;
       setResources((prev) => ({ ...prev, [editResourceModal.key]: nextVal }));
       updateStatus(label);
@@ -831,7 +831,7 @@ export const useGameController = () => {
       setResources,
       updateStatus,
       requestAutoSnapshot,
-    ]
+    ],
   );
 
   const cancelEditResource = useCallback(() => {
@@ -845,7 +845,7 @@ export const useGameController = () => {
       const prevVal = resources?.units?.[editUnitModal.unitKey] ?? 0;
 
       const label = `${editUnitModal.unitKey}: ${formatNumber(
-        prevVal
+        prevVal,
       )} -> ${formatNumber(nextVal)}`;
 
       setResources((prev) => ({
@@ -859,7 +859,7 @@ export const useGameController = () => {
       setEditUnitModal(null);
       requestAutoSnapshot();
     },
-    [editUnitModal, resources, setResources, updateStatus, requestAutoSnapshot]
+    [editUnitModal, resources, setResources, updateStatus, requestAutoSnapshot],
   );
 
   const cancelEditUnit = useCallback(() => {
@@ -878,7 +878,7 @@ export const useGameController = () => {
 
   const isCellUnlocked = useCallback(
     (x, y) => regionIsCellUnlocked(x, y, unlockedRegions),
-    [unlockedRegions]
+    [unlockedRegions],
   );
 
   // Prompted save of the current snapshot.
@@ -895,7 +895,7 @@ export const useGameController = () => {
         snapshotForSave,
         stepForSave,
         checkpointIndex,
-        isPast
+        isPast,
       ).map((cp) => ({
         ...cp,
         snapshot: { ...(cp.snapshot ?? {}), loadName: targetName },
@@ -918,7 +918,7 @@ export const useGameController = () => {
       checkpointIndex,
       isPast,
       checkpoints,
-    ]
+    ],
   );
 
   const handleTakeSnapshot = useCallback(() => {
@@ -931,14 +931,14 @@ export const useGameController = () => {
     const deleteNames = new Set(
       activeIdx >= 0 && activeIdx < orderedSnapshots.length - 1
         ? orderedSnapshots.slice(activeIdx + 1).map((snap) => snap.name)
-        : []
+        : [],
     );
     const remainingSnapshots = orderedSnapshots.filter(
-      (snap) => !deleteNames.has(snap.name)
+      (snap) => !deleteNames.has(snap.name),
     );
     const maxIndex = remainingSnapshots.reduce(
       (max, entry) => Math.max(max, entry.index ?? -1),
-      -1
+      -1,
     );
     let index = maxIndex + 1;
     let snapshotName = `__snapshot_${index}`;
@@ -986,7 +986,7 @@ export const useGameController = () => {
     // Build the checkpoint list to save
     const rawCheckpointsForSave = makeCheckpointsForSave(
       snapshotForSave,
-      stepForSave
+      stepForSave,
     );
 
     // If we are editing a past checkpoint, ensure the checkpoint at checkpointIndex
@@ -1001,7 +1001,7 @@ export const useGameController = () => {
                   // keep existing timeStep or fall back to current one
                   timeStep: cp.timeStep ?? stepForSave,
                 }
-              : cp
+              : cp,
           )
         : rawCheckpointsForSave;
 
@@ -1074,8 +1074,8 @@ export const useGameController = () => {
           ? logText
             ? `Snapshot '${logText}'`
             : snapIdx
-            ? `Snapshot ${snapIdx} geladen`
-            : "Snapshot geladen"
+              ? `Snapshot ${snapIdx} geladen`
+              : "Snapshot geladen"
           : `Load ${name}`);
       const snapshotToApply = isSnapshot ? { ...snap } : snap;
       if (isSnapshot && snapshotToApply.loadName !== undefined) {
@@ -1117,7 +1117,7 @@ export const useGameController = () => {
       setMoveMode,
       requestAutoSnapshot,
       setActiveSnapshotName,
-    ]
+    ],
   );
 
   const openPastEditModal = useCallback(() => {
@@ -1148,13 +1148,13 @@ export const useGameController = () => {
     const snapshotForSave =
       isPast && checkpointIndex !== null
         ? snapshot
-        : latestCp?.snapshot ?? snapshot;
+        : (latestCp?.snapshot ?? snapshot);
     const stepForSave = latestCp?.timeStep ?? timeStep ?? 1;
     const checkpointsForSave = makeCheckpointsForSave(
       snapshotForSave,
       stepForSave,
       checkpointIndex,
-      isPast
+      isPast,
     ).map((cp) => ({
       ...cp,
       snapshot: { ...(cp.snapshot ?? {}), loadName: candidate },
@@ -1195,10 +1195,36 @@ export const useGameController = () => {
 
   const unlockedLayout = useMemo(
     () => layout.filter((b) => !buildLocks[b.id]),
-    [layout, buildLocks]
+    [layout, buildLocks],
   );
 
-  const baseStats = computeStats(unlockedLayout, libraryMap);
+  const computeLockedPeopleReq = useCallback(
+    (layoutList, locks) =>
+      (layoutList || []).reduce((acc, inst) => {
+        if (!locks?.[inst.id]) return acc;
+        const def = libraryMap[inst.defId];
+        if (!def || def.category === "housing") return acc;
+        const req = def.requiresPeople ?? 0;
+        return req > 0 ? acc + req : acc;
+      }, 0),
+    [libraryMap],
+  );
+
+  const computeStatsWithLockedPeopleReq = useCallback(
+    (layoutList, locks) => {
+      const unlocked = (layoutList || []).filter((b) => !locks?.[b.id]);
+      const base = computeStats(unlocked, libraryMap);
+      const lockedReq = computeLockedPeopleReq(layoutList, locks);
+      if (!lockedReq) return base;
+      return { ...base, peopleReq: (base.peopleReq ?? 0) + lockedReq };
+    },
+    [computeLockedPeopleReq, libraryMap],
+  );
+
+  const baseStats = useMemo(
+    () => computeStatsWithLockedPeopleReq(layout, buildLocks),
+    [layout, buildLocks, computeStatsWithLockedPeopleReq],
+  );
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
   const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
   const applyConfigBoosts = useCallback(
@@ -1207,7 +1233,7 @@ export const useGameController = () => {
       coinBoost: (base.coinBoost ?? 0) + coinBoostCfg,
       supplyBoost: (base.supplyBoost ?? 0) + supplyBoostCfg,
     }),
-    [coinBoostCfg, supplyBoostCfg]
+    [coinBoostCfg, supplyBoostCfg],
   );
   const qaBasePerHour = 5000 + Number(config?.qaBaseBonus ?? 0);
   const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);
@@ -1215,16 +1241,16 @@ export const useGameController = () => {
     () =>
       layout.reduce(
         (acc, b) => acc + (libraryMap[b.defId]?.quantumActions ?? 0),
-        0
+        0,
       ),
-    [layout, libraryMap]
+    [layout, libraryMap],
   );
   const qaPerHour = qaBasePerHour + qaRateFromBuildings;
   const statsWithConfig = applyConfigBoosts(baseStats);
   const stats = { ...statsWithConfig, qaPerHour, qaHoursPerHarvest };
   const happyInfo = happinessTier(
     stats.happinessProvided,
-    stats.happinessRequired
+    stats.happinessRequired,
   );
 
   const harvestWithConfig = useCallback(
@@ -1232,7 +1258,7 @@ export const useGameController = () => {
       const base = computeStats(layoutSubset, libraryMap);
       const happy = happinessTier(
         base.happinessProvided,
-        base.happinessRequired
+        base.happinessRequired,
       ).ratio;
       const coinBoost = (base.coinBoost ?? 0) + coinBoostCfg;
       const supplyBoost = (base.supplyBoost ?? 0) + supplyBoostCfg;
@@ -1244,7 +1270,7 @@ export const useGameController = () => {
         base.flatSupplies;
       return { coins, supplies };
     },
-    [libraryMap, coinBoostCfg, supplyBoostCfg]
+    [libraryMap, coinBoostCfg, supplyBoostCfg],
   );
 
   const openWorstModal = useCallback(() => {
@@ -1253,15 +1279,15 @@ export const useGameController = () => {
       new Set(
         activeLayout
           .filter((b) => libraryMap[b.defId]?.category === "housing")
-          .map((b) => b.defId)
-      )
+          .map((b) => b.defId),
+      ),
     );
     const productionDefs = Array.from(
       new Set(
         activeLayout
           .filter((b) => libraryMap[b.defId]?.category === "production")
-          .map((b) => b.defId)
-      )
+          .map((b) => b.defId),
+      ),
     );
 
     const computeList = (defIds, harvestKey) => {
@@ -1325,9 +1351,9 @@ export const useGameController = () => {
       const now = new Date();
       const pad = (n) => String(n).padStart(2, "0");
       const fileName = `QI_${pad(now.getMonth() + 1)}${pad(
-        now.getDate()
+        now.getDate(),
       )}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(
-        now.getSeconds()
+        now.getSeconds(),
       )}.json`;
       const blob = new Blob([JSON.stringify(payload, null, 2)], {
         type: "application/json",
@@ -1340,7 +1366,7 @@ export const useGameController = () => {
       URL.revokeObjectURL(url);
       setExportModal(false);
     },
-    [saves]
+    [saves],
   );
 
   const handleImportSelected = useCallback(
@@ -1364,7 +1390,7 @@ export const useGameController = () => {
       });
       setImportModal(false);
     },
-    [setAllSaves]
+    [setAllSaves],
   );
   const {
     currentGoodsCost,
@@ -1390,7 +1416,7 @@ export const useGameController = () => {
       label = "Harvest",
       skipPopup = false,
       skipHistory = false,
-      options = {}
+      options = {},
     ) => {
       if (!instances.length) return;
       const logStatus = options.logStatus ?? !skipHistory;
@@ -1424,7 +1450,7 @@ export const useGameController = () => {
         (acc, inst) =>
           acc +
           (libraryMap[inst.defId]?.quantumActions ?? 0) * qaHoursPerHarvest,
-        0
+        0,
       );
       total.qa = (total.qa ?? 0) + qaFromLockedCulture;
 
@@ -1443,7 +1469,7 @@ export const useGameController = () => {
               ...acc,
               [g]: (prev.goods?.[g] ?? 0) + (total.goods?.[g] ?? 0),
             }),
-            {}
+            {},
           ),
           units: { ...(prev.units ?? {}) },
         }));
@@ -1489,7 +1515,7 @@ export const useGameController = () => {
       buildLocks,
       qaHoursPerHarvest,
       qaBasePerHour,
-    ]
+    ],
   );
 
   // Unlock region via goods or shards, with fast-buy fallback.
@@ -1528,7 +1554,7 @@ export const useGameController = () => {
           !canAffordSingleGood(
             effectiveResources.goods,
             goodKey,
-            currentGoodsCost
+            currentGoodsCost,
           )
         ) {
           const fastBuy = prepareFastBuyModal({
@@ -1552,14 +1578,14 @@ export const useGameController = () => {
           return;
         }
         const label = `Erweiterung gekauft für ${formatNumber(
-          currentGoodsCost
+          currentGoodsCost,
         )} Güter`;
         applyAdjustGoods(goodKey, -currentGoodsCost);
         setGoodsUnlocks((prev) =>
-          Math.min(prev + 1, REGION_GOODS_COSTS.length - 1)
+          Math.min(prev + 1, REGION_GOODS_COSTS.length - 1),
         );
         setUnlockedRegions((prev) =>
-          prev.map((val, i) => (i === idx ? true : val))
+          prev.map((val, i) => (i === idx ? true : val)),
         );
         updateStatus(label);
         didUnlock = true;
@@ -1572,7 +1598,7 @@ export const useGameController = () => {
           return;
         }
         const label = `Erweiterung gekauft für ${formatNumber(
-          currentShardCost
+          currentShardCost,
         )} Scherben`;
         if (!infiniteResources) {
           setResources((prev) => ({
@@ -1582,7 +1608,7 @@ export const useGameController = () => {
         }
         setShardUnlocks((prev) => prev + 1);
         setUnlockedRegions((prev) =>
-          prev.map((val, i) => (i === idx ? true : val))
+          prev.map((val, i) => (i === idx ? true : val)),
         );
         updateStatus(label);
         didUnlock = true;
@@ -1592,7 +1618,7 @@ export const useGameController = () => {
       setUnlockGoodSelect(null);
 
       if (didUnlock) {
-        requestAutoSnapshot({ waitForCheckpoint: false });
+        requestAutoSnapshot();
       }
     },
     [
@@ -1607,7 +1633,8 @@ export const useGameController = () => {
       setResources,
       updateStatus,
       infiniteResources,
-    ]
+      requestAutoSnapshot,
+    ],
   );
 
   // Enable/disable region debug tools.
@@ -1646,7 +1673,7 @@ export const useGameController = () => {
         return overlaps;
       });
     },
-    [layout, regionRect]
+    [layout, regionRect],
   );
 
   // Debug: unlock a region without cost.
@@ -1669,7 +1696,7 @@ export const useGameController = () => {
         return next;
       });
       updateStatus("Admin: +1 Region");
-      requestAutoSnapshot({ waitForCheckpoint: false });
+      requestAutoSnapshot();
     },
     [
       debugRegions,
@@ -1679,7 +1706,7 @@ export const useGameController = () => {
       setUnlockedRegions,
       updateStatus,
       requestAutoSnapshot,
-    ]
+    ],
   );
 
   // Debug: relock a region if empty and not base.
@@ -1704,7 +1731,7 @@ export const useGameController = () => {
         return next;
       });
       updateStatus("Admin: -1 Region");
-      requestAutoSnapshot({ waitForCheckpoint: false });
+      requestAutoSnapshot();
     },
     [
       debugRegions,
@@ -1714,7 +1741,7 @@ export const useGameController = () => {
       setUnlockedRegions,
       updateStatus,
       requestAutoSnapshot,
-    ]
+    ],
   );
 
   // Toggle move mode; starts/stops carrying interactions.
@@ -1748,7 +1775,7 @@ export const useGameController = () => {
 
   const toggleAutoSelectNew = useCallback(
     () => setAutoSelectNew((prev) => !prev),
-    []
+    [],
   );
 
   // Toggle sell mode (coin return).
@@ -1816,7 +1843,7 @@ export const useGameController = () => {
       setBoostMode(false);
       setSelectedBuildingId(defId);
     },
-    [setBoostMode, setMoveMode, setRefundMode, setSellMode]
+    [setBoostMode, setMoveMode, setRefundMode, setSellMode],
   );
 
   // Execute a goods purchase for a producer building.
@@ -1840,7 +1867,7 @@ export const useGameController = () => {
       const label = `Goods gekauft: ${
         def.produces
       } ${amount} für ${formatNumber(cost.coins ?? 0)}/${formatNumber(
-        cost.supplies ?? 0
+        cost.supplies ?? 0,
       )}`;
       applySpend(cost);
       applyAdjustGoods(def.produces, Number(amount));
@@ -1854,7 +1881,7 @@ export const useGameController = () => {
       applySpend,
       applyAdjustGoods,
       infiniteResources,
-    ]
+    ],
   );
 
   const handleUnitPurchase = useCallback(
@@ -1877,7 +1904,7 @@ export const useGameController = () => {
       const label = `Units gekauft: ${
         def.produces
       } ${amount} für ${formatNumber(cost.coins ?? 0)}/${formatNumber(
-        cost.supplies ?? 0
+        cost.supplies ?? 0,
       )}`;
       applySpend(cost);
       applyAdjustUnits(def.produces, Number(amount));
@@ -1890,7 +1917,7 @@ export const useGameController = () => {
       applySpend,
       applyAdjustUnits,
       infiniteResources,
-    ]
+    ],
   );
 
   // Handle fast-buy flow to unlock regions with lacking goods.
@@ -1916,20 +1943,22 @@ export const useGameController = () => {
       branchFromPast();
       const totals = totalFastBuyCost(option);
       const label = `Fastbuy ${goodKey} für ${formatNumber(
-        totals.coins
+        totals.coins,
       )}/${formatNumber(totals.supplies)}`;
       applySpend({ coins: totals.coins, supplies: totals.supplies });
       applyAdjustGoods(goodKey, option.totalAmount - goodsCost);
       setUnlockedRegions((prev) =>
-        prev.map((val, i) => (i === fastBuyTarget ? true : val))
+        prev.map((val, i) => (i === fastBuyTarget ? true : val)),
       );
       setGoodsUnlocks((prev) =>
-        Math.min(prev + 1, REGION_GOODS_COSTS.length - 1)
+        Math.min(prev + 1, REGION_GOODS_COSTS.length - 1),
       );
       setFastBuyModal(null);
       setFastBuyTarget(null);
+      setUnlockChoice(null);
+      setUnlockGoodSelect(null);
       updateStatus(label);
-      requestAutoSnapshot({ waitForCheckpoint: false });
+      requestAutoSnapshot();
     },
     [
       applyAdjustGoods,
@@ -1942,7 +1971,9 @@ export const useGameController = () => {
       requestAutoSnapshot,
       updateStatus,
       infiniteResources,
-    ]
+      setUnlockChoice,
+      setUnlockGoodSelect,
+    ],
   );
 
   // Mark all productions as ready.
@@ -1957,7 +1988,7 @@ export const useGameController = () => {
     const label = "Beende alle Prod.";
     setNotes("");
     setReadyMap((prev) =>
-      finishProductionsReadyMap(layout, libraryMap, prev, buildLocks)
+      finishProductionsReadyMap(layout, libraryMap, prev, buildLocks),
     );
     if (!infiniteResources) {
       const baseQa = qaBasePerHour * qaHoursPerHarvest;
@@ -2020,15 +2051,15 @@ export const useGameController = () => {
     if (unlockedAny) setBuildLocks(buildLocksAfter);
 
     const effectiveStats = applyConfigBoosts(computeStats(layout, libraryMap));
-      const baseQa = qaBasePerHour * qaHoursPerHarvest;
-      const extraQa = isFullHarvest ? baseQa : 0;
-      const targets = isFullHarvest ? layout : readyOnes;
-      harvestBuildings(targets, label, false, true, {
-        statsOverride: effectiveStats,
-        buildLocksOverride: locksBefore,
-        extraQa,
-        logStatus: false,
-      });
+    const baseQa = qaBasePerHour * qaHoursPerHarvest;
+    const extraQa = isFullHarvest ? baseQa : 0;
+    const targets = isFullHarvest ? layout : readyOnes;
+    harvestBuildings(targets, label, false, true, {
+      statsOverride: effectiveStats,
+      buildLocksOverride: locksBefore,
+      extraQa,
+      logStatus: false,
+    });
     if (isFullHarvest) {
       setTimeStep((prev) => Math.min(23, prev + 1));
     }
@@ -2096,7 +2127,7 @@ export const useGameController = () => {
         simLayout,
         libraryMap,
         simReadyMap,
-        simBuildLocks
+        simBuildLocks,
       );
       if (!infiniteResources && baseQa > 0) {
         simResources.quantumActions =
@@ -2108,16 +2139,14 @@ export const useGameController = () => {
         maskOverride ??
         buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
 
-      const computeUnlockedStats = () => {
-        const active = simLayout.filter((b) => !simBuildLocks[b.id]);
-        return computeStats(active, libraryMap);
-      };
+      const computeUnlockedStats = () =>
+        computeStatsWithLockedPeopleReq(simLayout, simBuildLocks);
 
       const computeHappyInfo = () => {
         const base = computeUnlockedStats();
         const happy = happinessTier(
           base.happinessProvided,
-          base.happinessRequired
+          base.happinessRequired,
         );
         const freePop = (base.people ?? 0) - (base.peopleReq ?? 0);
         return { base, happy, freePop };
@@ -2143,7 +2172,7 @@ export const useGameController = () => {
       const simulateHarvest = (
         instances,
         stats,
-        options = { extraQa: 0, buildLocksOverride: null }
+        options = { extraQa: 0, buildLocksOverride: null },
       ) => {
         if (!instances.length) return;
         const locks = options.buildLocksOverride ?? simBuildLocks;
@@ -2174,7 +2203,7 @@ export const useGameController = () => {
           (acc, inst) =>
             acc +
             (libraryMap[inst.defId]?.quantumActions ?? 0) * qaHoursPerHarvest,
-          0
+          0,
         );
         total.qa =
           (total.qa ?? 0) + qaFromLockedCulture + (options.extraQa ?? 0);
@@ -2232,8 +2261,7 @@ export const useGameController = () => {
 
         let placedChurch = false;
         const canAffordChurch =
-          infiniteResources ||
-          canAffordResources(simResources, churchDef.cost);
+          infiniteResources || canAffordResources(simResources, churchDef.cost);
         if (canAffordChurch) {
           const { groups, blocks } = buildTilingGroups(simLayout, [
             { ...churchDef, count: 1 },
@@ -2297,14 +2325,16 @@ export const useGameController = () => {
       }
 
       addLog("150% erreicht -> Ernte Rest");
-      const harvestTargets = simLayout.filter((b) => simReadyMap[b.id] === true);
+      const harvestTargets = simLayout.filter(
+        (b) => simReadyMap[b.id] === true,
+      );
       const finalHarvestStats = buildHarvestStats(true);
       simulateHarvest(harvestTargets, finalHarvestStats, { extraQa: baseQa });
 
       addLog(
         `Neuer Stand: ${formatNumber(simResources.coins ?? 0)} Muenzen, ${formatNumber(
-          simResources.supplies ?? 0
-        )} Vorraete, ${formatNumber(simResources.chronos ?? 0)} Chronos`
+          simResources.supplies ?? 0,
+        )} Vorraete, ${formatNumber(simResources.chronos ?? 0)} Chronos`,
       );
 
       return {
@@ -2332,6 +2362,7 @@ export const useGameController = () => {
       isCellUnlocked,
       applyConfigBoosts,
       computeStats,
+      computeStatsWithLockedPeopleReq,
       buildTilingMask,
       BOARD_WIDTH,
       BOARD_HEIGHT,
@@ -2346,7 +2377,7 @@ export const useGameController = () => {
       aggregateHarvest,
       finishProductionsReadyMap,
       nextId,
-    ]
+    ],
   );
 
   const handleSmartHarvest = useCallback(() => {
@@ -2459,11 +2490,11 @@ export const useGameController = () => {
     const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
     const availableCells = mask.reduce(
       (acc, row) => acc + row.filter(Boolean).length,
-      0
+      0,
     );
     const existingArea = baseLayout.reduce(
       (acc, b) => acc + (b.width ?? 0) * (b.height ?? 0),
-      0
+      0,
     );
     const extraCells = availableCells - existingArea;
     if (extraCells < 0) {
@@ -2525,10 +2556,7 @@ export const useGameController = () => {
     const maxChurchByBudget = infiniteResources
       ? maxChurchByArea
       : maxCountForCost(baseResources, churchDef.cost);
-    const maxChurch = Math.max(
-      0,
-      Math.min(maxChurchByArea, maxChurchByBudget)
-    );
+    const maxChurch = Math.max(0, Math.min(maxChurchByArea, maxChurchByBudget));
 
     const buildCandidateLayout = (churchCount, gutCount, mehrCount) => {
       const extras = [];
@@ -2555,7 +2583,7 @@ export const useGameController = () => {
           if (b.defId === mehrDef.defId) acc.mehr += 1;
           return acc;
         },
-        { church: 0, gut: 0, mehr: 0 }
+        { church: 0, gut: 0, mehr: 0 },
       );
 
     const insertTopResult = (list, result) => {
@@ -2587,7 +2615,7 @@ export const useGameController = () => {
 
       const remainingAfterChurch = subtractResources(
         baseResources,
-        costChurches
+        costChurches,
       );
       const maxGutshausByArea = gutArea
         ? Math.floor((extraCells - areaChurches) / gutArea)
@@ -2597,7 +2625,7 @@ export const useGameController = () => {
         : maxCountForCost(remainingAfterChurch, gutDef.cost);
       const maxGutshaus = Math.max(
         0,
-        Math.min(maxGutshausByArea, maxGutshausByBudget)
+        Math.min(maxGutshausByArea, maxGutshausByBudget),
       );
 
       let bestInner = -Infinity;
@@ -2620,10 +2648,7 @@ export const useGameController = () => {
         const maxMehrByBudget = infiniteResources
           ? maxMehrByArea
           : maxCountForCost(remainingAfterBase, mehrDef.cost);
-        let maxMehr = Math.max(
-          0,
-          Math.min(maxMehrByArea, maxMehrByBudget)
-        );
+        let maxMehr = Math.max(0, Math.min(maxMehrByArea, maxMehrByBudget));
 
         let candidate = null;
         for (let mehrCount = maxMehr; mehrCount >= 0; mehrCount -= 1) {
@@ -2631,13 +2656,13 @@ export const useGameController = () => {
           if (!canAffordTotal(baseResources, totalCost)) continue;
           const resourcesAfterPurchase = subtractResources(
             baseResources,
-            totalCost
+            totalCost,
           );
 
           const applied = buildCandidateLayout(
             churchCount,
             gutCount,
-            mehrCount
+            mehrCount,
           );
           if (!applied) continue;
 
@@ -2692,7 +2717,11 @@ export const useGameController = () => {
           improvedOverall = true;
         }
 
-        results.splice(0, results.length, ...insertTopResult(results, candidate));
+        results.splice(
+          0,
+          results.length,
+          ...insertTopResult(results, candidate),
+        );
 
         setSmartInvestModal({
           phase: "step",
@@ -2808,7 +2837,7 @@ export const useGameController = () => {
       requestAutoSnapshot,
       setSelectedIds,
       setSelectedBuildingId,
-    ]
+    ],
   );
 
   // Full-harvest helper for PDF export: always applies a full harvest cycle,
@@ -2832,7 +2861,7 @@ export const useGameController = () => {
       };
 
       const effectiveStats = applyConfigBoosts(
-        computeStats(effectiveLayout, libraryMap)
+        computeStats(effectiveLayout, libraryMap),
       );
       const baseQa = qaBasePerHour * qaHoursPerHarvest;
 
@@ -2852,7 +2881,7 @@ export const useGameController = () => {
       libraryMap,
       qaBasePerHour,
       qaHoursPerHarvest,
-    ]
+    ],
   );
 
   // Close harvest modal after acknowledgment.
@@ -2875,7 +2904,7 @@ export const useGameController = () => {
       setNotes(val ?? "");
       updateStatus("Notizen geaendert");
     },
-    [updateStatus]
+    [updateStatus],
   );
 
   const applyStartBonusToCheckpoints = useCallback(
@@ -2903,7 +2932,7 @@ export const useGameController = () => {
               },
             },
           };
-        })
+        }),
       );
       setResources((prev) => ({
         ...prev,
@@ -2919,7 +2948,7 @@ export const useGameController = () => {
       setResources,
       updateCheckpoints,
       updateStatus,
-    ]
+    ],
   );
 
   // Persist note edits when viewing past checkpoints after state flushes.
@@ -2960,7 +2989,7 @@ export const useGameController = () => {
       });
       requestAutoSnapshot();
     },
-    [editingLocked, updateStatus, requestAutoSnapshot]
+    [editingLocked, updateStatus, requestAutoSnapshot],
   );
 
   const clearSelection = useCallback(() => {
@@ -2992,7 +3021,7 @@ export const useGameController = () => {
           updateStatus,
         });
         if (dropResult?.ok && dropResult?.done) {
-          requestAutoSnapshot({ waitForCheckpoint: false });
+          requestAutoSnapshot();
         }
         return;
       }
@@ -3067,7 +3096,7 @@ export const useGameController = () => {
             selectedDef.width,
             selectedDef.height,
             undefined,
-            isCellUnlocked
+            isCellUnlocked,
           )
         ) {
           updateStatus("Blocked or locked area.");
@@ -3191,13 +3220,13 @@ export const useGameController = () => {
       findTargetInstance,
       autoSelectNew,
       handleTakeSnapshot,
-    ]
+    ],
   );
 
   const previewDef = carried?.def ?? selectedDef;
   const previewOrigin = useMemo(
     () => buildPreviewOrigin(hoverCell, previewDef, categoryColors),
-    [hoverCell, previewDef, categoryColors]
+    [hoverCell, previewDef, categoryColors],
   );
 
   const { viewColStart, viewRowStart, viewWidth, viewHeight } =
