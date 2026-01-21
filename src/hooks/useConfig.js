@@ -6,6 +6,7 @@ const defaultConfig = {
   goodsStartBonus: 0,
   extraCoins: 0,
   extraSupplies: 0,
+  shardsStart: 500,
   coinBoost: 0,
   supplyBoost: 0,
   armyBoostRed: 0,

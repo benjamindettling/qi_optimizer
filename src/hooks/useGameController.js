@@ -89,10 +89,12 @@ export const useGameController = () => {
   const adjustedInitialResources = useMemo(() => {
     const base = initialState.resources;
     const goodsStart = config.goodsStartBonus ?? 0;
+    const shardsStart = Number(config.shardsStart ?? base.shards ?? 0);
     return {
       ...base,
       coins: (base.coins ?? 0) + (config.extraCoins ?? 0),
       supplies: (base.supplies ?? 0) + (config.extraSupplies ?? 0),
+      shards: shardsStart,
       goods: GOODS_TYPES.reduce(
         (acc, g) => ({ ...acc, [g]: (base.goods[g] ?? 0) + goodsStart }),
         {},

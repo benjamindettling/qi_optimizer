@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
+import shardsIcon from "/shards.webp";
 import qaIcon from "/quantum_actions.webp";
 import armyRedIcon from "/red_both_qi.webp";
 import armyBlueIcon from "/blue_both_qi.webp";
@@ -84,6 +85,16 @@ export function ConfigModal({
               value={draft.extraSupplies ?? 0}
               onChange={(e) =>
                 updateField("extraSupplies", Number(e.target.value) || 0)
+              }
+            />
+          </label>
+          <label className="config-row">
+            <Label icon={shardsIcon} text="Scherben Start" />
+            <input
+              {...numberProps}
+              value={draft.shardsStart ?? 500}
+              onChange={(e) =>
+                updateField("shardsStart", Number(e.target.value) || 0)
               }
             />
           </label>
