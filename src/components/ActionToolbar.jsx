@@ -61,7 +61,7 @@ export const formatNotesHtml = (text) => {
   // Apply rules one by one, across all lines
   for (const rule of NOTE_RULES) {
     htmlLines = htmlLines.map((lineHtml) =>
-      applyRuleToLineHtml(lineHtml, rule)
+      applyRuleToLineHtml(lineHtml, rule),
     );
   }
 
@@ -251,7 +251,7 @@ export function ActionToolbar({
   }, [notes]);
 
   const selectedSnapshotIdx = snapshots.findIndex(
-    (s) => s.name === selectedSnapshotName
+    (s) => s.name === selectedSnapshotName,
   );
   const canSnapshotBack = selectedSnapshotIdx > 0;
   const canSnapshotForward =
@@ -272,7 +272,7 @@ export function ActionToolbar({
     try {
       localStorage.setItem(
         EXTRA_TOOLS_STORAGE_KEY,
-        extraToolsCollapsed ? "true" : "false"
+        extraToolsCollapsed ? "true" : "false",
       );
     } catch (e) {
       console.error("Failed to persist extra tools toggle", e);
@@ -609,7 +609,7 @@ export function ActionToolbar({
               )}
             </div>
           </div>
-          */}
+          
         </>
       )}
       {!isPast && (
@@ -643,6 +643,7 @@ export function ActionToolbar({
               Resultate
             </button>
           </div>
+          */}
         </>
       )}
     </div>
