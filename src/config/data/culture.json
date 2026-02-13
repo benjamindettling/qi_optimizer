@@ -1,0 +1,155 @@
+[
+  {
+    "id": "marktplatz",
+    "name": "Marktplatz",
+    "short": "Ma",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 12000,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "happiness": 125,
+    "quantumActions": 50,
+    "tier": 1
+  },
+  {
+    "id": "galgen",
+    "name": "Galgen",
+    "short": "Ga",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 36000,
+      "supplies": 36000,
+      "chronos": 100
+    },
+    "happiness": 250,
+    "quantumActions": 60,
+    "tier": 2
+  },
+  {
+    "id": "pranger",
+    "name": "Pranger",
+    "short": "Pr",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 120000,
+      "supplies": 120000,
+      "chronos": 500
+    },
+    "happiness": 750,
+    "quantumActions": 120,
+    "tier": 3
+  },
+  {
+    "id": "kirche",
+    "name": "Kirche",
+    "short": "Ki",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 16800,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "happiness": 160,
+    "quantumActions": 50,
+    "tier": 1
+  },
+  {
+    "id": "druckerei",
+    "name": "Druckerei",
+    "short": "Dr",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 50400,
+      "supplies": 43200,
+      "chronos": 100
+    },
+    "happiness": 375,
+    "quantumActions": 130,
+    "tier": 2
+  },
+  {
+    "id": "doktor",
+    "name": "Doktor",
+    "short": "Do",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 168000,
+      "supplies": 144000,
+      "chronos": 500
+    },
+    "happiness": 1125,
+    "quantumActions": 260,
+    "tier": 3
+  },
+  {
+    "id": "palast",
+    "name": "Palast",
+    "short": "Pa",
+    "size": [
+      4,
+      4
+    ],
+    "cost": {
+      "coins": 19200,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "happiness": 225,
+    "quantumActions": 90,
+    "tier": 1
+  },
+  {
+    "id": "buecherei",
+    "name": "B\u00fccherei",
+    "short": "B\u00fc",
+    "size": [
+      4,
+      4
+    ],
+    "cost": {
+      "coins": 57600,
+      "supplies": 50400,
+      "chronos": 100
+    },
+    "happiness": 500,
+    "quantumActions": 200,
+    "tier": 2
+  },
+  {
+    "id": "kartograph",
+    "name": "Kartograph",
+    "short": "Ka",
+    "size": [
+      3,
+      2
+    ],
+    "cost": {
+      "coins": 192000,
+      "supplies": 168000,
+      "chronos": 500
+    },
+    "happiness": 900,
+    "quantumActions": 180,
+    "tier": 3
+  }
+]

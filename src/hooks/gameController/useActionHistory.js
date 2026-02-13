@@ -1,0 +1,2843 @@
+// Delta-based history for build/sell/region/boost/harvest actions.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  REGION_GOODS_COSTS,
+  REGION_SHARD_COSTS,
+  BOARD_WIDTH,
+  BOARD_HEIGHT,
+} from "../../config/boardConfig";
+import {
+  BOOST_UNLOCK_SHARDS,
+  getBoostCostForTier,
+  isTierLocked,
+} from "../../config/buildingTiers";
+import { QA_BASE_PER_HOUR } from "../../config/gameDefaults";
+import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
+import {
+  aggregateHarvest,
+  computeBuildingHarvest,
+  finishProductionsReadyMap,
+} from "../../domain/production/productionController";
+import { computeStats } from "../../utils/stateUtils";
+import { buildInitialGameState } from "../../config/initialState";
+import { computePurchasePlans } from "../../utils/gameMath";
+import { solveTilingMask } from "../../utils/tilingSolver";
+import { buildTilingMask, buildTilingGroups, applyTilingSolution } from "../../utils/tilingTranslator";
+
+const ACTION_BUILD = "build";
+const ACTION_BUILD_ADMIN = "buildAdmin";
+const ACTION_SELL = "sell";
+const ACTION_SELL_FULL = "sellFull";
+const ACTION_SELL_ADMIN = "sellAdmin";
+const ACTION_REGION_UNLOCK_GOODS = "regionUnlockGoods";
+const ACTION_REGION_UNLOCK_SHARDS = "regionUnlockShards";
+const ACTION_REGION_UNLOCK_ADMIN = "regionUnlockAdmin";
+const ACTION_REGION_LOCK_ADMIN = "regionLockAdmin";
+const ACTION_BOOST_UNLOCK = "boostUnlock";
+const ACTION_BOOST_UNLOCK_ADMIN = "boostUnlockAdmin";
+const ACTION_BOOST_READY = "boostReady";
+const ACTION_BOOST_READY_ADMIN = "boostReadyAdmin";
+const ACTION_HARVEST = "harvest";
+const ACTION_MOVE = "move";
+const ACTION_ADMIN_ADJUST = "adminAdjust";
+const ACTION_GOODS_COST_ADMIN = "goodsCostAdmin";
+const ACTION_SHARDS_COST_ADMIN = "shardsCostAdmin";
+const ACTION_FINISH_PRODUCTIONS = "finishProductions";
+const ACTION_HARVEST_ALL = "harvestAll";
+const ACTION_GOODS_PURCHASE = "goodsPurchase";
+const ACTION_GOODS_PURCHASE_ADMIN = "goodsPurchaseAdmin";
+const ACTION_UNIT_PURCHASE = "unitPurchase";
+const ACTION_UNIT_PURCHASE_ADMIN = "unitPurchaseAdmin";
+
+const clampIndex = (value, max) =>
+  Math.max(0, Math.min(max, Number(value) || 0));
+
+const boostCostForDef = (def) => getBoostCostForTier(def?.tier);
+
+const toNumber = (value) => (Number.isFinite(value) ? value : 0);
+
+const isInfinityCost = (value) =>
+  value === "Infinity" ||
+  value === Infinity ||
+  value === Number.POSITIVE_INFINITY;
+
+const resolveCostIndex = (value, costList, fallbackIndex = 0) => {
+  const maxIdx = (costList?.length ?? 1) - 1;
+  if (!Array.isArray(costList) || maxIdx < 0) return clampIndex(fallbackIndex, 0);
+  if (Number.isFinite(value)) {
+    const idx = costList.findIndex((cost) => cost === value);
+    if (idx >= 0) return clampIndex(idx, maxIdx);
+  }
+  if (isInfinityCost(value)) {
+    const idx = costList.findIndex((cost) => isInfinityCost(cost));
+    if (idx >= 0) return clampIndex(idx, maxIdx);
+  }
+  return clampIndex(fallbackIndex, maxIdx);
+};
+
+export const useActionHistory = ({
+  layout,
+  readyMap,
+  buildLocks,
+  goodsUnlocks,
+  shardUnlocks,
+  libraryMap,
+  shortIdMap,
+  stats,
+  qaHoursPerHarvest,
+  infiniteResources,
+  config,
+  applySpend,
+  applyRefund,
+  setResources,
+  setLayout,
+  setReadyMap,
+  setBuildLocks,
+  setUnlockedRegions,
+  setGoodsUnlocks,
+  setShardUnlocks,
+  nextIdRef,
+  configStartResources,
+  configRevision,
+  townhallDef,
+  setTimeStep,
+}) => {
+  // ============ TREE-BASED HISTORY STATE ============
+  // Tree structure: nodes Map with {id, parentId, action, childrenIds[]}
+  // Root node (id=0) has no action, parentId=null
+  const [historyTree, setHistoryTree] = useState(() => ({
+    nodes: new Map([[0, { id: 0, parentId: null, action: null, childrenIds: [] }]]),
+    nextNodeId: 1,
+  }));
+  const [selectedNodeId, setSelectedNodeId] = useState(0);
+  const [invalidSteps, setInvalidSteps] = useState([]);
+  const [historyChecking, setHistoryChecking] = useState(false);
+  
+  // Node verification flags: Map<nodeId, { unfixable?, configFixable?, orderTBD?, greyedOut? }>
+  const [nodeFlags, setNodeFlags] = useState(new Map());
+  // Track which subtrees need verification after tree changes
+  const [pendingVerification, setPendingVerification] = useState(null);
+  
+  // Legacy refs for compatibility
+  const historyTreeRef = useRef(historyTree);
+  const selectedNodeIdRef = useRef(selectedNodeId);
+  const layoutRef = useRef(layout);
+  const readyMapRef = useRef(readyMap);
+  const buildLocksRef = useRef(buildLocks);
+  const goodsUnlocksRef = useRef(goodsUnlocks);
+  const shardUnlocksRef = useRef(shardUnlocks);
+  const statsRef = useRef(stats);
+  const qaHoursRef = useRef(qaHoursPerHarvest);
+  const producerMap = useMemo(() => {
+    const goods = {};
+    const units = {};
+    Object.values(libraryMap || {}).forEach((def) => {
+      if (!def?.produces) return;
+      if (def.category === "goods") goods[def.produces] = def;
+      if (def.category === "military") units[def.produces] = def;
+    });
+    return { goods, units };
+  }, [libraryMap]);
+  const defIdToShortId = useMemo(() => {
+    const map = {};
+    Object.entries(shortIdMap || {}).forEach(([shortId, defId]) => {
+      map[defId] = shortId;
+    });
+    return map;
+  }, [shortIdMap]);
+
+  useEffect(() => {
+    historyTreeRef.current = historyTree;
+  }, [historyTree]);
+
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId;
+  }, [selectedNodeId]);
+
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
+    readyMapRef.current = readyMap;
+  }, [readyMap]);
+
+  useEffect(() => {
+    buildLocksRef.current = buildLocks;
+  }, [buildLocks]);
+
+  useEffect(() => {
+    goodsUnlocksRef.current = goodsUnlocks;
+  }, [goodsUnlocks]);
+
+  useEffect(() => {
+    shardUnlocksRef.current = shardUnlocks;
+  }, [shardUnlocks]);
+
+  useEffect(() => {
+    statsRef.current = stats;
+  }, [stats]);
+
+  useEffect(() => {
+    qaHoursRef.current = qaHoursPerHarvest;
+  }, [qaHoursPerHarvest]);
+
+  // ============ TREE HELPER FUNCTIONS ============
+  
+  // Get path from root (node 0) to a given nodeId
+  const getPathToNode = useCallback((nodeId) => {
+    const { nodes } = historyTree;
+    const path = [];
+    let current = nodeId;
+    while (current !== null && current !== undefined) {
+      path.unshift(current);
+      const node = nodes.get(current);
+      if (!node) break;
+      current = node.parentId;
+    }
+    return path;
+  }, [historyTree]);
+
+  // Get actions along path from root to nodeId (excluding root which has no action)
+  const getActionsToNode = useCallback((nodeId) => {
+    const { nodes } = historyTree;
+    const path = getPathToNode(nodeId);
+    const actions = [];
+    for (const nId of path) {
+      const node = nodes.get(nId);
+      if (node?.action) {
+        actions.push(node.action);
+      }
+    }
+    return actions;
+  }, [historyTree, getPathToNode]);
+
+  // Convert tree to flat array format for TreeVisualizer
+  // IMPORTANT: Uses historyTree state directly (not ref) to ensure immediate updates
+  const getTreeNodesForVisualizer = useCallback(() => {
+    const { nodes } = historyTree;
+    const result = [];
+    
+    // DFS traversal to build flat array
+    const visited = new Set();
+    const dfs = (nodeId, parentId) => {
+      if (visited.has(nodeId)) return;
+      visited.add(nodeId);
+      
+      const node = nodes.get(nodeId);
+      if (!node) return;
+      
+      // Get flags for this node
+      const flags = nodeFlags.get(nodeId) || {};
+      
+      result.push({
+        id: nodeId,
+        parentId: parentId,
+        action: node.action,
+        actionType: node.action?.type || "default",
+        actionTitle: node.action?.title || "",
+        // Include validity flags
+        unfixable: flags.unfixable || false,
+        configFixable: flags.configFixable || false,
+        orderTBD: flags.orderTBD || false,
+        orderFixable: flags.orderFixable || false,
+        orderUnfixable: flags.orderUnfixable || false,
+        greyedOut: flags.greyedOut || false,
+        // Include deficits for configFixable nodes
+        deficits: flags.deficits || null,
+        // Include fixed layout for orderFixable nodes
+        fixedLayout: flags.fixedLayout || null,
+      });
+      
+      for (const childId of node.childrenIds) {
+        dfs(childId, nodeId);
+      }
+    };
+    
+    dfs(0, null);
+    return result;
+  }, [historyTree, nodeFlags]);
+
+  const applyResourceDelta = useCallback(
+    (delta, { force = false } = {}) => {
+      if (infiniteResources && !force) return;
+      if (!delta) return;
+      setResources((prev) => {
+        const nextGoods = { ...(prev.goods ?? {}) };
+        if (delta.goods) {
+          Object.entries(delta.goods).forEach(([key, value]) => {
+            if (!value) return;
+            nextGoods[key] = (nextGoods[key] ?? 0) + value;
+          });
+        }
+        const nextUnits = { ...(prev.units ?? {}) };
+        if (delta.units) {
+          Object.entries(delta.units).forEach(([key, value]) => {
+            if (!value) return;
+            nextUnits[key] = (nextUnits[key] ?? 0) + value;
+          });
+        }
+        return {
+          ...prev,
+          coins: (prev.coins ?? 0) + (delta.coins ?? 0),
+          supplies: (prev.supplies ?? 0) + (delta.supplies ?? 0),
+          chronos: (prev.chronos ?? 0) + (delta.chronos ?? 0),
+          shards: (prev.shards ?? 0) + (delta.shards ?? 0),
+          quantumActions:
+            (prev.quantumActions ?? 0) + (delta.quantumActions ?? 0),
+          goods: nextGoods,
+          units: nextUnits,
+        };
+      });
+    },
+    [infiniteResources, setResources],
+  );
+
+  const ensureNextId = useCallback(
+    (instanceId) => {
+      if (!nextIdRef?.current || instanceId === undefined) return;
+      if (nextIdRef.current <= instanceId) {
+        nextIdRef.current = instanceId + 1;
+      }
+    },
+    [nextIdRef],
+  );
+
+  const removeInstance = useCallback(
+    (instanceId) => {
+      setLayout((prev) => {
+        const next = prev.filter((b) => b.id !== instanceId);
+        layoutRef.current = next;
+        return next;
+      });
+      setReadyMap((prev) => {
+        const next = { ...prev };
+        delete next[instanceId];
+        readyMapRef.current = next;
+        return next;
+      });
+      setBuildLocks((prev) => {
+        const next = { ...prev };
+        delete next[instanceId];
+        buildLocksRef.current = next;
+        return next;
+      });
+    },
+    [setLayout, setReadyMap, setBuildLocks],
+  );
+
+  const addInstance = useCallback(
+    (action, def, ready, locked, defIdOverride = null) => {
+      const resolvedDefId = defIdOverride || action.defId || def?.defId;
+      let instanceId = action.instanceId;
+      if (instanceId === null || instanceId === undefined) {
+        if (nextIdRef?.current) {
+          instanceId = nextIdRef.current;
+          nextIdRef.current += 1;
+        } else {
+          const maxId = (layoutRef.current || []).reduce(
+            (max, item) => Math.max(max, item.id),
+            0,
+          );
+          instanceId = maxId + 1;
+        }
+      } else {
+        ensureNextId(instanceId);
+      }
+      const instance = {
+        id: instanceId,
+        defId: resolvedDefId,
+        x: action.x,
+        y: action.y,
+        width: action.width ?? def.width,
+        height: action.height ?? def.height,
+      };
+      setLayout((prev) => {
+        const next = [...prev, instance];
+        layoutRef.current = next;
+        return next;
+      });
+      setReadyMap((prev) => {
+        const next = { ...prev, [instance.id]: !!ready };
+        readyMapRef.current = next;
+        return next;
+      });
+      setBuildLocks((prev) => {
+        const next = { ...prev, [instance.id]: !!locked };
+        buildLocksRef.current = next;
+        return next;
+      });
+    },
+    [ensureNextId, nextIdRef, setLayout, setReadyMap, setBuildLocks],
+  );
+
+  const resolveDefId = useCallback(
+    (action) =>
+      action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null),
+    [shortIdMap],
+  );
+
+  const getRefund = useCallback(
+    (defId) => computeSaleOrRefund({ defId }, libraryMap, false),
+    [libraryMap],
+  );
+
+  const setRegionUnlocked = useCallback(
+    (idx, value) => {
+      if (idx === null || idx === undefined) return;
+      setUnlockedRegions((prev) => {
+        const next = [...prev];
+        next[idx] = value;
+        return next;
+      });
+    },
+    [setUnlockedRegions],
+  );
+
+  const goodsCostAt = useCallback((idx) => {
+    const maxIdx = REGION_GOODS_COSTS.length - 1;
+    const safeIdx = clampIndex(idx, maxIdx);
+    return toNumber(REGION_GOODS_COSTS[safeIdx]);
+  }, []);
+
+  const shardCostAt = useCallback((idx) => {
+    const maxIdx = REGION_SHARD_COSTS.length - 1;
+    const safeIdx = clampIndex(idx, maxIdx);
+    return toNumber(REGION_SHARD_COSTS[safeIdx]);
+  }, []);
+
+  const setGoodsUnlockIndex = useCallback(
+    (value) => {
+      const maxIdx = REGION_GOODS_COSTS.length - 1;
+      const next = clampIndex(value, maxIdx);
+      goodsUnlocksRef.current = next;
+      setGoodsUnlocks(next);
+      return next;
+    },
+    [setGoodsUnlocks],
+  );
+
+  const setShardUnlockIndex = useCallback(
+    (value) => {
+      const maxIdx = REGION_SHARD_COSTS.length - 1;
+      const next = clampIndex(value, maxIdx);
+      shardUnlocksRef.current = next;
+      setShardUnlocks(next);
+      return next;
+    },
+    [setShardUnlocks],
+  );
+
+  const bumpGoodsUnlocks = useCallback(
+    (delta) => setGoodsUnlockIndex((goodsUnlocksRef.current ?? 0) + delta),
+    [setGoodsUnlockIndex],
+  );
+
+  const bumpShardUnlocks = useCallback(
+    (delta) => setShardUnlockIndex((shardUnlocksRef.current ?? 0) + delta),
+    [setShardUnlockIndex],
+  );
+
+  const computeFastBuyTotals = useCallback(
+    (goodKey, amount) => {
+      if (!goodKey || !amount || amount <= 0) return null;
+      const def = Object.values(libraryMap ?? {}).find(
+        (item) =>
+          item?.category === "goods" &&
+          item?.produces === goodKey &&
+          item?.goodsCost,
+      );
+      if (!def) return null;
+      const options = computePurchasePlans(def, amount);
+      if (!options.length) return null;
+      const best = options.reduce(
+        (min, option) =>
+          (option.totalCost ?? 0) < (min.totalCost ?? 0) ? option : min,
+        options[0],
+      );
+      const totals = best.plan.reduce(
+        (acc, entry) => ({
+          coins: acc.coins + (entry.cost?.coins ?? 0),
+          supplies: acc.supplies + (entry.cost?.supplies ?? 0),
+        }),
+        { coins: 0, supplies: 0 },
+      );
+      return totals;
+    },
+    [libraryMap],
+  );
+
+  const findInstanceId = useCallback((action) => {
+    const list = layoutRef.current || [];
+    if (action.instanceId !== null && action.instanceId !== undefined) {
+      const match = list.find((b) => b.id === action.instanceId);
+      if (match) return action.instanceId;
+    }
+    const defId = resolveDefId(action);
+    const match = list.find(
+      (b) => b.defId === defId && b.x === action.x && b.y === action.y,
+    );
+    return match?.id ?? null;
+  }, [resolveDefId]);
+
+  const applyMoveAction = useCallback((action, direction) => {
+    // Handle new positions format: [[fromX, fromY, toX, toY], ...]
+    // Also support old format: { x: [], y: [], xn: [], yn: [] }
+    let moves = [];
+    if (action?.positions && Array.isArray(action.positions)) {
+      moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
+    } else {
+      const xs = Array.isArray(action?.x) ? action.x : [];
+      const ys = Array.isArray(action?.y) ? action.y : [];
+      const xns = Array.isArray(action?.xn) ? action.xn : [];
+      const yns = Array.isArray(action?.yn) ? action.yn : [];
+      for (let i = 0; i < xs.length; i++) {
+        if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
+          moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
+        }
+      }
+    }
+    if (!moves.length) return;
+    const map = new Map();
+    moves.forEach(({ x, y, xn, yn }) => {
+      if (direction >= 0) {
+        map.set(`${x},${y}`, { x: xn, y: yn });
+      } else {
+        map.set(`${xn},${yn}`, { x, y });
+      }
+    });
+    if (!map.size) return;
+    setLayout((prev) => {
+      const next = prev.map((inst) => {
+        const key = `${inst.x},${inst.y}`;
+        const dest = map.get(key);
+        if (!dest) return inst;
+        return { ...inst, x: dest.x, y: dest.y };
+      });
+      layoutRef.current = next;
+      return next;
+    });
+  }, [setLayout]);
+
+  const applyAdminAdjust = useCallback(
+    (action, direction) => {
+      if (!action?.key && !action?.deltaByKey) return;
+      const scaled = (delta) => (delta ?? 0) * direction;
+      if (action.group === "goods") {
+        const deltas = action.deltaByKey
+          ? Object.fromEntries(
+              Object.entries(action.deltaByKey).map(([k, v]) => [k, scaled(v)]),
+            )
+          : { [action.key]: scaled(action.delta) };
+        applyResourceDelta({ goods: deltas }, { force: true });
+        return;
+      }
+      if (action.group === "units") {
+        const deltas = action.deltaByKey
+          ? Object.fromEntries(
+              Object.entries(action.deltaByKey).map(([k, v]) => [k, scaled(v)]),
+            )
+          : { [action.key]: scaled(action.delta) };
+        applyResourceDelta({ units: deltas }, { force: true });
+        return;
+      }
+      const delta = scaled(action.delta);
+      applyResourceDelta({ [action.key]: delta }, { force: true });
+    },
+    [applyResourceDelta],
+  );
+
+  const qaBasePerHour = QA_BASE_PER_HOUR + Number(config?.qaBaseBonus ?? 0);
+  const applyConfigBoosts = useCallback(
+    (base) => {
+      const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
+      const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
+      // Note: armyBoostRed/Blue now only come from decorations
+      // Config attack/defense boosts are applied separately in StatsPanel
+      return {
+        ...base,
+        coinBoost: (base.coinBoost ?? 0) + coinBoostCfg,
+        supplyBoost: (base.supplyBoost ?? 0) + supplyBoostCfg,
+        armyBoostRed: base.armyBoostRed ?? 0,
+        armyBoostBlue: base.armyBoostBlue ?? 0,
+      };
+    },
+    [config],
+  );
+
+  const applyFinishProductions = useCallback((skipResources = false) => {
+    const nextReady = finishProductionsReadyMap(
+      layoutRef.current || [],
+      libraryMap,
+      readyMapRef.current || {},
+      buildLocksRef.current || {},
+    );
+    readyMapRef.current = nextReady;
+    setReadyMap(nextReady);
+    const baseQa = qaBasePerHour * (qaHoursRef.current ?? 0);
+    if (baseQa > 0 && !skipResources) {
+      applyResourceDelta({ quantumActions: baseQa });
+    }
+    setTimeStep?.((prev) => Math.min(23, (prev ?? 1) + 1));
+  }, [applyResourceDelta, libraryMap, qaBasePerHour, setReadyMap, setTimeStep]);
+
+  const applyHarvestAll = useCallback((skipResources = false) => {
+    const layoutList = layoutRef.current || [];
+    const readySnapshot = readyMapRef.current || {};
+    const buildLocksSnapshot = buildLocksRef.current || {};
+    const readyOnes = layoutList.filter((b) => readySnapshot[b.id] === true);
+    const isFullHarvest = readyOnes.length === 0;
+    const locksBefore = { ...buildLocksSnapshot };
+    let buildLocksAfter = { ...buildLocksSnapshot };
+    let unlockedAny = false;
+    Object.keys(buildLocksAfter).forEach((key) => {
+      if (buildLocksAfter[key]) {
+        buildLocksAfter[key] = false;
+        unlockedAny = true;
+      }
+    });
+    if (unlockedAny) {
+      buildLocksRef.current = buildLocksAfter;
+      setBuildLocks(buildLocksAfter);
+    }
+
+    const effectiveStats = applyConfigBoosts(
+      computeStats(layoutList, libraryMap),
+    );
+    const baseQa = qaBasePerHour * (qaHoursRef.current ?? 0);
+    const extraQa = isFullHarvest ? baseQa : 0;
+    const targets = isFullHarvest ? layoutList : readyOnes;
+
+    const lockedIds = [];
+    const harvestable = [];
+    const lockedCulture = [];
+    targets.forEach((inst) => {
+      if (locksBefore[inst.id]) {
+        const def = libraryMap[inst.defId];
+        if (def?.category === "culture") {
+          lockedCulture.push(inst);
+        } else {
+          lockedIds.push(inst.id);
+        }
+      } else {
+        harvestable.push(inst);
+      }
+    });
+
+    const total =
+      harvestable.length > 0
+        ? aggregateHarvest(harvestable, libraryMap, effectiveStats, {
+            qaHoursPerHarvest: qaHoursRef.current ?? 0,
+          })
+        : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+    const qaFromLockedCulture = lockedCulture.reduce(
+      (acc, inst) =>
+        acc +
+        (libraryMap[inst.defId]?.quantumActions ?? 0) *
+          (qaHoursRef.current ?? 0),
+      0,
+    );
+    total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+
+    if (!skipResources) {
+      applyResourceDelta({
+        coins: total.coins ?? 0,
+        supplies: total.supplies ?? 0,
+        chronos: total.chronos ?? 0,
+        quantumActions: total.qa ?? 0,
+        goods: total.goods ?? {},
+      });
+    }
+
+    const harvestedIds = targets.map((inst) => inst.id);
+    setReadyMap((prev) => {
+      const next = { ...prev };
+      harvestedIds.forEach((id) => {
+        next[id] = false;
+      });
+      readyMapRef.current = next;
+      return next;
+    });
+
+    const unlockIds = [...lockedIds, ...lockedCulture.map((inst) => inst.id)];
+    if (unlockIds.length) {
+      setBuildLocks((prev) => {
+        const next = { ...prev };
+        unlockIds.forEach((id) => {
+          next[id] = false;
+        });
+        buildLocksRef.current = next;
+        return next;
+      });
+    }
+
+    if (isFullHarvest) {
+      setTimeStep?.((prev) => Math.min(23, (prev ?? 1) + 1));
+    }
+  }, [
+    applyConfigBoosts,
+    applyResourceDelta,
+    libraryMap,
+    qaBasePerHour,
+    setBuildLocks,
+    setReadyMap,
+    setTimeStep,
+  ]);
+
+  const applyHarvestDelta = useCallback(
+    (delta, direction) => {
+      if (!delta) return;
+      const goods = {};
+      if (delta.goods) {
+        Object.entries(delta.goods).forEach(([key, value]) => {
+          goods[key] = (value ?? 0) * direction;
+        });
+      }
+      applyResourceDelta({
+        coins: (delta.coins ?? 0) * direction,
+        supplies: (delta.supplies ?? 0) * direction,
+        chronos: (delta.chronos ?? 0) * direction,
+        quantumActions: (delta.qa ?? 0) * direction,
+        goods,
+      });
+    },
+    [applyResourceDelta],
+  );
+
+  const computeHarvestDelta = useCallback(
+    (defId) => {
+      if (!defId) return null;
+      const useStats = statsRef.current || {};
+      const qaHours = qaHoursRef.current ?? 0;
+      return computeBuildingHarvest(
+        { defId },
+        libraryMap,
+        useStats,
+        { qaHoursPerHarvest: qaHours },
+      );
+    },
+    [libraryMap],
+  );
+
+  const applyForward = useCallback(
+    (action) => {
+      if (!action) return;
+      const defId = resolveDefId(action);
+      const def = defId ? libraryMap?.[defId] : null;
+      switch (action.type) {
+        case ACTION_BUILD:
+        case ACTION_BUILD_ADMIN: {
+          if (!def) return;
+          if (action.type === ACTION_BUILD) {
+            applySpend(def.cost);
+          }
+          addInstance(action, def, false, isTierLocked(def.tier), defId);
+          return;
+        }
+        case ACTION_SELL:
+        case ACTION_SELL_FULL:
+        case ACTION_SELL_ADMIN: {
+          if (!def) return;
+          const refund = defId ? getRefund(defId) : null;
+          if (!refund) return;
+          // sellFull gets full refund, sell gets normal refund, sellAdmin gets nothing
+          if (action.type === ACTION_SELL) {
+            applyRefund(refund);
+          } else if (action.type === ACTION_SELL_FULL) {
+            // Full refund = original cost
+            applyRefund(def.cost);
+          }
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          removeInstance(id);
+          return;
+        }
+        case ACTION_REGION_UNLOCK_GOODS: {
+          if (!action.goodKey) return;
+          const currentIdx = goodsUnlocksRef.current ?? 0;
+          const goodsCost = goodsCostAt(currentIdx);
+          applyResourceDelta({
+            goods: { [action.goodKey]: -goodsCost },
+          });
+          bumpGoodsUnlocks(1);
+          setRegionUnlocked(action.regionIdx, true);
+          return;
+        }
+        case ACTION_REGION_UNLOCK_SHARDS: {
+          const currentIdx = shardUnlocksRef.current ?? 0;
+          const shardCost = shardCostAt(currentIdx);
+          applyResourceDelta({ shards: -shardCost });
+          bumpShardUnlocks(1);
+          setRegionUnlocked(action.regionIdx, true);
+          return;
+        }
+        case ACTION_REGION_UNLOCK_ADMIN: {
+          setRegionUnlocked(action.regionIdx, true);
+          return;
+        }
+        case ACTION_REGION_LOCK_ADMIN: {
+          setRegionUnlocked(action.regionIdx, false);
+          return;
+        }
+        case ACTION_GOODS_COST_ADMIN: {
+          const nextIdx = Number.isFinite(action.nextIndex)
+            ? action.nextIndex
+            : resolveCostIndex(
+                action.nextValue,
+                REGION_GOODS_COSTS,
+                goodsUnlocksRef.current ?? 0,
+              );
+          setGoodsUnlockIndex(nextIdx);
+          return;
+        }
+        case ACTION_SHARDS_COST_ADMIN: {
+          const nextIdx = Number.isFinite(action.nextIndex)
+            ? action.nextIndex
+            : resolveCostIndex(
+                action.nextValue,
+                REGION_SHARD_COSTS,
+                shardUnlocksRef.current ?? 0,
+              );
+          setShardUnlockIndex(nextIdx);
+          return;
+        }
+        case ACTION_BOOST_UNLOCK:
+        case ACTION_BOOST_UNLOCK_ADMIN: {
+          if (!def) return;
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          if (action.type === ACTION_BOOST_UNLOCK) {
+            applyResourceDelta({ shards: -BOOST_UNLOCK_SHARDS });
+          }
+          setBuildLocks((prev) => {
+            const next = { ...prev, [id]: false };
+            buildLocksRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_BOOST_READY:
+        case ACTION_BOOST_READY_ADMIN: {
+          if (!def) return;
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          if (action.type === ACTION_BOOST_READY) {
+            const cost = boostCostForDef(def);
+            applyResourceDelta({ shards: -cost });
+          }
+          setReadyMap((prev) => {
+            const next = { ...prev, [id]: true };
+            readyMapRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_HARVEST: {
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          const delta = computeHarvestDelta(defId);
+          applyHarvestDelta(delta, 1);
+          setReadyMap((prev) => {
+            const next = { ...prev, [id]: false };
+            readyMapRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_FINISH_PRODUCTIONS: {
+          applyFinishProductions(false);
+          return;
+        }
+        case ACTION_HARVEST_ALL: {
+          applyHarvestAll(false);
+          return;
+        }
+        case ACTION_MOVE: {
+          applyMoveAction(action, 1);
+          return;
+        }
+        case ACTION_ADMIN_ADJUST: {
+          applyAdminAdjust(action, 1);
+          return;
+        }
+        case ACTION_GOODS_PURCHASE:
+        case ACTION_GOODS_PURCHASE_ADMIN: {
+          if (action.type === ACTION_GOODS_PURCHASE_ADMIN) return;
+          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
+          const key = action.goodsKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) return;
+          // If cost is provided, use it directly; otherwise look up from producerMap
+          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
+          if (!unitCost) return;
+          applyResourceDelta({
+            coins: -(unitCost.coins ?? 0) * count,
+            supplies: -(unitCost.supplies ?? 0) * count,
+            goods: { [key]: amount * count },
+          });
+          return;
+        }
+        case ACTION_UNIT_PURCHASE:
+        case ACTION_UNIT_PURCHASE_ADMIN: {
+          if (action.type === ACTION_UNIT_PURCHASE_ADMIN) return;
+          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
+          const key = action.unitKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) return;
+          // If cost is provided, use it directly; otherwise look up from producerMap
+          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
+          if (!unitCost) return;
+          applyResourceDelta({
+            coins: -(unitCost.coins ?? 0) * count,
+            supplies: -(unitCost.supplies ?? 0) * count,
+            units: { [key]: amount * count },
+          });
+          return;
+        }
+        default:
+          return;
+      }
+    },
+    [
+      libraryMap,
+      applySpend,
+      addInstance,
+      applyRefund,
+      removeInstance,
+      getRefund,
+      setRegionUnlocked,
+      goodsCostAt,
+      shardCostAt,
+      setGoodsUnlockIndex,
+      setShardUnlockIndex,
+      bumpGoodsUnlocks,
+      bumpShardUnlocks,
+      computeFastBuyTotals,
+      applyResourceDelta,
+      findInstanceId,
+      computeHarvestDelta,
+      applyHarvestDelta,
+      applyFinishProductions,
+      applyHarvestAll,
+      applyMoveAction,
+      applyAdminAdjust,
+      producerMap,
+      setReadyMap,
+      setBuildLocks,
+    ],
+  );
+
+  const applyBackward = useCallback(
+    (action) => {
+      if (!action) return;
+      const defId = resolveDefId(action);
+      const def = defId ? libraryMap?.[defId] : null;
+      switch (action.type) {
+        case ACTION_BUILD:
+        case ACTION_BUILD_ADMIN: {
+          if (!def) return;
+          if (action.type === ACTION_BUILD) {
+            applyRefund(def.cost);
+          }
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          removeInstance(id);
+          return;
+        }
+        case ACTION_SELL:
+        case ACTION_SELL_FULL:
+        case ACTION_SELL_ADMIN: {
+          if (!def) return;
+          const refund = defId ? getRefund(defId) : null;
+          if (!refund) return;
+          // Reverse: sellFull spends original cost, sell spends refund amount, sellAdmin spends nothing
+          if (action.type === ACTION_SELL) {
+            applySpend(refund);
+          } else if (action.type === ACTION_SELL_FULL) {
+            applySpend(def.cost);
+          }
+          addInstance(
+            action,
+            def,
+            action.harvestable ?? false,
+            action.locked ?? isTierLocked(def.tier),
+            defId,
+          );
+          return;
+        }
+        case ACTION_REGION_UNLOCK_GOODS: {
+          setRegionUnlocked(action.regionIdx, false);
+          if (!action.goodKey) return;
+          const nextIdx = bumpGoodsUnlocks(-1);
+          const goodsCost = goodsCostAt(nextIdx);
+          applyResourceDelta({
+            goods: { [action.goodKey]: goodsCost },
+          });
+          return;
+        }
+        case ACTION_REGION_UNLOCK_SHARDS: {
+          setRegionUnlocked(action.regionIdx, false);
+          const nextIdx = bumpShardUnlocks(-1);
+          const shardCost = shardCostAt(nextIdx);
+          applyResourceDelta({ shards: shardCost });
+          return;
+        }
+        case ACTION_REGION_UNLOCK_ADMIN: {
+          setRegionUnlocked(action.regionIdx, false);
+          return;
+        }
+        case ACTION_REGION_LOCK_ADMIN: {
+          setRegionUnlocked(action.regionIdx, true);
+          return;
+        }
+        case ACTION_GOODS_COST_ADMIN: {
+          const prevIdx = Number.isFinite(action.prevIndex)
+            ? action.prevIndex
+            : resolveCostIndex(
+                action.prevValue,
+                REGION_GOODS_COSTS,
+                goodsUnlocksRef.current ?? 0,
+              );
+          setGoodsUnlockIndex(prevIdx);
+          return;
+        }
+        case ACTION_SHARDS_COST_ADMIN: {
+          const prevIdx = Number.isFinite(action.prevIndex)
+            ? action.prevIndex
+            : resolveCostIndex(
+                action.prevValue,
+                REGION_SHARD_COSTS,
+                shardUnlocksRef.current ?? 0,
+              );
+          setShardUnlockIndex(prevIdx);
+          return;
+        }
+        case ACTION_BOOST_UNLOCK:
+        case ACTION_BOOST_UNLOCK_ADMIN: {
+          if (!def) return;
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          if (action.type === ACTION_BOOST_UNLOCK) {
+            applyResourceDelta({ shards: BOOST_UNLOCK_SHARDS });
+          }
+          setBuildLocks((prev) => {
+            const next = { ...prev, [id]: true };
+            buildLocksRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_BOOST_READY:
+        case ACTION_BOOST_READY_ADMIN: {
+          if (!def) return;
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          if (action.type === ACTION_BOOST_READY) {
+            const cost = boostCostForDef(def);
+            applyResourceDelta({ shards: cost });
+          }
+          setReadyMap((prev) => {
+            const next = { ...prev, [id]: false };
+            readyMapRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_HARVEST: {
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          const delta = computeHarvestDelta(defId);
+          applyHarvestDelta(delta, -1);
+          setReadyMap((prev) => {
+            const next = { ...prev, [id]: true };
+            readyMapRef.current = next;
+            return next;
+          });
+          return;
+        }
+        case ACTION_FINISH_PRODUCTIONS: {
+          return;
+        }
+        case ACTION_HARVEST_ALL: {
+          return;
+        }
+        case ACTION_MOVE: {
+          applyMoveAction(action, -1);
+          return;
+        }
+        case ACTION_ADMIN_ADJUST: {
+          applyAdminAdjust(action, -1);
+          return;
+        }
+        case ACTION_GOODS_PURCHASE:
+        case ACTION_GOODS_PURCHASE_ADMIN: {
+          if (action.type === ACTION_GOODS_PURCHASE_ADMIN) return;
+          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
+          const key = action.goodsKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) return;
+          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
+          if (!unitCost) return;
+          applyResourceDelta({
+            coins: (unitCost.coins ?? 0) * count,
+            supplies: (unitCost.supplies ?? 0) * count,
+            goods: { [key]: -(amount * count) },
+          });
+          return;
+        }
+        case ACTION_UNIT_PURCHASE:
+        case ACTION_UNIT_PURCHASE_ADMIN: {
+          if (action.type === ACTION_UNIT_PURCHASE_ADMIN) return;
+          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
+          const key = action.unitKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) return;
+          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
+          if (!unitCost) return;
+          applyResourceDelta({
+            coins: (unitCost.coins ?? 0) * count,
+            supplies: (unitCost.supplies ?? 0) * count,
+            units: { [key]: -(amount * count) },
+          });
+          return;
+        }
+        default:
+          return;
+      }
+    },
+    [
+      libraryMap,
+      applyRefund,
+      removeInstance,
+      applySpend,
+      addInstance,
+      getRefund,
+      setRegionUnlocked,
+      setGoodsUnlockIndex,
+      setShardUnlockIndex,
+      bumpGoodsUnlocks,
+      bumpShardUnlocks,
+      goodsCostAt,
+      shardCostAt,
+      computeFastBuyTotals,
+      applyResourceDelta,
+      findInstanceId,
+      computeHarvestDelta,
+      applyHarvestDelta,
+      applyMoveAction,
+      applyAdminAdjust,
+      producerMap,
+      setReadyMap,
+      setBuildLocks,
+    ],
+  );
+
+  const computeStatsForLayout = useCallback(
+    (layoutSnapshot, locksSnapshot) => {
+      const unlocked = (layoutSnapshot || []).filter(
+        (inst) => !locksSnapshot?.[inst.id],
+      );
+      const base = computeStats(unlocked, libraryMap);
+      const lockedReq = (layoutSnapshot || []).reduce((acc, inst) => {
+        if (!locksSnapshot?.[inst.id]) return acc;
+        const def = libraryMap?.[inst.defId];
+        if (!def || def.category === "housing") return acc;
+        const req = def.requiresPeople ?? 0;
+        return req > 0 ? acc + req : acc;
+      }, 0);
+      const withLocks = lockedReq
+        ? { ...base, peopleReq: (base.peopleReq ?? 0) + lockedReq }
+        : base;
+      const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
+      const supplyBoostCfg = Number(config?.supplyBoost ?? 0) / 100;
+      // Note: armyBoostRed/Blue now only come from decorations
+      // Config attack/defense boosts are applied separately in StatsPanel
+      return {
+        ...withLocks,
+        coinBoost: (withLocks.coinBoost ?? 0) + coinBoostCfg,
+        supplyBoost: (withLocks.supplyBoost ?? 0) + supplyBoostCfg,
+        armyBoostRed: withLocks.armyBoostRed ?? 0,
+        armyBoostBlue: withLocks.armyBoostBlue ?? 0,
+      };
+    },
+    [libraryMap, config],
+  );
+
+  const validateHistory = useCallback(() => {
+    // For tree-based history, get actions from current path
+    const list = getActionsToNode(selectedNodeId);
+    const base = buildInitialGameState({ libraryMap, townhallDef });
+    const seedResources = configStartResources || base.resources || {};
+    const resources = {
+      coins: seedResources.coins ?? 0,
+      supplies: seedResources.supplies ?? 0,
+      chronos: seedResources.chronos ?? 0,
+      shards: seedResources.shards ?? 0,
+      quantumActions: seedResources.quantumActions ?? 0,
+      goods: { ...(seedResources.goods ?? {}) },
+      units: { ...(seedResources.units ?? {}) },
+    };
+    let layoutSim = [...(base.layout ?? [])];
+    let readySim = { ...(base.readyMap ?? {}) };
+    let buildLocksSim = { ...(base.buildLocks ?? {}) };
+    if (!Object.keys(buildLocksSim).length) {
+      layoutSim.forEach((inst) => {
+        buildLocksSim[inst.id] = isTierLocked(libraryMap?.[inst.defId]?.tier);
+      });
+    }
+    let unlockedRegionsSim = [...(base.unlockedRegions ?? [])];
+    let goodsUnlocksSim = base.goodsUnlocks ?? 0;
+    let shardUnlocksSim = base.shardUnlocks ?? 0;
+    let timeStepSim = base.timeStep ?? 1;
+    let nextIdSim =
+      layoutSim.reduce((max, inst) => Math.max(max, inst.id), 0) + 1;
+
+    const resolveDefIdSim = (action) =>
+      action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null);
+
+    const applyResourceDeltaSim = (delta, { force = false } = {}) => {
+      // NOTE: We no longer check infiniteResources here.
+      // Tree simulations should always calculate resources based on what
+      // actually happened (using action.admin flag), not current mode.
+      if (!delta) return;
+      resources.coins += delta.coins ?? 0;
+      resources.supplies += delta.supplies ?? 0;
+      resources.chronos += delta.chronos ?? 0;
+      resources.shards += delta.shards ?? 0;
+      resources.quantumActions += delta.quantumActions ?? 0;
+      if (delta.goods) {
+        Object.entries(delta.goods).forEach(([key, value]) => {
+          resources.goods[key] = (resources.goods[key] ?? 0) + value;
+        });
+      }
+      if (delta.units) {
+        Object.entries(delta.units).forEach(([key, value]) => {
+          resources.units[key] = (resources.units[key] ?? 0) + value;
+        });
+      }
+    };
+
+    const applySpendSim = (cost) => {
+      if (!cost) return;
+      applyResourceDeltaSim({
+        coins: -(cost.coins ?? 0),
+        supplies: -(cost.supplies ?? 0),
+        chronos: -(cost.chronos ?? 0),
+      }, { force: true });
+    };
+
+    const applyRefundSim = (refund) => {
+      if (!refund) return;
+      applyResourceDeltaSim({
+        coins: refund.coins ?? 0,
+        supplies: refund.supplies ?? 0,
+        chronos: refund.chronos ?? 0,
+      }, { force: true });
+    };
+
+    const findSimInstance = (action) => {
+      if (action.instanceId !== null && action.instanceId !== undefined) {
+        return layoutSim.find((inst) => inst.id === action.instanceId) || null;
+      }
+      const defId = resolveDefIdSim(action);
+      return (
+        layoutSim.find(
+          (inst) => inst.defId === defId && inst.x === action.x && inst.y === action.y,
+        ) || null
+      );
+    };
+
+    const removeSimInstance = (id) => {
+      layoutSim = layoutSim.filter((inst) => inst.id !== id);
+      delete readySim[id];
+      delete buildLocksSim[id];
+    };
+
+    const addSimInstance = (action, def, defId) => {
+      const id =
+        action.instanceId !== null && action.instanceId !== undefined
+          ? action.instanceId
+          : nextIdSim++;
+      const instance = {
+        id,
+        defId,
+        x: action.x,
+        y: action.y,
+        width: action.width ?? def.width,
+        height: action.height ?? def.height,
+      };
+      layoutSim = [...layoutSim, instance];
+      readySim[id] = false;
+      buildLocksSim[id] = isTierLocked(def.tier);
+    };
+
+    const applyMoveSim = (action) => {
+      // Handle new positions format: [[fromX, fromY, toX, toY], ...]
+      // Also support old format: { x: [], y: [], xn: [], yn: [] }
+      let moves = [];
+      if (action?.positions && Array.isArray(action.positions)) {
+        moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
+      } else {
+        const xs = Array.isArray(action?.x) ? action.x : [];
+        const ys = Array.isArray(action?.y) ? action.y : [];
+        const xns = Array.isArray(action?.xn) ? action.xn : [];
+        const yns = Array.isArray(action?.yn) ? action.yn : [];
+        for (let i = 0; i < xs.length; i++) {
+          if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
+            moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
+          }
+        }
+      }
+      if (!moves.length) return;
+      const map = new Map();
+      moves.forEach(({ x, y, xn, yn }) => {
+        map.set(`${x},${y}`, { x: xn, y: yn });
+      });
+      if (!map.size) return;
+      layoutSim = layoutSim.map((inst) => {
+        const key = `${inst.x},${inst.y}`;
+        const dest = map.get(key);
+        if (!dest) return inst;
+        return { ...inst, x: dest.x, y: dest.y };
+      });
+    };
+
+    const applyAdminAdjustSim = (action) => {
+      if (!action) return;
+      const delta = action.delta ?? 0;
+      if (action.group === "goods") {
+        const deltas = action.deltaByKey || { [action.key]: delta };
+        applyResourceDeltaSim({ goods: deltas }, { force: true });
+        return;
+      }
+      if (action.group === "units") {
+        const deltas = action.deltaByKey || { [action.key]: delta };
+        applyResourceDeltaSim({ units: deltas }, { force: true });
+        return;
+      }
+      if (action.key) {
+        applyResourceDeltaSim({ [action.key]: delta }, { force: true });
+      }
+    };
+
+    const applyFinishProductionsSim = (skipResources = false) => {
+      readySim = finishProductionsReadyMap(
+        layoutSim,
+        libraryMap,
+        readySim,
+        buildLocksSim,
+      );
+      const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
+      if (baseQa > 0 && !skipResources) {
+        applyResourceDeltaSim({ quantumActions: baseQa });
+      }
+      timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+    };
+
+    const applyHarvestAllSim = (skipResources = false) => {
+      const readyOnes = layoutSim.filter((b) => readySim[b.id] === true);
+      const isFullHarvest = readyOnes.length === 0;
+      const locksBefore = { ...buildLocksSim };
+      Object.keys(buildLocksSim).forEach((key) => {
+        if (buildLocksSim[key]) buildLocksSim[key] = false;
+      });
+
+      const effectiveStats = applyConfigBoosts(
+        computeStats(layoutSim, libraryMap),
+      );
+      const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
+      const extraQa = isFullHarvest ? baseQa : 0;
+      const targets = isFullHarvest ? layoutSim : readyOnes;
+
+      const lockedIds = [];
+      const harvestable = [];
+      const lockedCulture = [];
+      targets.forEach((inst) => {
+        if (locksBefore[inst.id]) {
+          const def = libraryMap[inst.defId];
+          if (def?.category === "culture") {
+            lockedCulture.push(inst);
+          } else {
+            lockedIds.push(inst.id);
+          }
+        } else {
+          harvestable.push(inst);
+        }
+      });
+
+      const total =
+        harvestable.length > 0
+          ? aggregateHarvest(harvestable, libraryMap, effectiveStats, {
+              qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
+            })
+          : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+      const qaFromLockedCulture = lockedCulture.reduce(
+        (acc, inst) =>
+          acc +
+          (libraryMap[inst.defId]?.quantumActions ?? 0) *
+            (qaHoursPerHarvest ?? 0),
+        0,
+      );
+      total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+
+      if (!skipResources) {
+        applyResourceDeltaSim({
+          coins: total.coins ?? 0,
+          supplies: total.supplies ?? 0,
+          chronos: total.chronos ?? 0,
+          quantumActions: total.qa ?? 0,
+          goods: total.goods ?? {},
+        });
+      }
+
+      targets.forEach((inst) => {
+        readySim[inst.id] = false;
+      });
+      [...lockedIds, ...lockedCulture.map((inst) => inst.id)].forEach(
+        (id) => {
+          buildLocksSim[id] = false;
+        },
+      );
+      if (isFullHarvest) {
+        timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+      }
+    };
+
+    const hasNegativeResources = () => {
+      if (resources.coins < 0) return true;
+      if (resources.supplies < 0) return true;
+      if (resources.chronos < 0) return true;
+      if (resources.shards < 0) return true;
+      if (resources.quantumActions < 0) return true;
+      if (Object.values(resources.goods).some((v) => (v ?? 0) < 0)) return true;
+      if (Object.values(resources.units).some((v) => (v ?? 0) < 0)) return true;
+      return false;
+    };
+
+    const isStepInvalid = () => {
+      const statsSnapshot = computeStatsForLayout(layoutSim, buildLocksSim);
+      const freePeople =
+        (statsSnapshot.people ?? 0) - (statsSnapshot.peopleReq ?? 0);
+      return hasNegativeResources() || freePeople < 0;
+    };
+
+    const invalid = [];
+    if (isStepInvalid()) invalid.push(0);
+
+    list.forEach((action, idx) => {
+      const defId = resolveDefIdSim(action);
+      const def = defId ? libraryMap?.[defId] : null;
+      switch (action.type) {
+        case ACTION_BUILD:
+        case ACTION_BUILD_ADMIN: {
+          if (!def) break;
+          if (action.type === ACTION_BUILD) {
+            applySpendSim(def.cost);
+          }
+          addSimInstance(action, def, defId);
+          break;
+        }
+        case ACTION_SELL:
+        case ACTION_SELL_FULL:
+        case ACTION_SELL_ADMIN: {
+          if (!def) break;
+          const refund = getRefund(defId);
+          if (action.type === ACTION_SELL) {
+            applyRefundSim(refund);
+          } else if (action.type === ACTION_SELL_FULL) {
+            applyRefundSim(def.cost);
+          }
+          const target = findSimInstance(action);
+          if (target) removeSimInstance(target.id);
+          break;
+        }
+        case ACTION_REGION_UNLOCK_GOODS: {
+          if (!action.goodKey) break;
+          const goodsCost = goodsCostAt(goodsUnlocksSim);
+          applyResourceDeltaSim({
+            goods: { [action.goodKey]: -goodsCost },
+          });
+          goodsUnlocksSim += 1;
+          if (action.regionIdx !== null && action.regionIdx !== undefined) {
+            unlockedRegionsSim[action.regionIdx] = true;
+          }
+          break;
+        }
+        case ACTION_REGION_UNLOCK_SHARDS: {
+          const shardCost = shardCostAt(shardUnlocksSim);
+          applyResourceDeltaSim({ shards: -shardCost });
+          shardUnlocksSim += 1;
+          if (action.regionIdx !== null && action.regionIdx !== undefined) {
+            unlockedRegionsSim[action.regionIdx] = true;
+          }
+          break;
+        }
+        case ACTION_REGION_UNLOCK_ADMIN: {
+          if (action.regionIdx !== null && action.regionIdx !== undefined) {
+            unlockedRegionsSim[action.regionIdx] = true;
+          }
+          break;
+        }
+        case ACTION_REGION_LOCK_ADMIN: {
+          if (action.regionIdx !== null && action.regionIdx !== undefined) {
+            unlockedRegionsSim[action.regionIdx] = false;
+          }
+          break;
+        }
+        case ACTION_GOODS_COST_ADMIN: {
+          const nextIdx = Number.isFinite(action.nextIndex)
+            ? action.nextIndex
+            : resolveCostIndex(
+                action.nextValue,
+                REGION_GOODS_COSTS,
+                goodsUnlocksSim,
+              );
+          goodsUnlocksSim = clampIndex(
+            nextIdx,
+            REGION_GOODS_COSTS.length - 1,
+          );
+          break;
+        }
+        case ACTION_SHARDS_COST_ADMIN: {
+          const nextIdx = Number.isFinite(action.nextIndex)
+            ? action.nextIndex
+            : resolveCostIndex(
+                action.nextValue,
+                REGION_SHARD_COSTS,
+                shardUnlocksSim,
+              );
+          shardUnlocksSim = clampIndex(
+            nextIdx,
+            REGION_SHARD_COSTS.length - 1,
+          );
+          break;
+        }
+        case ACTION_BOOST_UNLOCK:
+        case ACTION_BOOST_UNLOCK_ADMIN: {
+          if (!def) break;
+          const target = findSimInstance(action);
+          if (!target) break;
+          if (action.type === ACTION_BOOST_UNLOCK) {
+            applyResourceDeltaSim({ shards: -BOOST_UNLOCK_SHARDS });
+          }
+          buildLocksSim[target.id] = false;
+          break;
+        }
+        case ACTION_BOOST_READY:
+        case ACTION_BOOST_READY_ADMIN: {
+          if (!def) break;
+          const target = findSimInstance(action);
+          if (!target) break;
+          if (action.type === ACTION_BOOST_READY) {
+            const cost = boostCostForDef(def);
+            applyResourceDeltaSim({ shards: -cost });
+          }
+          readySim[target.id] = true;
+          break;
+        }
+        case ACTION_HARVEST: {
+          const target = findSimInstance(action);
+          if (!target) break;
+          const statsSnapshot = computeStatsForLayout(
+            layoutSim,
+            buildLocksSim,
+          );
+          const qaHours = Number(qaHoursPerHarvest ?? 0);
+          const delta = computeBuildingHarvest(
+            { defId: target.defId },
+            libraryMap,
+            statsSnapshot,
+            { qaHoursPerHarvest: qaHours },
+          );
+          applyResourceDeltaSim({
+            coins: delta.coins ?? 0,
+            supplies: delta.supplies ?? 0,
+            chronos: delta.chronos ?? 0,
+            quantumActions: delta.qa ?? 0,
+            goods: delta.goods ?? {},
+          });
+          readySim[target.id] = false;
+          break;
+        }
+        case ACTION_FINISH_PRODUCTIONS: {
+          applyFinishProductionsSim(false);
+          break;
+        }
+        case ACTION_HARVEST_ALL: {
+          applyHarvestAllSim(false);
+          break;
+        }
+        case ACTION_MOVE: {
+          applyMoveSim(action);
+          break;
+        }
+        case ACTION_ADMIN_ADJUST: {
+          applyAdminAdjustSim(action);
+          break;
+        }
+        case ACTION_GOODS_PURCHASE:
+        case ACTION_GOODS_PURCHASE_ADMIN: {
+          if (action.type === ACTION_GOODS_PURCHASE_ADMIN) break;
+          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
+          const key = action.goodsKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) break;
+          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
+          if (!unitCost) break;
+          applyResourceDeltaSim({
+            coins: -(unitCost.coins ?? 0) * count,
+            supplies: -(unitCost.supplies ?? 0) * count,
+            goods: { [key]: amount * count },
+          });
+          break;
+        }
+        case ACTION_UNIT_PURCHASE:
+        case ACTION_UNIT_PURCHASE_ADMIN: {
+          if (action.type === ACTION_UNIT_PURCHASE_ADMIN) break;
+          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
+          const key = action.unitKey ?? action.key;
+          const amount = Number(action.quantity ?? action.amount ?? 0);
+          const count = action.cost ? 1 : Number(action.count ?? 1);
+          if (!amount || count <= 0 || !key) break;
+          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
+          if (!unitCost) break;
+          applyResourceDeltaSim({
+            coins: -(unitCost.coins ?? 0) * count,
+            supplies: -(unitCost.supplies ?? 0) * count,
+            units: { [key]: amount * count },
+          });
+          break;
+        }
+        default:
+          break;
+      }
+      if (isStepInvalid()) invalid.push(idx + 1);
+    });
+
+    return invalid;
+  }, [
+    getActionsToNode,
+    selectedNodeId,
+    libraryMap,
+    townhallDef,
+    configStartResources,
+    shortIdMap,
+    computeStatsForLayout,
+    getRefund,
+    goodsCostAt,
+    shardCostAt,
+    computeFastBuyTotals,
+    qaHoursPerHarvest,
+    applyConfigBoosts,
+    producerMap,
+    qaBasePerHour,
+  ]);
+
+  useEffect(() => {
+    if (configRevision === undefined || configRevision === null) return;
+    setHistoryChecking(true);
+    const timer = setTimeout(() => {
+      const invalid = validateHistory();
+      setInvalidSteps(invalid);
+      setHistoryChecking(false);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [configRevision, validateHistory]);
+
+  const computeStateAtNode = useCallback(
+    (targetNodeId) => {
+      // Get all actions on the path from root to target node
+      const actionsOnPath = getActionsToNode(targetNodeId);
+      const base = buildInitialGameState({ libraryMap, townhallDef });
+      const seedResources = configStartResources || base.resources || {};
+      const resources = {
+        coins: seedResources.coins ?? 0,
+        supplies: seedResources.supplies ?? 0,
+        chronos: seedResources.chronos ?? 0,
+        shards: seedResources.shards ?? 0,
+        quantumActions: seedResources.quantumActions ?? 0,
+        goods: { ...(seedResources.goods ?? {}) },
+        units: { ...(seedResources.units ?? {}) },
+      };
+      let layoutSim = [...(base.layout ?? [])];
+      let readySim = { ...(base.readyMap ?? {}) };
+      let buildLocksSim = { ...(base.buildLocks ?? {}) };
+      if (!Object.keys(buildLocksSim).length) {
+        layoutSim.forEach((inst) => {
+          buildLocksSim[inst.id] = isTierLocked(libraryMap?.[inst.defId]?.tier);
+        });
+      }
+      let unlockedRegionsSim = [...(base.unlockedRegions ?? [])];
+      let goodsUnlocksSim = base.goodsUnlocks ?? 0;
+      let shardUnlocksSim = base.shardUnlocks ?? 0;
+      let timeStepSim = base.timeStep ?? 1;
+      let nextIdSim =
+        layoutSim.reduce((max, inst) => Math.max(max, inst.id), 0) + 1;
+
+      const resolveDefIdSim = (action) =>
+        action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null);
+
+      const applyResourceDeltaSim = (delta, { force = false } = {}) => {
+        // NOTE: We no longer check infiniteResources here.
+        // Tree simulations should always calculate resources based on what
+        // actually happened (using action.admin flag), not current mode.
+        if (!delta) return;
+        resources.coins += delta.coins ?? 0;
+        resources.supplies += delta.supplies ?? 0;
+        resources.chronos += delta.chronos ?? 0;
+        resources.shards += delta.shards ?? 0;
+        resources.quantumActions += delta.quantumActions ?? 0;
+        if (delta.goods) {
+          Object.entries(delta.goods).forEach(([key, value]) => {
+            resources.goods[key] = (resources.goods[key] ?? 0) + value;
+          });
+        }
+        if (delta.units) {
+          Object.entries(delta.units).forEach(([key, value]) => {
+            resources.units[key] = (resources.units[key] ?? 0) + value;
+          });
+        }
+      };
+
+      const applySpendSim = (cost) => {
+        if (!cost) return;
+        applyResourceDeltaSim({
+          coins: -(cost.coins ?? 0),
+          supplies: -(cost.supplies ?? 0),
+          chronos: -(cost.chronos ?? 0),
+        }, { force: true });
+      };
+
+      const applyRefundSim = (refund) => {
+        if (!refund) return;
+        applyResourceDeltaSim({
+          coins: refund.coins ?? 0,
+          supplies: refund.supplies ?? 0,
+          chronos: refund.chronos ?? 0,
+        }, { force: true });
+      };
+
+      const findSimInstance = (action) => {
+        if (action.instanceId !== null && action.instanceId !== undefined) {
+          return layoutSim.find((inst) => inst.id === action.instanceId) || null;
+        }
+        const defId = resolveDefIdSim(action);
+        return (
+          layoutSim.find(
+            (inst) => inst.defId === defId && inst.x === action.x && inst.y === action.y,
+          ) || null
+        );
+      };
+
+      const removeSimInstance = (id) => {
+        layoutSim = layoutSim.filter((inst) => inst.id !== id);
+        delete readySim[id];
+        delete buildLocksSim[id];
+      };
+
+      const addSimInstance = (action, def, defId) => {
+        const id =
+          action.instanceId !== null && action.instanceId !== undefined
+            ? action.instanceId
+            : nextIdSim++;
+        const instance = {
+          id,
+          defId,
+          x: action.x,
+          y: action.y,
+          width: action.width ?? def.width,
+          height: action.height ?? def.height,
+        };
+        layoutSim = [...layoutSim, instance];
+        readySim[id] = false;
+        buildLocksSim[id] = isTierLocked(def.tier);
+      };
+
+      const applyMoveSim = (action) => {
+        // Handle new positions format: [[fromX, fromY, toX, toY], ...]
+        // Also support old format: { x: [], y: [], xn: [], yn: [] }
+        let moves = [];
+        if (action?.positions && Array.isArray(action.positions)) {
+          moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
+        } else {
+          const xs = Array.isArray(action?.x) ? action.x : [];
+          const ys = Array.isArray(action?.y) ? action.y : [];
+          const xns = Array.isArray(action?.xn) ? action.xn : [];
+          const yns = Array.isArray(action?.yn) ? action.yn : [];
+          for (let i = 0; i < xs.length; i++) {
+            if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
+              moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
+            }
+          }
+        }
+        if (!moves.length) return;
+        const map = new Map();
+        moves.forEach(({ x, y, xn, yn }) => {
+          map.set(`${x},${y}`, { x: xn, y: yn });
+        });
+        if (!map.size) return;
+        layoutSim = layoutSim.map((inst) => {
+          const key = `${inst.x},${inst.y}`;
+          const dest = map.get(key);
+          if (!dest) return inst;
+          return { ...inst, x: dest.x, y: dest.y };
+        });
+      };
+
+      const applyAdminAdjustSim = (action) => {
+        if (!action) return;
+        const delta = action.delta ?? 0;
+        if (action.group === "goods") {
+          const deltas = action.deltaByKey || { [action.key]: delta };
+          applyResourceDeltaSim({ goods: deltas }, { force: true });
+          return;
+        }
+        if (action.group === "units") {
+          const deltas = action.deltaByKey || { [action.key]: delta };
+          applyResourceDeltaSim({ units: deltas }, { force: true });
+          return;
+        }
+        if (action.key) {
+          applyResourceDeltaSim({ [action.key]: delta }, { force: true });
+        }
+      };
+
+      const applyFinishProductionsSim = (skipResources = false) => {
+        readySim = finishProductionsReadyMap(
+          layoutSim,
+          libraryMap,
+          readySim,
+          buildLocksSim,
+        );
+        const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
+        if (baseQa > 0 && !skipResources) {
+          applyResourceDeltaSim({ quantumActions: baseQa });
+        }
+        timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+      };
+
+      const applyHarvestAllSim = (skipResources = false) => {
+        const readyOnes = layoutSim.filter((b) => readySim[b.id] === true);
+        const isFullHarvest = readyOnes.length === 0;
+        const locksBefore = { ...buildLocksSim };
+        Object.keys(buildLocksSim).forEach((key) => {
+          if (buildLocksSim[key]) buildLocksSim[key] = false;
+        });
+
+        const effectiveStats = applyConfigBoosts(
+          computeStats(layoutSim, libraryMap),
+        );
+        const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
+        const extraQa = isFullHarvest ? baseQa : 0;
+        const targets = isFullHarvest ? layoutSim : readyOnes;
+
+        const lockedIds = [];
+        const harvestable = [];
+        const lockedCulture = [];
+        targets.forEach((inst) => {
+          if (locksBefore[inst.id]) {
+            const def = libraryMap[inst.defId];
+            if (def?.category === "culture") {
+              lockedCulture.push(inst);
+            } else {
+              lockedIds.push(inst.id);
+            }
+          } else {
+            harvestable.push(inst);
+          }
+        });
+
+        const total =
+          harvestable.length > 0
+            ? aggregateHarvest(harvestable, libraryMap, effectiveStats, {
+                qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
+              })
+            : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+        const qaFromLockedCulture = lockedCulture.reduce(
+          (acc, inst) =>
+            acc +
+            (libraryMap[inst.defId]?.quantumActions ?? 0) *
+              (qaHoursPerHarvest ?? 0),
+          0,
+        );
+        total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+
+        if (!skipResources) {
+          applyResourceDeltaSim({
+            coins: total.coins ?? 0,
+            supplies: total.supplies ?? 0,
+            chronos: total.chronos ?? 0,
+            quantumActions: total.qa ?? 0,
+            goods: total.goods ?? {},
+          });
+        }
+
+        targets.forEach((inst) => {
+          readySim[inst.id] = false;
+        });
+        [...lockedIds, ...lockedCulture.map((inst) => inst.id)].forEach(
+          (id) => {
+            buildLocksSim[id] = false;
+          },
+        );
+        if (isFullHarvest) {
+          timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+        }
+      };
+
+      // Iterate over actions on the path from root to target node
+      for (const action of actionsOnPath) {
+        const defId = resolveDefIdSim(action);
+        const def = defId ? libraryMap?.[defId] : null;
+        switch (action.type) {
+          case ACTION_BUILD:
+          case ACTION_BUILD_ADMIN: {
+            if (!def) break;
+            if (action.type === ACTION_BUILD) {
+              applySpendSim(def.cost);
+            }
+            addSimInstance(action, def, defId);
+            break;
+          }
+          case ACTION_SELL:
+          case ACTION_SELL_FULL:
+          case ACTION_SELL_ADMIN: {
+            if (!def) break;
+            const refund = getRefund(defId);
+            if (action.type === ACTION_SELL) {
+              applyRefundSim(refund);
+            } else if (action.type === ACTION_SELL_FULL) {
+              applyRefundSim(def.cost);
+            }
+            const target = findSimInstance(action);
+            if (target) removeSimInstance(target.id);
+            break;
+          }
+          case ACTION_REGION_UNLOCK_GOODS: {
+            if (!action.goodKey) break;
+            const goodsCost = goodsCostAt(goodsUnlocksSim);
+            applyResourceDeltaSim({
+              goods: { [action.goodKey]: -goodsCost },
+            });
+            goodsUnlocksSim += 1;
+            if (action.regionIdx !== null && action.regionIdx !== undefined) {
+              unlockedRegionsSim[action.regionIdx] = true;
+            }
+            break;
+          }
+          case ACTION_REGION_UNLOCK_SHARDS: {
+            const shardCost = shardCostAt(shardUnlocksSim);
+            applyResourceDeltaSim({ shards: -shardCost });
+            shardUnlocksSim += 1;
+            if (action.regionIdx !== null && action.regionIdx !== undefined) {
+              unlockedRegionsSim[action.regionIdx] = true;
+            }
+            break;
+          }
+          case ACTION_REGION_UNLOCK_ADMIN: {
+            if (action.regionIdx !== null && action.regionIdx !== undefined) {
+              unlockedRegionsSim[action.regionIdx] = true;
+            }
+            break;
+          }
+          case ACTION_REGION_LOCK_ADMIN: {
+            if (action.regionIdx !== null && action.regionIdx !== undefined) {
+              unlockedRegionsSim[action.regionIdx] = false;
+            }
+            break;
+          }
+          case ACTION_GOODS_COST_ADMIN: {
+            const nextIdx = Number.isFinite(action.nextIndex)
+              ? action.nextIndex
+              : resolveCostIndex(
+                  action.nextValue,
+                  REGION_GOODS_COSTS,
+                  goodsUnlocksSim,
+                );
+            goodsUnlocksSim = clampIndex(
+              nextIdx,
+              REGION_GOODS_COSTS.length - 1,
+            );
+            break;
+          }
+          case ACTION_SHARDS_COST_ADMIN: {
+            const nextIdx = Number.isFinite(action.nextIndex)
+              ? action.nextIndex
+              : resolveCostIndex(
+                  action.nextValue,
+                  REGION_SHARD_COSTS,
+                  shardUnlocksSim,
+                );
+            shardUnlocksSim = clampIndex(
+              nextIdx,
+              REGION_SHARD_COSTS.length - 1,
+            );
+            break;
+          }
+          case ACTION_BOOST_UNLOCK:
+          case ACTION_BOOST_UNLOCK_ADMIN: {
+            if (!def) break;
+            const target = findSimInstance(action);
+            if (!target) break;
+            if (action.type === ACTION_BOOST_UNLOCK) {
+              applyResourceDeltaSim({ shards: -BOOST_UNLOCK_SHARDS });
+            }
+            buildLocksSim[target.id] = false;
+            break;
+          }
+          case ACTION_BOOST_READY:
+          case ACTION_BOOST_READY_ADMIN: {
+            if (!def) break;
+            const target = findSimInstance(action);
+            if (!target) break;
+            if (action.type === ACTION_BOOST_READY) {
+              const cost = boostCostForDef(def);
+              applyResourceDeltaSim({ shards: -cost });
+            }
+            readySim[target.id] = true;
+            break;
+          }
+          case ACTION_HARVEST: {
+            const target = findSimInstance(action);
+            if (!target) break;
+            const statsSnapshot = computeStatsForLayout(
+              layoutSim,
+              buildLocksSim,
+            );
+            const qaHours = Number(qaHoursPerHarvest ?? 0);
+            const delta = computeBuildingHarvest(
+              { defId: target.defId },
+              libraryMap,
+              statsSnapshot,
+              { qaHoursPerHarvest: qaHours },
+            );
+            applyResourceDeltaSim({
+              coins: delta.coins ?? 0,
+              supplies: delta.supplies ?? 0,
+              chronos: delta.chronos ?? 0,
+              quantumActions: delta.qa ?? 0,
+              goods: delta.goods ?? {},
+            });
+            readySim[target.id] = false;
+            break;
+          }
+          case ACTION_FINISH_PRODUCTIONS: {
+            applyFinishProductionsSim(false);
+            break;
+          }
+          case ACTION_HARVEST_ALL: {
+            applyHarvestAllSim(false);
+            break;
+          }
+          case ACTION_MOVE: {
+            applyMoveSim(action);
+            break;
+          }
+          case ACTION_ADMIN_ADJUST: {
+            applyAdminAdjustSim(action);
+            break;
+          }
+          case ACTION_GOODS_PURCHASE:
+          case ACTION_GOODS_PURCHASE_ADMIN: {
+            if (action.type === ACTION_GOODS_PURCHASE_ADMIN) break;
+            // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
+            const key = action.goodsKey ?? action.key;
+            const amount = Number(action.quantity ?? action.amount ?? 0);
+            const count = action.cost ? 1 : Number(action.count ?? 1);
+            if (!amount || count <= 0 || !key) break;
+            const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
+            if (!unitCost) break;
+            applyResourceDeltaSim({
+              coins: -(unitCost.coins ?? 0) * count,
+              supplies: -(unitCost.supplies ?? 0) * count,
+              goods: { [key]: amount * count },
+            });
+            break;
+          }
+          case ACTION_UNIT_PURCHASE:
+          case ACTION_UNIT_PURCHASE_ADMIN: {
+            if (action.type === ACTION_UNIT_PURCHASE_ADMIN) break;
+            // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
+            const key = action.unitKey ?? action.key;
+            const amount = Number(action.quantity ?? action.amount ?? 0);
+            const count = action.cost ? 1 : Number(action.count ?? 1);
+            if (!amount || count <= 0 || !key) break;
+            const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
+            if (!unitCost) break;
+            applyResourceDeltaSim({
+              coins: -(unitCost.coins ?? 0) * count,
+              supplies: -(unitCost.supplies ?? 0) * count,
+              units: { [key]: amount * count },
+            });
+            break;
+          }
+          default:
+            break;
+        }
+      }
+
+      // Compute stats for free population check
+      const stats = computeStats(layoutSim, libraryMap);
+      
+      return {
+        resources,
+        layout: layoutSim,
+        readyMap: readySim,
+        buildLocks: buildLocksSim,
+        unlockedRegions: unlockedRegionsSim,
+        goodsUnlocks: goodsUnlocksSim,
+        shardUnlocks: shardUnlocksSim,
+        timeStep: timeStepSim,
+        nextId: nextIdSim,
+        stats,
+      };
+    },
+    [
+      getActionsToNode,
+      libraryMap,
+      townhallDef,
+      configStartResources,
+      shortIdMap,
+      computeStatsForLayout,
+      getRefund,
+      goodsCostAt,
+      shardCostAt,
+      computeFastBuyTotals,
+      qaHoursPerHarvest,
+      applyConfigBoosts,
+      producerMap,
+      qaBasePerHour,
+    ],
+  );
+
+  // Verify a node's state for validity issues
+  // Returns: { unfixable?: bool, configFixable?: bool, orderTBD?: bool, orderFixable?: bool, orderUnfixable?: bool, fixedLayout?: array }
+  // action: the action that led to this state (needed to determine if build action caused the issue)
+  const verifyNodeState = useCallback((state, action = null) => {
+    const { resources, layout, unlockedRegions, stats } = state;
+    const flags = {};
+    
+    // Track resource deficits for configFixable (needed for fix suggestions)
+    const deficits = {};
+    
+    // Check for unfixable issues - negative free population
+    // Free population = total population - required population
+    if (stats) {
+      const freePopulation = (stats.people ?? 0) - (stats.peopleReq ?? 0);
+      if (freePopulation < 0) {
+        flags.unfixable = true;
+      }
+    }
+    
+    // Check for order issues (buildings overlap or out of bounds)
+    let hasOrderIssue = false;
+    
+    // First check for overlaps between buildings
+    for (let i = 0; i < layout.length; i++) {
+      const a = layout[i];
+      for (let j = i + 1; j < layout.length; j++) {
+        const b = layout[j];
+        // Check if they overlap
+        const separated =
+          a.x + a.width <= b.x ||
+          b.x + b.width <= a.x ||
+          a.y + a.height <= b.y ||
+          b.y + b.height <= a.y;
+        if (!separated) {
+          hasOrderIssue = true;
+          break;
+        }
+      }
+      if (hasOrderIssue) break;
+    }
+    
+    // Check if any building is in a locked region (out of bounds)
+    if (!hasOrderIssue) {
+      const REGION_SIZE = 4; // From boardConfig
+      const REGION_COLS = 7; // From boardConfig
+      for (const inst of layout) {
+        for (let cy = inst.y; cy < inst.y + inst.height; cy++) {
+          for (let cx = inst.x; cx < inst.x + inst.width; cx++) {
+            // Use inline region check (same as regionController.isCellUnlocked)
+            const regionIdx = Math.floor(cx / REGION_SIZE) + REGION_COLS * Math.floor(cy / REGION_SIZE);
+            if (!unlockedRegions[regionIdx]) {
+              hasOrderIssue = true;
+              break;
+            }
+          }
+          if (hasOrderIssue) break;
+        }
+        if (hasOrderIssue) break;
+      }
+    }
+    
+    // If there's an order issue, determine if it's fixable
+    if (hasOrderIssue) {
+      const actionType = action?.type;
+      const isBuildAction = actionType === ACTION_BUILD || actionType === ACTION_BUILD_ADMIN;
+      
+      if (isBuildAction) {
+        // Try to find a solution using the tiling solver
+        const REGION_SIZE = 4;
+        const REGION_COLS = 7;
+        
+        // Build the mask based on unlocked regions
+        const isCellUnlocked = (x, y) => {
+          const regionIdx = Math.floor(x / REGION_SIZE) + REGION_COLS * Math.floor(y / REGION_SIZE);
+          return !!unlockedRegions[regionIdx];
+        };
+        const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
+        
+        // Build blocks from current layout
+        const { groups, blocks } = buildTilingGroups(layout);
+        
+        // Try to solve
+        const solution = solveTilingMask(mask, blocks, { allowGaps: true });
+        
+        if (solution) {
+          // Apply solution to get new layout
+          const maxId = Math.max(0, ...layout.map(inst => inst.id ?? 0));
+          const result = applyTilingSolution(solution, groups, maxId + 1);
+          
+          if (result && result.layout) {
+            flags.orderFixable = true;
+            flags.fixedLayout = result.layout;
+          } else {
+            flags.orderUnfixable = true;
+          }
+        } else {
+          flags.orderUnfixable = true;
+        }
+      } else {
+        // Non-build action (move, etc.) - just mark as orderTBD for now
+        flags.orderTBD = true;
+      }
+    }
+    
+    // Check for configFixable issues (money, supplies, goods, shards negative)
+    // Only mark as configFixable if not already unfixable or has order issues (priority order)
+    if ((resources.coins ?? 0) < 0) {
+      deficits.coins = Math.abs(resources.coins);
+    }
+    if ((resources.supplies ?? 0) < 0) {
+      deficits.supplies = Math.abs(resources.supplies);
+    }
+    if ((resources.shards ?? 0) < 0) {
+      deficits.shards = Math.abs(resources.shards);
+    }
+    // Check all goods
+    if (resources.goods) {
+      for (const [key, value] of Object.entries(resources.goods)) {
+        if ((value ?? 0) < 0) {
+          if (!deficits.goods) deficits.goods = {};
+          deficits.goods[key] = Math.abs(value);
+        }
+      }
+    }
+    
+    // Only set configFixable if there are deficits and no higher priority issues
+    const hasDeficits = Object.keys(deficits).length > 0 || (deficits.goods && Object.keys(deficits.goods).length > 0);
+    const hasOrderFlags = flags.orderTBD || flags.orderFixable || flags.orderUnfixable;
+    if (hasDeficits && !flags.unfixable && !hasOrderFlags) {
+      flags.configFixable = true;
+      flags.deficits = deficits;
+    }
+    
+    return flags;
+  }, []);
+
+  // Verify a subtree starting from a given node
+  // Sets nodeFlags for all nodes in the subtree
+  const verifySubtree = useCallback((startNodeId) => {
+    const { nodes } = historyTree;
+    
+    // Start fresh for the subtree being verified
+    setNodeFlags((prevFlags) => {
+      const newFlags = new Map(prevFlags);
+      
+      // BFS through subtree, stopping when we hit a "cut off" point
+      const queue = [{ nodeId: startNodeId, parentGreyedOut: false }];
+      
+      while (queue.length > 0) {
+        const { nodeId, parentGreyedOut } = queue.shift();
+        const node = nodes.get(nodeId);
+        if (!node) continue;
+        
+        let currentFlags = {};
+        
+        if (parentGreyedOut) {
+          // Parent was flagged as unfixable or configFixable, so this node is greyed out
+          currentFlags.greyedOut = true;
+        } else {
+          // Compute state at this node and verify it
+          const state = computeStateAtNode(nodeId);
+          // Pass the node's action to verifyNodeState so it can determine fix strategy
+          const verifyResult = verifyNodeState(state, node.action);
+          currentFlags = { ...verifyResult };
+          
+          // If unfixable or configFixable or has order issues, all children will be greyed out
+          if (verifyResult.unfixable || verifyResult.configFixable || 
+              verifyResult.orderTBD || verifyResult.orderFixable || verifyResult.orderUnfixable) {
+            currentFlags.greyedOut = false; // This node itself is not greyed, but children will be
+          }
+        }
+        
+        newFlags.set(nodeId, currentFlags);
+        
+        // Queue children - grey out if parent has any blocking issue
+        const childrenGreyedOut = parentGreyedOut || 
+          currentFlags.unfixable || currentFlags.configFixable ||
+          currentFlags.orderTBD || currentFlags.orderFixable || currentFlags.orderUnfixable;
+        for (const childId of node.childrenIds) {
+          queue.push({ nodeId: childId, parentGreyedOut: childrenGreyedOut });
+        }
+      }
+      
+      return newFlags;
+    });
+  }, [historyTree, computeStateAtNode, verifyNodeState]);
+
+  // Effect to handle pending verifications after tree changes
+  useEffect(() => {
+    if (pendingVerification === null) return;
+    
+    // Small timeout to ensure historyTree state is updated
+    const timer = setTimeout(() => {
+      verifySubtree(pendingVerification);
+      setPendingVerification(null);
+    }, 10);
+    
+    return () => clearTimeout(timer);
+  }, [pendingVerification, verifySubtree]);
+
+  // Re-evaluate entire tree when config changes (account config or savefile config)
+  useEffect(() => {
+    if (configRevision === undefined || configRevision === null) return;
+    // Verify from root (node 0) to check entire tree
+    const timer = setTimeout(() => {
+      verifySubtree(0);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [configRevision, verifySubtree]);
+
+  // Update board state when selectedNodeId changes (happens from recordHistoryAction and jumpToHistory)
+  useEffect(() => {
+    const nextState = computeStateAtNode(selectedNodeId);
+    layoutRef.current = nextState.layout;
+    readyMapRef.current = nextState.readyMap;
+    buildLocksRef.current = nextState.buildLocks;
+    goodsUnlocksRef.current = nextState.goodsUnlocks;
+    shardUnlocksRef.current = nextState.shardUnlocks;
+    setLayout(nextState.layout);
+    setReadyMap(nextState.readyMap);
+    setBuildLocks(nextState.buildLocks);
+    setUnlockedRegions(nextState.unlockedRegions);
+    setGoodsUnlocks(nextState.goodsUnlocks);
+    setShardUnlocks(nextState.shardUnlocks);
+    setResources(nextState.resources);
+    if (nextIdRef?.current !== undefined) {
+      nextIdRef.current = nextState.nextId;
+    }
+    setTimeStep?.(nextState.timeStep);
+  }, [selectedNodeId, computeStateAtNode]);
+
+  const recordHistoryAction = useCallback(
+    (action) => {
+      const currentNodeId = selectedNodeIdRef.current;
+      const nextAction = { ...action };
+      
+      // Clean up action object
+      const isSellAction =
+        nextAction.type === ACTION_SELL ||
+        nextAction.type === ACTION_SELL_ADMIN;
+      if (!isSellAction) {
+        delete nextAction.instanceId;
+      }
+      delete nextAction.ready;
+      delete nextAction.locked;
+      delete nextAction.readyBefore;
+      delete nextAction.lockedBefore;
+      if (
+        nextAction.type === ACTION_BUILD ||
+        nextAction.type === ACTION_BUILD_ADMIN
+      ) {
+        delete nextAction.width;
+        delete nextAction.height;
+      }
+      if (!nextAction.shortId && nextAction.defId) {
+        const shortId = defIdToShortId[nextAction.defId];
+        if (shortId) {
+          nextAction.shortId = shortId;
+          delete nextAction.defId;
+        }
+      }
+
+      // Move merge helper
+      const mergeMoveActions = (baseAction, appendedAction) => {
+        const toMap = (source) => {
+          const xs = Array.isArray(source?.x) ? source.x : [];
+          const ys = Array.isArray(source?.y) ? source.y : [];
+          const xns = Array.isArray(source?.xn) ? source.xn : [];
+          const yns = Array.isArray(source?.yn) ? source.yn : [];
+          const map = new Map();
+          const count = Math.min(xs.length, ys.length, xns.length, yns.length);
+          for (let i = 0; i < count; i += 1) {
+            const x = xs[i];
+            const y = ys[i];
+            const xn = xns[i];
+            const yn = yns[i];
+            if (x === undefined || y === undefined || xn === undefined || yn === undefined) continue;
+            map.set(`${x},${y}`, `${xn},${yn}`);
+          }
+          return map;
+        };
+        const toAction = (map, base) => {
+          const x = [], y = [], xn = [], yn = [];
+          map.forEach((toKey, fromKey) => {
+            const [fromX, fromY] = fromKey.split(",").map(Number);
+            const [toX, toY] = toKey.split(",").map(Number);
+            x.push(fromX); y.push(fromY); xn.push(toX); yn.push(toY);
+          });
+          return { ...base, x, y, xn, yn };
+        };
+        const baseMap = toMap(baseAction);
+        const appendMap = toMap(appendedAction);
+        if (!baseMap.size) return { ...appendedAction };
+        if (!appendMap.size) return { ...baseAction };
+        const baseValues = new Set(baseMap.values());
+        const mergedMap = new Map();
+        baseMap.forEach((currentKey, originKey) => {
+          const nextKey = appendMap.get(currentKey) ?? currentKey;
+          if (nextKey !== originKey) mergedMap.set(originKey, nextKey);
+        });
+        appendMap.forEach((nextKey, currentKey) => {
+          if (!baseValues.has(currentKey) && nextKey !== currentKey) mergedMap.set(currentKey, nextKey);
+        });
+        return toAction(mergedMap, { ...baseAction, type: ACTION_MOVE });
+      };
+
+      setHistoryTree((prev) => {
+        const nodes = new Map(prev.nodes);
+        const currentNode = nodes.get(currentNodeId);
+        if (!currentNode) return prev;
+
+        // Check if we can merge with the CURRENT node (for move/purchase actions)
+        // This happens when we're at a move/purchase node and do another move/purchase
+        const isPurchaseType =
+          nextAction.type === ACTION_GOODS_PURCHASE ||
+          nextAction.type === ACTION_GOODS_PURCHASE_ADMIN ||
+          nextAction.type === ACTION_UNIT_PURCHASE ||
+          nextAction.type === ACTION_UNIT_PURCHASE_ADMIN;
+        const isMoveType = nextAction.type === ACTION_MOVE;
+
+        // Check if current node is the same type and can be merged INTO
+        // (merge with current node, not with a child - that was causing the bug)
+        if (currentNode.action) {
+          const currentAction = currentNode.action;
+          
+          // Try to merge purchases into current node
+          if (isPurchaseType && 
+              currentAction.type === nextAction.type &&
+              currentAction.key === nextAction.key &&
+              Number(currentAction.amount ?? 0) === Number(nextAction.amount ?? 0)) {
+            const nextCount = Number(currentAction.count ?? 1) + Number(nextAction.count ?? 1);
+            const merged = { ...currentAction, count: nextCount };
+            nodes.set(currentNodeId, { ...currentNode, action: merged });
+            // Selection stays at currentNodeId
+            setSelectedNodeId(currentNodeId);
+            return { ...prev, nodes };
+          }
+          
+          // Try to merge moves into current node
+          if (isMoveType && currentAction.type === ACTION_MOVE) {
+            const merged = mergeMoveActions(currentAction, nextAction);
+            nodes.set(currentNodeId, { ...currentNode, action: merged });
+            // Selection stays at currentNodeId
+            setSelectedNodeId(currentNodeId);
+            return { ...prev, nodes };
+          }
+        }
+
+        // Create new node as child (this creates a branch if currentNode already has children)
+        const newNodeId = prev.nextNodeId;
+        const newNode = {
+          id: newNodeId,
+          parentId: currentNodeId,
+          action: nextAction,
+          childrenIds: [],
+        };
+        nodes.set(newNodeId, newNode);
+
+        // Add to parent's children at the END (new branches go below existing ones)
+        const updatedParent = {
+          ...currentNode,
+          childrenIds: [...currentNode.childrenIds, newNodeId],
+        };
+        nodes.set(currentNodeId, updatedParent);
+
+        // Select the new node immediately
+        setSelectedNodeId(newNodeId);
+        return { nodes, nextNodeId: newNodeId + 1 };
+      });
+    },
+    [defIdToShortId],
+  );
+
+  const jumpToHistory = useCallback(
+    (targetNodeId) => {
+      const { nodes } = historyTree;
+      const currentNodeId = selectedNodeIdRef.current;
+      
+      if (!nodes.has(targetNodeId) || targetNodeId === currentNodeId) return;
+
+      // Set selected node - the useEffect will update the board state
+      setSelectedNodeId(targetNodeId);
+    },
+    [historyTree],
+  );
+
+  // Make a branch the "top" (main) branch by moving it to index 0 at each parent
+  const makeTopBranch = useCallback(
+    (nodeId) => {
+      if (nodeId == null || nodeId === 0) return;
+      
+      setHistoryTree((prev) => {
+        const nodes = new Map(prev.nodes);
+        
+        // Walk up from nodeId to root, reordering children at each step
+        let currentId = nodeId;
+        while (currentId != null) {
+          const node = nodes.get(currentId);
+          if (!node) break;
+          
+          const parentId = node.parentId;
+          if (parentId == null) break;
+          
+          const parent = nodes.get(parentId);
+          if (!parent) break;
+          
+          const childrenIds = parent.childrenIds;
+          const currentIndex = childrenIds.indexOf(currentId);
+          
+          // If not already at index 0, move to front
+          if (currentIndex > 0) {
+            const newChildrenIds = [
+              currentId,
+              ...childrenIds.slice(0, currentIndex),
+              ...childrenIds.slice(currentIndex + 1),
+            ];
+            nodes.set(parentId, { ...parent, childrenIds: newChildrenIds });
+          }
+          
+          currentId = parentId;
+        }
+        
+        return { ...prev, nodes };
+      });
+    },
+    [],
+  );
+
+  // Load a serialized tree (from saved data)
+  const loadHistoryTree = useCallback((serializedTree, targetNodeId = 0) => {
+    setHistoryTree(serializedTree);
+    setSelectedNodeId(targetNodeId);
+  }, []);
+
+  // Copy a subtree from one node to another (used for drag-and-drop in tree visualizer)
+  // Copies sourceNodeId and all its descendants as new children of targetNodeId
+  const copyBranchTo = useCallback((sourceNodeId, targetNodeId) => {
+    if (sourceNodeId == null || targetNodeId == null) return;
+    if (sourceNodeId === 0 || sourceNodeId === targetNodeId) return;
+    
+    setHistoryTree((prev) => {
+      const nodes = new Map(prev.nodes);
+      let nextId = prev.nextNodeId;
+      
+      const sourceNode = nodes.get(sourceNodeId);
+      const targetNode = nodes.get(targetNodeId);
+      if (!sourceNode || !targetNode) return prev;
+      
+      // Check that target is not a descendant of source (would create cycle)
+      const isDescendant = (ancestorId, checkId) => {
+        let cur = checkId;
+        while (cur != null) {
+          if (cur === ancestorId) return true;
+          const node = nodes.get(cur);
+          cur = node?.parentId;
+        }
+        return false;
+      };
+      if (isDescendant(sourceNodeId, targetNodeId)) return prev;
+      
+      // Deep copy the subtree rooted at sourceNodeId
+      const idMapping = new Map(); // oldId -> newId
+      const toCopy = [sourceNodeId];
+      const copiedNodes = [];
+      
+      while (toCopy.length > 0) {
+        const oldId = toCopy.shift();
+        const oldNode = nodes.get(oldId);
+        if (!oldNode) continue;
+        
+        const newId = nextId++;
+        idMapping.set(oldId, newId);
+        
+        // Copy the node with new ID (parentId will be fixed after)
+        copiedNodes.push({
+          oldId,
+          newId,
+          oldParentId: oldNode.parentId,
+          action: oldNode.action ? { ...oldNode.action } : null,
+          oldChildrenIds: [...oldNode.childrenIds],
+        });
+        
+        // Queue children for copying
+        for (const childId of oldNode.childrenIds) {
+          toCopy.push(childId);
+        }
+      }
+      
+      // Create new nodes with correct parent/children references
+      for (const copied of copiedNodes) {
+        const newParentId = copied.oldId === sourceNodeId 
+          ? targetNodeId 
+          : idMapping.get(copied.oldParentId);
+        const newChildrenIds = copied.oldChildrenIds.map(oldChildId => idMapping.get(oldChildId));
+        
+        const newNode = {
+          id: copied.newId,
+          parentId: newParentId,
+          action: copied.action,
+          childrenIds: newChildrenIds,
+        };
+        nodes.set(copied.newId, newNode);
+      }
+      
+      // Add root of copied subtree to target's children
+      const rootNewId = idMapping.get(sourceNodeId);
+      const updatedTarget = {
+        ...targetNode,
+        childrenIds: [...targetNode.childrenIds, rootNewId],
+      };
+      nodes.set(targetNodeId, updatedTarget);
+      
+      return { nodes, nextNodeId: nextId };
+    });
+    
+    // Trigger verification for the newly copied subtree (starting from target node)
+    setPendingVerification(targetNodeId);
+  }, []);
+
+  // Delete a node and optionally its entire subtree
+  // If deleteSubtree is true: delete node and all descendants
+  // If deleteSubtree is false: delete only the node, re-parent its children to node's parent
+  const deleteNode = useCallback((nodeId, deleteSubtree = true) => {
+    if (nodeId == null || nodeId === 0) return; // Can't delete root
+    
+    setHistoryTree((prev) => {
+      const nodes = new Map(prev.nodes);
+      const nodeToDelete = nodes.get(nodeId);
+      if (!nodeToDelete) return prev;
+      
+      const parentId = nodeToDelete.parentId;
+      const parentNode = nodes.get(parentId);
+      if (!parentNode) return prev; // Shouldn't happen for non-root nodes
+      
+      if (deleteSubtree) {
+        // Collect all nodes in subtree using BFS
+        const toDelete = new Set();
+        const queue = [nodeId];
+        while (queue.length > 0) {
+          const id = queue.shift();
+          toDelete.add(id);
+          const node = nodes.get(id);
+          if (node) {
+            for (const childId of node.childrenIds) {
+              queue.push(childId);
+            }
+          }
+        }
+        
+        // Delete all nodes in subtree
+        for (const id of toDelete) {
+          nodes.delete(id);
+        }
+        
+        // Remove nodeId from parent's children
+        const updatedParent = {
+          ...parentNode,
+          childrenIds: parentNode.childrenIds.filter(id => id !== nodeId),
+        };
+        nodes.set(parentId, updatedParent);
+      } else {
+        // Delete only this node, re-parent its children
+        const childrenToReparent = nodeToDelete.childrenIds;
+        
+        // Update children to point to new parent
+        for (const childId of childrenToReparent) {
+          const child = nodes.get(childId);
+          if (child) {
+            nodes.set(childId, { ...child, parentId });
+          }
+        }
+        
+        // Replace this node in parent's children with the node's children
+        const nodeIndex = parentNode.childrenIds.indexOf(nodeId);
+        const newParentChildren = [
+          ...parentNode.childrenIds.slice(0, nodeIndex),
+          ...childrenToReparent,
+          ...parentNode.childrenIds.slice(nodeIndex + 1),
+        ];
+        nodes.set(parentId, { ...parentNode, childrenIds: newParentChildren });
+        
+        // Delete the node itself
+        nodes.delete(nodeId);
+      }
+      
+      return { ...prev, nodes };
+    });
+    
+    // Store parent before deleting for verification
+    const parentIdForVerify = historyTree.nodes.get(nodeId)?.parentId ?? 0;
+    
+    // Move selection to parent of deleted node
+    setSelectedNodeId((currentId) => {
+      if (currentId === nodeId) {
+        const node = historyTree.nodes.get(nodeId);
+        return node?.parentId ?? 0;
+      }
+      return currentId;
+    });
+    
+    // Trigger verification for the affected subtree (children that got re-parented)
+    // We verify from the parent node since the children are now attached there
+    setPendingVerification(parentIdForVerify);
+  }, [historyTree]);
+
+  // Apply a layout fix for an orderFixable node
+  // This modifies the build action to use the new position, and inserts a bundled move operation before it
+  const applyLayoutFix = useCallback((nodeId, fixedLayout, moveOperations) => {
+    if (nodeId == null || nodeId === 0) return;
+    
+    setHistoryTree((prev) => {
+      const nodes = new Map(prev.nodes);
+      const nodeToFix = nodes.get(nodeId);
+      if (!nodeToFix) return prev;
+      
+      const originalAction = nodeToFix.action;
+      if (!originalAction) return prev;
+      
+      // Only handle build actions for now
+      const isBuildAction = originalAction.type === ACTION_BUILD || originalAction.type === ACTION_BUILD_ADMIN;
+      if (!isBuildAction) return prev;
+      
+      // Find the new position for this building from fixedLayout
+      // The building being added should be the one not in the parent's layout
+      // We find it by looking at the build action's intended position and defId
+      const buildDefId = originalAction.defId || originalAction.shortId;
+      
+      // Find the corresponding placement in fixedLayout
+      // Since this is a new building, look for one that matches the defId
+      // and prefer one at a different position than the original
+      const originalX = originalAction.x;
+      const originalY = originalAction.y;
+      
+      let newPlacement = null;
+      for (const inst of fixedLayout) {
+        // Check if this could be the new building (same defId, different position preferred)
+        const instDefId = inst.defId;
+        if (instDefId === buildDefId || (originalAction.shortId && shortIdMap?.[originalAction.shortId] === instDefId)) {
+          // Check if it's at a new position
+          if (inst.x !== originalX || inst.y !== originalY) {
+            newPlacement = inst;
+            break;
+          }
+        }
+      }
+      
+      // If we found a new placement, update the build action
+      if (newPlacement) {
+        const updatedAction = {
+          ...originalAction,
+          x: newPlacement.x,
+          y: newPlacement.y,
+        };
+        nodes.set(nodeId, { ...nodeToFix, action: updatedAction });
+      }
+      
+      // If there are move operations to insert, create a SINGLE bundled move node
+      // (using array format like flushMoveChain does)
+      if (moveOperations && moveOperations.length > 0) {
+        const parentId = nodeToFix.parentId;
+        const parentNode = nodes.get(parentId);
+        if (!parentNode) return { ...prev, nodes };
+        
+        const nextId = prev.nextNodeId;
+        
+        // Remove this node from its current parent
+        const nodeIndex = parentNode.childrenIds.indexOf(nodeId);
+        const newParentChildren = [
+          ...parentNode.childrenIds.slice(0, nodeIndex),
+          ...parentNode.childrenIds.slice(nodeIndex + 1),
+        ];
+        
+        // Create a single bundled move action (array format)
+        const bundledMoveAction = {
+          type: ACTION_MOVE,
+          // Use arrays for bundled moves (same format as flushMoveChain)
+          x: moveOperations.map((m) => m.fromX),
+          y: moveOperations.map((m) => m.fromY),
+          xn: moveOperations.map((m) => m.toX),
+          yn: moveOperations.map((m) => m.toY),
+        };
+        
+        const moveNode = {
+          id: nextId,
+          parentId: parentId,
+          action: bundledMoveAction,
+          childrenIds: [nodeId], // The build node is the child
+        };
+        nodes.set(nextId, moveNode);
+        
+        // Update parent's children to include the move node
+        newParentChildren.splice(nodeIndex, 0, nextId);
+        nodes.set(parentId, { ...parentNode, childrenIds: newParentChildren });
+        
+        // Reattach the original node (with updated action) to the move node
+        nodes.set(nodeId, { ...nodes.get(nodeId), parentId: nextId });
+        
+        return { nodes, nextNodeId: nextId + 1 };
+      }
+      
+      return { ...prev, nodes };
+    });
+    
+    // Trigger verification from the affected node
+    setPendingVerification(nodeId);
+  }, [shortIdMap]);
+
+  return {
+    historyIndex: selectedNodeId,
+    historyTree,
+    setHistoryTree,
+    setSelectedNodeId,
+    historyNodes: getTreeNodesForVisualizer,
+    historyInvalidSteps: invalidSteps,
+    historyChecking,
+    recordHistoryAction,
+    jumpToHistory,
+    makeTopBranch,
+    loadHistoryTree,
+    copyBranchTo,
+    deleteNode,
+    applyLayoutFix,
+    nodeFlags,
+    verifySubtree,
+  };
+};

@@ -1,0 +1,405 @@
+import { useCallback, useEffect, useMemo } from "react";
+import { BOARD_HEIGHT, BOARD_WIDTH } from "../../config/boardConfig";
+import { canAffordResources, hasPopulationForDef } from "../../utils/stateUtils";
+import { isAreaFree } from "../../utils/layoutUtils";
+import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
+import {
+  BOOST_UNLOCK_SHARDS,
+  getBoostCostForTier,
+  isTierLocked,
+} from "../../config/buildingTiers";
+import { dropCarried, findTargetInstance } from "../../domain/placement/placementController";
+
+// Board click handling for placement, move, sell, and boost.
+export const usePlacementHandlers = ({
+  layout,
+  carried,
+  libraryMap,
+  isCellUnlocked,
+  moveMode,
+  sellMode,
+  refundMode,
+  boostMode,
+  buildLocks,
+  readyMap,
+  resources,
+  stats,
+  selectedBuildingId,
+  autoSelectNew,
+  infiniteResources,
+  allowNegativeShards,
+  effectiveResources,
+  applySpend,
+  applyRefund,
+  setResources,
+  setLayout,
+  setCarried,
+  setMoveMode,
+  setReadyMap,
+  setBuildLocks,
+  setMoveSnapshot,
+  setSelectedIds,
+  setSelectedBuildingId,
+  setGoodsModal,
+  setUnitModal,
+  updateStatus,
+  harvestBuildings,
+  buildSnapshot,
+  overwriteCheckpointAtIndex,
+  suppressNextCheckpoint,
+  branchFromPast,
+  requestAutoSnapshot,
+  isPast,
+  nextIdRef,
+  recordHistoryAction,
+  moveChainRef,
+}) => {
+  const selectedDef = useMemo(
+    () => (selectedBuildingId ? libraryMap[selectedBuildingId] : null),
+    [selectedBuildingId, libraryMap],
+  );
+
+  // Track positions for the current move/swap-chain
+  const recordMovePosition = useCallback((fromX, fromY, toX, toY) => {
+    if (fromX === toX && fromY === toY) return;
+    const chain = moveChainRef?.current;
+    if (!chain) return;
+    chain.push([fromX, fromY, toX, toY]);
+  }, [moveChainRef]);
+
+  // Flush and record the move action when move/swap-chain completes
+  const finishMove = useCallback(() => {
+    const positions = moveChainRef?.current ?? [];
+    if (moveChainRef) {
+      moveChainRef.current = [];
+    }
+    // Filter out any no-op moves
+    const filtered = positions.filter(([x, y, xn, yn]) => x !== xn || y !== yn);
+    if (!filtered.length) return;
+    recordHistoryAction?.({
+      type: "move",
+      positions: filtered,
+    });
+  }, [recordHistoryAction, moveChainRef]);
+
+  // Clear move chain without recording (e.g., when canceling)
+  const cancelMove = useCallback(() => {
+    if (moveChainRef) {
+      moveChainRef.current = [];
+    }
+  }, [moveChainRef]);
+
+  const handleCellClick = useCallback(
+    (x, y) => {
+      const target = findTargetInstance(layout, x, y);
+      if (carried) {
+        const placeX = Math.min(x, BOARD_WIDTH - carried.def.width);
+        const placeY = Math.min(y, BOARD_HEIGHT - carried.def.height);
+        const fromX = carried.instance.x;
+        const fromY = carried.instance.y;
+        const dropResult = dropCarried({
+          carried,
+          x,
+          y,
+          layout,
+          libraryMap,
+          isCellUnlocked,
+          setLayout,
+          setCarried,
+          setReadyMap,
+          setBuildLocks,
+          readyMap,
+          buildLocks,
+          setMoveMode,
+          updateStatus,
+        });
+        if (dropResult?.ok) {
+          // Record this position change in the chain
+          recordMovePosition(fromX, fromY, placeX, placeY);
+          if (dropResult?.done) {
+            // Chain complete - record the move action
+            finishMove();
+            requestAutoSnapshot();
+          }
+          return;
+        }
+        return;
+      }
+
+      if ((sellMode || refundMode) && target) {
+        if (libraryMap[target.defId]?.category === "townhall") {
+          updateStatus("Rathaus kann nicht verkauft werden.");
+          return;
+        }
+        const def = libraryMap[target.defId];
+        const isHarvestable = readyMap[target.id] === true;
+        const isLocked = buildLocks[target.id] === true;
+        const sellHistory = {
+          type: refundMode
+            ? "sellFull"
+            : infiniteResources
+              ? "sellAdmin"
+              : "sell",
+          shortId: def?.shortId ?? target.defId,
+          x: target.x,
+          y: target.y,
+          harvestable: isHarvestable,
+          locked: isLocked,
+        };
+        branchFromPast();
+        const delta = computeSaleOrRefund(target, libraryMap, refundMode);
+        if (readyMap[target.id] === true) {
+          harvestBuildings([target], "Harvest", true, true);
+        }
+        const label = `${refundMode ? "Rueckerstattung:" : "Verkauft:"} ${
+          libraryMap[target.defId].name
+        }`;
+        applyRefund(delta);
+        setLayout((prev) => prev.filter((p) => p.id !== target.id));
+        setReadyMap((prev) => {
+          const next = { ...prev };
+          delete next[target.id];
+          return next;
+        });
+        setBuildLocks((prev) => {
+          const next = { ...prev };
+          delete next[target.id];
+          return next;
+        });
+        updateStatus(label);
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
+        recordHistoryAction?.(sellHistory);
+        requestAutoSnapshot();
+        return;
+      }
+
+      if (boostMode && target) {
+        const def = libraryMap[target.defId];
+        const boostCostForDef = (value) => getBoostCostForTier(value?.tier);
+        const canSpendShards = (cost) =>
+          infiniteResources ||
+          cost <= 0 ||
+          allowNegativeShards ||
+          (resources.shards ?? 0) >= cost;
+        const spendShards = (cost) => {
+          if (infiniteResources || cost <= 0) return;
+          setResources((prev) => ({
+            ...prev,
+            shards: (prev.shards ?? 0) - cost,
+          }));
+        };
+        if (buildLocks[target.id]) {
+          const cost = BOOST_UNLOCK_SHARDS;
+          if (!canSpendShards(cost)) {
+            updateStatus("Need more shards.");
+            return;
+          }
+          spendShards(cost);
+          if (def?.category === "culture") {
+            harvestBuildings([target], "Harvest", true);
+            updateStatus(`Unlocked ${def.name}`);
+          } else {
+            setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
+            updateStatus(`Unlocked ${def.name}`);
+          }
+          recordHistoryAction?.({
+            type: infiniteResources ? "boostUnlockAdmin" : "boostUnlock",
+            shortId: def?.shortId ?? target.defId,
+            x: target.x,
+            y: target.y,
+          });
+        } else if (readyMap[target.id] === true) {
+          recordHistoryAction?.({
+            type: "harvest",
+            shortId: def?.shortId ?? target.defId,
+            x: target.x,
+            y: target.y,
+          });
+          harvestBuildings([target], "Harvest", true);
+        } else {
+          const cost = boostCostForDef(def);
+          if (!canSpendShards(cost)) {
+            updateStatus("Need more shards.");
+            return;
+          }
+          spendShards(cost);
+          setReadyMap((prev) => ({ ...prev, [target.id]: true }));
+          recordHistoryAction?.({
+            type: infiniteResources ? "boostReadyAdmin" : "boostReady",
+            shortId: def?.shortId ?? target.defId,
+            x: target.x,
+            y: target.y,
+          });
+          updateStatus(`Boosted ${def.name}`);
+        }
+        requestAutoSnapshot();
+        return;
+      }
+
+      if (selectedDef) {
+        // Admin/infinite mode bypasses population check
+        if (!infiniteResources && !hasPopulationForDef(stats, selectedDef)) {
+          updateStatus("Not enough free population.");
+          return;
+        }
+        const adjustedX = Math.min(x, BOARD_WIDTH - selectedDef.width);
+        const adjustedY = Math.min(y, BOARD_HEIGHT - selectedDef.height);
+        if (
+          !isAreaFree(
+            layout,
+            adjustedX,
+            adjustedY,
+            selectedDef.width,
+            selectedDef.height,
+            undefined,
+            isCellUnlocked,
+          )
+        ) {
+          updateStatus("Blocked or locked area.");
+          return;
+        }
+        if (
+          !infiniteResources &&
+          !canAffordResources(effectiveResources, selectedDef.cost)
+        ) {
+          updateStatus("Not enough resources.");
+          return;
+        }
+        branchFromPast();
+        applySpend(selectedDef.cost);
+        const instance = {
+          id: nextIdRef.current++,
+          defId: selectedDef.defId,
+          x: adjustedX,
+          y: adjustedY,
+          width: selectedDef.width,
+          height: selectedDef.height,
+        };
+        setLayout((prev) => [...prev, instance]);
+        setReadyMap((prev) => ({ ...prev, [instance.id]: false }));
+        setBuildLocks((prev) => ({
+          ...prev,
+          [instance.id]: isTierLocked(selectedDef.tier),
+        }));
+        if (autoSelectNew) {
+          setSelectedIds((prev) => new Set([...(prev ?? []), instance.id]));
+        }
+        recordHistoryAction?.({
+          type: infiniteResources ? "buildAdmin" : "build",
+          shortId: selectedDef.shortId ?? selectedDef.defId,
+          x: instance.x,
+          y: instance.y,
+        });
+        const label = `Gekauft: ${selectedDef.name}`;
+        updateStatus(label);
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
+        requestAutoSnapshot();
+        return;
+      }
+
+      if (moveMode && target) {
+        suppressNextCheckpoint();
+        const snap = buildSnapshot();
+        setMoveSnapshot(snap);
+        setLayout((prev) => prev.filter((p) => p.id !== target.id));
+        setCarried({
+          instance: {
+            ...target,
+            ready: readyMap[target.id],
+            locked: buildLocks[target.id],
+          },
+          def: libraryMap[target.defId],
+        });
+        if (isPast) {
+          setTimeout(() => {
+            overwriteCheckpointAtIndex(buildSnapshot());
+          }, 0);
+        }
+        return;
+      }
+
+      if (
+        !moveMode &&
+        !sellMode &&
+        !refundMode &&
+        !selectedDef &&
+        target &&
+        readyMap[target.id] === true
+      ) {
+        recordHistoryAction?.({
+          type: infiniteResources ? "harvestAdmin" : "harvest",
+          defId: target.defId,
+          x: target.x,
+          y: target.y,
+        });
+        harvestBuildings([target], "Geerntet", true);
+        requestAutoSnapshot();
+        return;
+      }
+
+      if (!moveMode && target && libraryMap[target.defId]?.category === "military") {
+        const def = libraryMap[target.defId];
+        setUnitModal({ def });
+      }
+
+      if (!moveMode && target && libraryMap[target.defId]?.category === "goods") {
+        const def = libraryMap[target.defId];
+        setGoodsModal({ def });
+      }
+    },
+    [
+      layout,
+      carried,
+      libraryMap,
+      isCellUnlocked,
+      setLayout,
+      setCarried,
+      setReadyMap,
+      setBuildLocks,
+      buildLocks,
+      setMoveMode,
+      updateStatus,
+      requestAutoSnapshot,
+      sellMode,
+      refundMode,
+      branchFromPast,
+      readyMap,
+      harvestBuildings,
+      applyRefund,
+      setMoveSnapshot,
+      resources,
+      allowNegativeShards,
+      setResources,
+      boostMode,
+      infiniteResources,
+      selectedDef,
+      stats,
+      effectiveResources,
+      applySpend,
+      autoSelectNew,
+      setSelectedIds,
+      isPast,
+      overwriteCheckpointAtIndex,
+      buildSnapshot,
+      moveMode,
+      suppressNextCheckpoint,
+      setSelectedBuildingId,
+      setGoodsModal,
+      setUnitModal,
+      nextIdRef,
+      recordHistoryAction,
+      recordMovePosition,
+      finishMove,
+    ],
+  );
+
+  return { handleCellClick, cancelMove };
+};

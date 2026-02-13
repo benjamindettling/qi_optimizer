@@ -1,0 +1,90 @@
+/* Mini toolbar - vertical/horizontal toolbar beside/above the board */
+.mini-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Vertical orientation (position: left) - default */
+.mini-toolbar--vertical {
+  flex-direction: column;
+  align-items: center;
+  align-self: flex-start;
+}
+
+/* Horizontal orientation (position: top) */
+.mini-toolbar--horizontal {
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Spacer creates visual gap between button groups */
+.mini-toolbar-spacer {
+  flex-shrink: 0;
+}
+
+.mini-toolbar--vertical .mini-toolbar-spacer {
+  height: 0.75rem;
+  width: 100%;
+}
+
+.mini-toolbar--horizontal .mini-toolbar-spacer {
+  width: 0.75rem;
+  height: 100%;
+}
+
+.mini-btn {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  color: var(--color-text-strong);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mini-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.mini-btn.active-mode {
+  border: 4px solid rgba(255, 255, 255, 0.5);
+}
+
+.mini-btn.shop-btn {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mini-btn.shop-btn:hover {
+  filter: brightness(1.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.mini-btn.warn {
+  background: var(--ui-warning-orange);
+  color: var(--ui-white);
+  width: auto;
+}
+
+/* Vertical mode: warn button uses vertical text */
+.mini-toolbar--vertical .mini-btn.warn {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Horizontal mode: warn button uses normal text */
+.mini-toolbar--horizontal .mini-btn.warn {
+  writing-mode: horizontal-tb;
+  padding: 0 1rem;
+}
+
+.mini-btn.glow {
+}

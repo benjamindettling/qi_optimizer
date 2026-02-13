@@ -1,0 +1,1 @@
+export { GoogleAd } from './GoogleAd';

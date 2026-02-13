@@ -1,0 +1,200 @@
+[
+  {
+    "id": "mehrgeschossiges_haus",
+    "name": "Mehrgeschossiges Haus",
+    "short": "MH",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 10000,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "people": 70,
+    "coinBoost": 0.0,
+    "production": {
+      "coins": 12500,
+      "supplies": 0,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "fachwerkhaus",
+    "name": "Fachwerkhaus",
+    "short": "Fa",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 30000,
+      "supplies": 50000,
+      "chronos": 200
+    },
+    "people": 110,
+    "coinBoost": 0.0,
+    "production": {
+      "coins": 25000,
+      "supplies": 0,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "schindelhaus",
+    "name": "Schindelhaus",
+    "short": "Sch",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 210000,
+      "supplies": 200000,
+      "chronos": 1000
+    },
+    "people": 150,
+    "coinBoost": 0.0,
+    "production": {
+      "coins": 130000,
+      "supplies": 0,
+      "chronos": 250
+    },
+    "tier": 3
+  },
+  {
+    "id": "herrenhaus",
+    "name": "Herrenhaus",
+    "short": "He",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 14000,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "people": 60,
+    "coinBoost": 0.1,
+    "production": {
+      "coins": 7500,
+      "supplies": 0,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "sandsteinhaus",
+    "name": "Sandsteinhaus",
+    "short": "Sa",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 42000,
+      "supplies": 60000,
+      "chronos": 200
+    },
+    "people": 90,
+    "coinBoost": 0.1,
+    "production": {
+      "coins": 15000,
+      "supplies": 0,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "stadthaus",
+    "name": "Stadthaus",
+    "short": "St",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 294000,
+      "supplies": 240000,
+      "chronos": 1000
+    },
+    "people": 130,
+    "coinBoost": 0.1,
+    "production": {
+      "coins": 78000,
+      "supplies": 0,
+      "chronos": 250
+    },
+    "tier": 3
+  },
+  {
+    "id": "gutshaus",
+    "name": "Gutshaus",
+    "short": "Gu",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 16000,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "people": 50,
+    "coinBoost": 0.2,
+    "production": {
+      "coins": 3750,
+      "supplies": 0,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "mietshaus",
+    "name": "Mietshaus",
+    "short": "Mi",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 48000,
+      "supplies": 70000,
+      "chronos": 200
+    },
+    "people": 80,
+    "coinBoost": 0.2,
+    "production": {
+      "coins": 7500,
+      "supplies": 0,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "landgut",
+    "name": "Landgut",
+    "short": "La",
+    "size": [
+      2,
+      2
+    ],
+    "cost": {
+      "coins": 336000,
+      "supplies": 280000,
+      "chronos": 1000
+    },
+    "people": 110,
+    "coinBoost": 0.2,
+    "production": {
+      "coins": 39000,
+      "supplies": 0,
+      "chronos": 250
+    },
+    "tier": 3
+  }
+]

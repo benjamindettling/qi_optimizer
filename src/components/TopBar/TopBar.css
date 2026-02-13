@@ -1,0 +1,336 @@
+/* Top bar layout, resource stacks, and happiness styling. */
+.topbar {
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: var(--color-topbar-bg);
+  border-bottom: 1px solid var(--color-border-strong);
+  gap: 0.5rem;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  width: 100%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 0;
+}
+
+.topbar-stack {
+  display: flex;
+  flex-direction: column;
+  color: var(--color-text-strong);
+  font-weight: 700;
+  min-width: 0;
+  flex-shrink: 0;
+  align-self: stretch;
+  justify-content: space-between;
+}
+
+.population-values {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.pop-total {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.pop-free {
+  font-weight: 700;
+}
+
+.population-line {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.topbar-stack.boost-stack {
+  /* No gap override - let space-between handle it */
+}
+
+.toggles-stack {
+  gap: 0.25rem;
+}
+
+.resource-line {
+  display: flex;
+  gap: 6px;
+  font-weight: 700;
+  align-items: center;
+  min-height: 20px;
+}
+
+.resource-line.spacer {
+  visibility: hidden;
+}
+
+.resource-line img {
+  width: 20px;
+  height: 20px;
+}
+
+.resource-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.resource-button img {
+  width: 20px;
+  height: 20px;
+}
+
+.resource-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.happiness-block {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.happy-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.happy-tab {
+  padding: 4px 0;
+}
+
+.happy-detail-grid {
+  display: flex;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+
+.happy-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.happy-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.happy-row.small {
+  font-size: 11px;
+}
+
+.happy-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.happy-boost {
+  font-weight: 800;
+}
+
+.happy-table {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 4px 10px;
+  font-size: 12px;
+}
+
+.happy-table-row {
+  display: contents;
+}
+
+.happy-tier {
+  font-weight: 700;
+}
+
+.happy-delta {
+  text-align: right;
+}
+
+.total-pop {
+  font-size: 12px;
+  gap: 0 0;
+  padding: 0;
+}
+
+.view-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+/* Expansion costs styling */
+.expansion-costs {
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.expansion-costs .stack-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  margin-bottom: 2px;
+}
+
+.expansion-costs .cost-select {
+  background: var(--color-input-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.expansion-costs .cost-select:hover {
+  border-color: var(--color-accent);
+}
+
+.expansion-costs .inline-icon {
+  width: 12px;
+  height: 12px;
+  vertical-align: middle;
+}
+
+/* View controls column */
+.view-controls-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  flex-shrink: 0;
+}
+
+.view-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--color-button-bg);
+  color: var(--color-text-strong);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-control-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.view-control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Navigation in TopBar */
+.topbar-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 180px;
+  margin-left: auto;
+  padding: 0 0.75rem;
+  flex-shrink: 0;
+}
+
+.topbar-nav .nav-time-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+
+.topbar-nav .nav-step {
+  font-weight: 800;
+  font-size: 1.25rem;
+  color: var(--color-text-strong);
+}
+
+.topbar-nav .nav-day {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.topbar-nav .nav-parts {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.topbar-nav .nav-parts-sep {
+  margin: 0 2px;
+}
+
+.topbar-nav .nav-buttons {
+  display: flex;
+  gap: 0.375rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.topbar-nav .nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: var(--color-button-bg);
+  color: var(--color-text-strong);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.topbar-nav .nav-btn:hover:not(:disabled) {
+  filter: brightness(1.2);
+  transform: translateY(-1px);
+}
+
+.topbar-nav .nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Sync Config button */
+.sync-config-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: var(--ui-warning-yellow);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sync-config-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}

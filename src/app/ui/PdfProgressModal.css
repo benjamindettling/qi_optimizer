@@ -1,0 +1,32 @@
+/* PDF export progress modal details. */
+.pdf-progress-modal .modal-card {
+  min-width: 260px;
+  align-items: center;
+}
+
+.pdf-progress-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10px, 1fr));
+  gap: 4px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.pdf-progress-block {
+  display: block;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border-muted);
+}
+
+.pdf-progress-block.filled {
+  background: var(--ui-success-green);
+  border-color: var(--ui-success-green-dark);
+}
+
+.pdf-progress-text {
+  margin-top: 6px;
+  font-weight: 700;
+  color: var(--color-text);
+}

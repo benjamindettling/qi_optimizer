@@ -1,0 +1,124 @@
+/* Regions grid and unlock controls. */
+.regions {
+  background: var(--color-panel-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  max-width: 140px;
+  font-size: 11px;
+}
+
+.regions-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.regions-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.regions-debug {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  user-select: none;
+}
+
+.region-frame {
+  width: 100%;
+}
+
+.region-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.region {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  padding: 0;
+  text-align: center;
+  font-weight: 700;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  font-size: 9px;
+}
+
+.region.unlocked {
+  background: var(--ui-region-unlocked);
+}
+
+.region.void {
+  background: transparent;
+  border: none;
+}
+
+.region.locked {
+  background: var(--ui-region-locked);
+  color: var(--color-text-muted);
+}
+
+.region.neighbor {
+  border-color: var(--color-accent);
+}
+
+.region-unlock-btn {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  border: 0 dashed var(--color-accent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.region-unlock-btn:disabled {
+  border-color: var(--color-text-soft);
+  cursor: not-allowed;
+}
+
+.region-note {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--color-region-note);
+}
+
+.cost-debug {
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.admin-theme .region-frame select {
+  background: var(--color-topbar-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border-strong);
+}
+
+/* Regions: debug colors (no size/layout changes). */
+.region.debug-unlockable {
+  background: rgba(0, 255, 0, 0.18);
+  border-color: rgba(0, 255, 0, 0.35);
+  cursor: pointer;
+}
+
+.region.debug-unlocked {
+  background: rgba(255, 0, 0, 0.18);
+  border-color: rgba(255, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.region.base.debug-unlocked {
+  cursor: not-allowed;
+  opacity: 0.9;
+}

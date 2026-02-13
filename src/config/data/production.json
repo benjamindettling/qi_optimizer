@@ -1,0 +1,200 @@
+[
+  {
+    "id": "gerberei",
+    "name": "Gerberei",
+    "short": "Ger",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 12000,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "requiresPeople": 30,
+    "supplyBoost": 0.0,
+    "production": {
+      "coins": 0,
+      "supplies": 12000,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "schusterwerkstatt",
+    "name": "Schusterwerkstatt",
+    "short": "Sc",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 36000,
+      "supplies": 50000,
+      "chronos": 200
+    },
+    "requiresPeople": 60,
+    "supplyBoost": 0.0,
+    "production": {
+      "coins": 0,
+      "supplies": 24000,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "baeckerei",
+    "name": "B\u00e4ckerei",
+    "short": "B\u00e4",
+    "size": [
+      4,
+      3
+    ],
+    "cost": {
+      "coins": 84000,
+      "supplies": 100000,
+      "chronos": 1000
+    },
+    "requiresPeople": 120,
+    "supplyBoost": 0.0,
+    "production": {
+      "coins": 0,
+      "supplies": 60000,
+      "chronos": 250
+    },
+    "tier": 3
+  },
+  {
+    "id": "bauernhof",
+    "name": "Bauernhof",
+    "short": "Ba",
+    "size": [
+      4,
+      5
+    ],
+    "cost": {
+      "coins": 16800,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "requiresPeople": 30,
+    "supplyBoost": 0.1,
+    "production": {
+      "coins": 0,
+      "supplies": 7200,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "alchemistenlabor",
+    "name": "Alchemistenlabor",
+    "short": "Al",
+    "size": [
+      3,
+      2
+    ],
+    "cost": {
+      "coins": 50400,
+      "supplies": 60000,
+      "chronos": 200
+    },
+    "requiresPeople": 60,
+    "supplyBoost": 0.1,
+    "production": {
+      "coins": 0,
+      "supplies": 14400,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "windmuehle",
+    "name": "Windm\u00fchle",
+    "short": "Wi",
+    "size": [
+      4,
+      3
+    ],
+    "cost": {
+      "coins": 117600,
+      "supplies": 120000,
+      "chronos": 1000
+    },
+    "requiresPeople": 120,
+    "supplyBoost": 0.1,
+    "production": {
+      "coins": 0,
+      "supplies": 36000,
+      "chronos": 250
+    },
+    "tier": 3
+  },
+  {
+    "id": "brauerei",
+    "name": "Brauerei",
+    "short": "Br",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 19200,
+      "supplies": 0,
+      "chronos": 0
+    },
+    "requiresPeople": 30,
+    "supplyBoost": 0.2,
+    "production": {
+      "coins": 0,
+      "supplies": 4800,
+      "chronos": 10
+    },
+    "tier": 1
+  },
+  {
+    "id": "gewuerzhandlung",
+    "name": "Gew\u00fcrzhandlung",
+    "short": "Gew",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 57600,
+      "supplies": 70000,
+      "chronos": 200
+    },
+    "requiresPeople": 60,
+    "supplyBoost": 0.2,
+    "production": {
+      "coins": 0,
+      "supplies": 9600,
+      "chronos": 75
+    },
+    "tier": 2
+  },
+  {
+    "id": "kueferei",
+    "name": "K\u00fcferei",
+    "short": "K\u00fc",
+    "size": [
+      3,
+      4
+    ],
+    "cost": {
+      "coins": 134400,
+      "supplies": 140000,
+      "chronos": 1000
+    },
+    "requiresPeople": 120,
+    "supplyBoost": 0.2,
+    "production": {
+      "coins": 0,
+      "supplies": 24000,
+      "chronos": 250
+    },
+    "tier": 3
+  }
+]

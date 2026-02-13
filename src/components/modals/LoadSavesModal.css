@@ -1,0 +1,266 @@
+/* LoadSavesModal styling */
+
+.load-saves-modal {
+  max-width: 750px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.load-saves-dropzone {
+  margin-top: 16px;
+  padding: 20px;
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  text-align: center;
+  background: var(--color-panel-bg-alt);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-text-soft);
+}
+
+.load-saves-dropzone:hover {
+  border-color: var(--color-accent);
+  background: var(--color-panel-bg);
+}
+
+.load-saves-dropzone.drag-active {
+  border-color: var(--color-accent);
+  background: var(--color-panel-bg);
+  box-shadow: 0 0 12px rgba(76, 139, 245, 0.3);
+}
+
+.dropzone-content {
+  color: var(--color-text-soft);
+  font-size: 0.9em;
+}
+
+.load-saves-list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg);
+  margin-bottom: 16px;
+}
+
+.load-saves-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.95em;
+}
+
+.load-saves-row {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-bottom: 1px solid var(--color-border-muted);
+  gap: 8px;
+}
+
+.load-saves-row:last-child {
+  border-bottom: none;
+}
+
+.load-saves-row:hover {
+  background: var(--color-panel-bg-alt);
+}
+
+.load-saves-main-button {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.95em;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.load-saves-main-button:hover {
+  filter: brightness(1.2);
+}
+
+.load-saves-main-button.active {
+  filter: brightness(1.5);
+  color: var(--color-accent);
+}
+
+.load-saves-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Edit mode styling */
+.load-saves-edit-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.load-saves-edit-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--color-panel-bg);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-xs);
+  color: var(--color-text);
+  font-size: 0.95em;
+  font-family: var(--font-sans);
+}
+
+.load-saves-edit-input:focus {
+  outline: none;
+  box-shadow: 0 0 6px rgba(76, 139, 245, 0.4);
+}
+
+.load-saves-edit-confirm,
+.load-saves-edit-cancel {
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.load-saves-edit-confirm:hover {
+  background: var(--ui-success-green);
+  border-color: var(--ui-success-green);
+  color: var(--color-bg);
+}
+
+.load-saves-edit-cancel:hover {
+  background: var(--ui-error-red);
+  border-color: var(--ui-error-red);
+  color: var(--color-text);
+}
+
+/* Action buttons */
+.load-saves-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.load-saves-action-btn {
+  padding: 8px 10px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.load-saves-action-btn:hover {
+  filter: brightness(1.2);
+}
+
+.load-saves-action-btn.settings-btn:hover {
+  color: var(--ui-warning-yellow);
+}
+
+.load-saves-action-btn.edit-btn:hover {
+  color: var(--color-accent);
+}
+
+.load-saves-action-btn.export-btn:hover {
+  color: var(--ui-info-blue);
+}
+
+.load-saves-action-btn.delete-btn {
+  color: var(--ui-error-red);
+}
+
+.load-saves-action-btn.delete-btn:hover {
+  background: var(--ui-error-red);
+  border-color: var(--ui-error-red);
+  color: var(--color-bg);
+}
+
+/* Delete confirmation modal */
+.modal-confirm-delete {
+  max-width: 400px;
+}
+
+.modal-confirm-delete .modal-body {
+  padding: 20px 0;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.modal-confirm-delete .modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.btn-confirm-delete {
+  padding: 10px 20px;
+  background: var(--ui-error-red);
+  border: 1px solid var(--ui-error-red);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn-confirm-delete:hover {
+  background: var(--ui-error-red-dark);
+  border-color: var(--ui-error-red-dark);
+}
+
+.btn-cancel-delete {
+  padding: 10px 20px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-delete:hover {
+  filter: brightness(1.2);
+}
+
+/* Scrollbar styling for savefiles list */
+.load-saves-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.load-saves-list::-webkit-scrollbar-track {
+  background: var(--color-panel-bg);
+  border-radius: var(--radius-md);
+}
+
+.load-saves-list::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 4px;
+}
+
+.load-saves-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}

@@ -1,0 +1,248 @@
+.tree-visualizer {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-topbar-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Tree canvas takes up available space, leaving room for ad */
+.tree-canvas-wrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Legacy styles - can be removed if no longer used */
+.tree-controls {
+  display: flex;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.2);
+  align-items: center;
+}
+
+.tree-nav-buttons {
+  display: flex;
+  gap: 2px;
+  margin-right: 8px;
+}
+
+.tree-nav-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  color: var(--ui-white);
+  transition: all 0.15s ease;
+  min-width: 28px;
+}
+
+.tree-nav-btn:hover {
+  background: rgba(251, 191, 36, 0.3);
+  border-color: var(--ui-highlight-amber);
+}
+
+.tree-nav-btn:active {
+  background: rgba(251, 191, 36, 0.5);
+}
+
+.tree-btn {
+  width: 44px;
+  height: 44px;
+  padding: 0px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-white);
+  transition: all 0.15s ease;
+}
+
+.tree-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tree-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tree-btn.active {
+  background: rgba(59, 130, 246, 0.5);
+  border-color: var(--ui-info-blue);
+  color: var(--ui-white);
+}
+
+.tree-btn.center-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-white);
+  cursor: pointer;
+}
+
+.tree-checkbox-label input {
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tree-canvas-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.tree-canvas-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Branch selection popup */
+.branch-popup {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(30, 30, 40, 0.95);
+  border: 2px solid var(--ui-highlight-amber);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+}
+
+.branch-popup-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-highlight-amber);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.branch-popup-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+.branch-popup-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ui-white);
+  transition: all 0.15s ease;
+}
+
+.branch-popup-btn:hover {
+  background: rgba(251, 191, 36, 0.3);
+  border-color: var(--ui-highlight-amber);
+}
+
+.branch-popup-btn.selected {
+  background: rgba(251, 191, 36, 0.5);
+  border-color: var(--ui-highlight-amber);
+  color: var(--ui-highlight-amber);
+  transform: scale(1.1);
+}
+
+/* Node transitions for drag-drop */
+.tree-visualizer .node-group,
+.tree-visualizer .square-group,
+.tree-visualizer .triangle-group {
+  transition: transform 0.15s ease-out;
+}
+
+.tree-visualizer .node-group circle,
+.tree-visualizer .square-group rect,
+.tree-visualizer .triangle-group path {
+  transition: stroke 0.15s ease-out, stroke-width 0.15s ease-out;
+}
+
+/* Drag indicator */
+.drag-indicator {
+  position: absolute;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.drag-indicator-node {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(251, 191, 36, 0.8);
+  border: 3px solid #fbbf24;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.drag-indicator-label {
+  background: rgba(30, 30, 40, 0.95);
+  border: 1px solid var(--ui-highlight-amber);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-highlight-amber);
+  white-space: nowrap;
+}
+
+/* Fix button for fixable nodes (configFixable or orderFixable) */
+.fix-node-btn {
+  border: 2px solid;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  z-index: 50;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.fix-node-btn:hover {
+  filter: brightness(0.85);
+  transform: translateX(-50%) scale(1.1);
+}

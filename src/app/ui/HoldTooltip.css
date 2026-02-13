@@ -1,0 +1,14 @@
+/* Long-press tooltip styling for toolbar buttons. */
+.hold-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: var(--color-tooltip-bg);
+  color: var(--color-text-strong);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-tooltip);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "katapultcamp",
+    "name": "Katapult-Camp",
+    "short": "Kat",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 15000,
+      "supplies": 7500,
+      "chronos": 0
+    },
+    "requiresPeople": 100,
+    "unitCosts": {
+      "1": {
+        "coins": 5000,
+        "supplies": 4000
+      },
+      "3": {
+        "coins": 13500,
+        "supplies": 10800
+      },
+      "6": {
+        "coins": 24000,
+        "supplies": 19200
+      },
+      "10": {
+        "coins": 35000,
+        "supplies": 28000
+      }
+    },
+    "produces": "Katapult",
+    "tier": 1
+  },
+  {
+    "id": "blidencamp",
+    "name": "Bliden-Camp",
+    "short": "Bli",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "unitCosts": {
+      "1": {
+        "coins": 6000,
+        "supplies": 5000
+      },
+      "3": {
+        "coins": 16200,
+        "supplies": 13500
+      },
+      "6": {
+        "coins": 28800,
+        "supplies": 24000
+      },
+      "10": {
+        "coins": 42000,
+        "supplies": 35000
+      }
+    },
+    "produces": "Blide",
+    "tier": 2
+  },
+  {
+    "id": "kanonencamp",
+    "name": "Kanonen-Camp",
+    "short": "Kan",
+    "size": [
+      3,
+      4
+    ],
+    "cost": {
+      "coins": 75000,
+      "supplies": 37500,
+      "chronos": 1000
+    },
+    "requiresPeople": 100,
+    "unitCosts": {
+      "1": {
+        "coins": 7000,
+        "supplies": 6000
+      },
+      "3": {
+        "coins": 18900,
+        "supplies": 16200
+      },
+      "6": {
+        "coins": 33600,
+        "supplies": 28800
+      },
+      "10": {
+        "coins": 49000,
+        "supplies": 42000
+      }
+    },
+    "produces": "Kanone",
+    "tier": 3
+  }
+]

@@ -1,0 +1,228 @@
+/* Sidebar layout and shop card styling. */
+.sidebar {
+  width: fit-content;
+  max-width: clamp(34rem, 58vw, 52rem);
+  background: var(--color-sidebar-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.tabs button {
+  padding: 4px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+}
+
+.tabs button img {
+  width: 22px;
+  height: 22px;
+}
+
+.tab-emoji {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.shop {
+  display: grid;
+  --shop-card-width: 13rem;
+  grid-template-columns: repeat(3, var(--shop-card-width));
+  gap: 8px;
+  grid-auto-rows: auto;
+  align-content: start;
+  flex: 1;
+  min-height: 0;
+  max-height: clamp(24rem, 60vh, 34rem);
+  overflow: auto;
+  justify-content: start;
+}
+
+.card {
+  text-align: left;
+  background: var(--color-panel-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  cursor: pointer;
+  height: fit-content;
+  max-width: 100%;
+  width: var(--shop-card-width);
+}
+
+.card-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.card-favorite {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-muted);
+  background: transparent;
+  color: var(--color-text-strong);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+
+.card-favorite.active {
+  color: var(--ui-warning-amber);
+  border-color: var(--ui-warning-amber);
+}
+
+.card-body {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.card-cost-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-error-red-soft);
+  min-width: 96px;
+}
+
+.card-benefits {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-success-green-light);
+  flex: 1;
+}
+
+.cost-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.cost-row img {
+  width: 18px;
+  height: 18px;
+}
+
+.cost-row.cost {
+  color: var(--ui-error-red-soft);
+}
+
+.cost-row.gain {
+  color: var(--ui-success-green-light);
+}
+
+.goods-table {
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.goods-table img {
+  width: 14px;
+  height: 14px;
+}
+
+.goods-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  align-items: center;
+}
+
+.cost-toggle {
+  position: relative;
+  align-self: flex-start;
+}
+
+.cost-toggle-btn {
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cost-flyout {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-muted);
+  background: var(--color-panel-bg-alt);
+  box-shadow: var(--shadow-pop);
+  min-width: 10rem;
+}
+
+.card.disabled {
+  opacity: 1;
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+.card.disabled .card-body,
+.card.disabled .card-title,
+.card.disabled .card-meta,
+.card.disabled .card-cost-col,
+.card.disabled .card-benefits {
+  opacity: 0.45;
+}
+
+.card-title {
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta,
+.card-cost {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: min(22rem, 92vw);
+    max-width: none;
+    background: rgba(17, 37, 59, 0.9);
+    border-color: rgba(38, 67, 95, 0.7);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+  }
+
+  .admin-theme .sidebar {
+    background: rgba(36, 16, 32, 0.9);
+    border-color: rgba(58, 26, 50, 0.7);
+  }
+}

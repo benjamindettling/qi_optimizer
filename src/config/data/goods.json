@@ -1,0 +1,177 @@
+[
+  {
+    "id": "kupfergiesserei",
+    "name": "Kupfergiesserei",
+    "short": "Ku",
+    "size": [
+      4,
+      3
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": {
+        "coins": 10000,
+        "supplies": 8000
+      },
+      "6": {
+        "coins": 27000,
+        "supplies": 21600
+      },
+      "12": {
+        "coins": 48000,
+        "supplies": 38400
+      },
+      "20": {
+        "coins": 70000,
+        "supplies": 56000
+      }
+    },
+    "produces": "Kupfer",
+    "tier": 2
+  },
+  {
+    "id": "imkerei",
+    "name": "Imkerei",
+    "short": "Im",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": {
+        "coins": 10000,
+        "supplies": 8000
+      },
+      "6": {
+        "coins": 27000,
+        "supplies": 21600
+      },
+      "12": {
+        "coins": 48000,
+        "supplies": 38400
+      },
+      "20": {
+        "coins": 70000,
+        "supplies": 56000
+      }
+    },
+    "produces": "Honig",
+    "tier": 2
+  },
+  {
+    "id": "ziegelei",
+    "name": "Ziegelei",
+    "short": "Zi",
+    "size": [
+      4,
+      3
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": {
+        "coins": 10000,
+        "supplies": 8000
+      },
+      "6": {
+        "coins": 27000,
+        "supplies": 21600
+      },
+      "12": {
+        "coins": 48000,
+        "supplies": 38400
+      },
+      "20": {
+        "coins": 70000,
+        "supplies": 56000
+      }
+    },
+    "produces": "Stein",
+    "tier": 2
+  },
+  {
+    "id": "seilerei",
+    "name": "Seilerei",
+    "short": "Se",
+    "size": [
+      3,
+      2
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": {
+        "coins": 10000,
+        "supplies": 8000
+      },
+      "6": {
+        "coins": 27000,
+        "supplies": 21600
+      },
+      "12": {
+        "coins": 48000,
+        "supplies": 38400
+      },
+      "20": {
+        "coins": 70000,
+        "supplies": 56000
+      }
+    },
+    "produces": "Seil",
+    "tier": 2
+  },
+  {
+    "id": "schiesspulvermanufaktur",
+    "name": "Schiesspulver-Manufaktur",
+    "short": "Sch",
+    "size": [
+      3,
+      3
+    ],
+    "cost": {
+      "coins": 45000,
+      "supplies": 22500,
+      "chronos": 200
+    },
+    "requiresPeople": 100,
+    "goodsCost": {
+      "2": {
+        "coins": 10000,
+        "supplies": 8000
+      },
+      "6": {
+        "coins": 27000,
+        "supplies": 21600
+      },
+      "12": {
+        "coins": 48000,
+        "supplies": 38400
+      },
+      "20": {
+        "coins": 70000,
+        "supplies": 56000
+      }
+    },
+    "produces": "Schiesspulver",
+    "tier": 2
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "rathaus",
+    "name": "Rathaus",
+    "size": [
+      7,
+      6
+    ],
+    "production": {
+      "coins": 50000,
+      "supplies": 50000,
+      "chronos": 15
+    }
+  }
+]

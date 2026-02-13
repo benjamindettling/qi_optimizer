@@ -1,0 +1,58 @@
+/* GoogleAd Container Styles */
+.google-ad-container {
+  width: 100%;
+  overflow: hidden;
+  border-top: 1px solid var(--color-border, #e0e0e0);
+  background-color: var(--color-panel-bg-alt, #f9f9f9);
+  margin-top: auto;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* AdSense Responsive Ad Styles */
+.adsbygoogle {
+  min-height: 50px;
+  background-color: var(--color-panel-bg-alt, #f9f9f9);
+  max-width: 100%;
+}
+
+/* Specific styles for TreeVisualizer ad */
+.tree-visualizer-ad {
+  margin-top: 8px;
+  border-top: 2px solid var(--color-border, #ddd);
+  border-radius: 0 0 8px 8px;
+}
+
+/* Specific styles for NotesCluster ad */
+.notes-cluster-ad {
+  margin-top: 12px;
+  border-top: 2px solid var(--color-border, #ddd);
+  border-radius: 8px;
+}
+
+/* Loading state - shows a placeholder while ad loads */
+.google-ad-container:empty::after {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 90px;
+  background: linear-gradient(
+    90deg,
+    var(--color-panel-bg, #f0f0f0) 25%,
+    var(--color-panel-bg-alt, #e0e0e0) 50%,
+    var(--color-panel-bg, #f0f0f0) 75%
+  );
+  background-size: 200% 100%;
+  animation: ad-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes ad-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

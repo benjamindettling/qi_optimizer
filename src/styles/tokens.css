@@ -1,0 +1,44 @@
+/*
+ * Theme tokens shared across the UI.
+ * 
+ * IMPORTANT: All color CSS variables are injected from src/config/colors.js via JavaScript.
+ * colors.js is the single source of truth for ALL color definitions.
+ * 
+ * This CSS file only contains non-color tokens:
+ * - Typography (fonts)
+ * - Layout (radii, shadows)
+ * 
+ * Color variables are applied to document.documentElement by:
+ * - initializeCssColors() on app mount
+ * - applyThemeToDocument() when theme changes
+ * 
+ * Available color variables (injected from JS):
+ * --color-bg, --color-text, --color-text-strong, --color-text-muted, --color-text-soft
+ * --color-topbar-bg, --color-sidebar-bg, --color-panel-bg, --color-panel-bg-alt
+ * --color-board-bg, --color-board-border, --color-status-bg, --color-carry-bg
+ * --color-border, --color-border-strong, --color-border-muted, --color-border-accent
+ * --color-accent, --color-input-bg, --color-button-bg, --color-button-border
+ * --color-region-note, --color-tooltip-bg,
+ * --ui-error-*, --ui-warning-*, --ui-success-*, --ui-info-*, --ui-highlight-*
+ * --ui-selection-*, --ui-gray-*, --ui-white, --ui-black, --ui-notes-*, --ui-region-*
+ */
+:root {
+  /* =========================================================================
+   * TYPOGRAPHY
+   * ========================================================================= */
+  --font-sans: "Segoe UI", Arial, sans-serif;
+
+  /* =========================================================================
+   * LAYOUT TOKENS
+   * ========================================================================= */
+  
+  /* Border radii */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+
+  /* Shadows */
+  --shadow-pop: 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-tooltip: 0 6px 12px rgba(0, 0, 0, 0.35);
+}
