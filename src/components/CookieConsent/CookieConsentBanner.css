@@ -1,0 +1,88 @@
+/* ── Cookie Consent Banner ── */
+
+.cookie-banner-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 16px;
+  pointer-events: auto;
+}
+
+.cookie-banner {
+  width: 100%;
+  max-width: 640px;
+  background: var(--color-panel-bg, #1e1e2e);
+  border: 1px solid var(--color-border, #444);
+  border-radius: var(--radius-md, 8px);
+  padding: 20px 24px;
+  box-shadow: var(--shadow-pop, 0 2px 12px rgba(0, 0, 0, 0.5));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cookie-banner-text {
+  color: var(--color-text, #ddd);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.cookie-banner-text strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 6px;
+  color: var(--color-text-strong, #fff);
+}
+
+.cookie-banner-text p {
+  margin: 0 0 6px;
+}
+
+.cookie-banner-detail {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #999);
+}
+
+.cookie-banner-detail a {
+  color: var(--color-accent, #60a5fa);
+  text-decoration: underline;
+}
+
+.cookie-banner-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.cookie-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid var(--color-border, #555);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cookie-btn-accept {
+  background: var(--ui-success-green, #22c55e);
+  color: #fff;
+  border-color: var(--ui-success-green, #22c55e);
+}
+
+.cookie-btn-accept:hover {
+  filter: brightness(1.15);
+}
+
+.cookie-btn-deny {
+  background: var(--color-button-bg, #333);
+  color: var(--color-text, #ddd);
+}
+
+.cookie-btn-deny:hover {
+  filter: brightness(1.3);
+}

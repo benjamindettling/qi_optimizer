@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
+import { useCookieConsent } from "../CookieConsent/cookieConsentStore";
 import "./GoogleAd.css";
 
 /**
@@ -6,6 +7,7 @@ import "./GoogleAd.css";
  *
  * Displays a Google AdSense ad that is responsive to its container width
  * and respects a maximum height constraint.
+ * Only renders when cookie consent has been granted.
  *
  * @param {string} adSlot - The AdSense ad slot ID (e.g., "1234567890")
  * @param {string} adClient - The AdSense publisher ID (default from env var)
@@ -21,8 +23,10 @@ export function GoogleAd({
   className = "",
 }) {
   const adRef = useRef(null);
+  const { consent } = useCookieConsent();
 
   useEffect(() => {
+    if (consent !== "granted") return;
     try {
       // Initialize adsbygoogle array if it doesn't exist
       window.adsbygoogle = window.adsbygoogle || [];
@@ -34,11 +38,10 @@ export function GoogleAd({
     } catch (error) {
       console.error("AdSense error:", error);
     }
-  }, []);
+  }, [consent]);
 
-  // Don't render if no ad slot provided
-  if (!adSlot) {
-    console.warn("GoogleAd: No adSlot provided");
+  // Don't render if no ad slot provided or consent not granted
+  if (!adSlot || consent !== "granted") {
     return null;
   }
 
