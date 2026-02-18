@@ -65,6 +65,48 @@ const getBundleKey = (actionType) => {
 
 const ZOOM_MIN_SCALE = 0.05;
 const ZOOM_MAX_SCALE = 1;
+const TREE_SETTINGS_STORAGE_KEY = "qi_tree_visualizer_settings_v1";
+
+const DEFAULT_TREE_SETTINGS = {
+  branchFocusMode: false,
+  horizontalCollapse: false,
+  selectionFocusMode: false,
+  relativeZoom: 1,
+};
+
+const loadTreeSettings = () => {
+  if (typeof window === "undefined") return DEFAULT_TREE_SETTINGS;
+  try {
+    const raw = window.localStorage.getItem(TREE_SETTINGS_STORAGE_KEY);
+    if (!raw) return DEFAULT_TREE_SETTINGS;
+    const parsed = JSON.parse(raw);
+    return {
+      branchFocusMode:
+        typeof parsed?.branchFocusMode === "boolean"
+          ? parsed.branchFocusMode
+          : DEFAULT_TREE_SETTINGS.branchFocusMode,
+      horizontalCollapse:
+        typeof parsed?.horizontalCollapse === "boolean"
+          ? parsed.horizontalCollapse
+          : DEFAULT_TREE_SETTINGS.horizontalCollapse,
+      selectionFocusMode:
+        typeof parsed?.selectionFocusMode === "boolean"
+          ? parsed.selectionFocusMode
+          : DEFAULT_TREE_SETTINGS.selectionFocusMode,
+      relativeZoom: Math.max(
+        0,
+        Math.min(
+          1,
+          Number.isFinite(parsed?.relativeZoom)
+            ? parsed.relativeZoom
+            : DEFAULT_TREE_SETTINGS.relativeZoom,
+        ),
+      ),
+    };
+  } catch {
+    return DEFAULT_TREE_SETTINGS;
+  }
+};
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
@@ -114,10 +156,22 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const width = containerSize.width;
   const height = containerSize.height;
 
-  const [branchFocusMode, setBranchFocusMode] = useState(true);
-  const [horizontalCollapse, setHorizontalCollapse] = useState(false); // Bundle consecutive same-type actions
-  const [selectionFocusMode, setSelectionFocusMode] = useState(true);
-  const [relativeZoom, setRelativeZoom] = useState(1); // 0 = fit tree, 1 = selected-node zoom
+  const initialTreeSettingsRef = useRef(null);
+  if (initialTreeSettingsRef.current == null) {
+    initialTreeSettingsRef.current = loadTreeSettings();
+  }
+  const [branchFocusMode, setBranchFocusMode] = useState(
+    initialTreeSettingsRef.current.branchFocusMode,
+  );
+  const [horizontalCollapse, setHorizontalCollapse] = useState(
+    initialTreeSettingsRef.current.horizontalCollapse,
+  ); // Bundle consecutive same-type actions
+  const [selectionFocusMode, setSelectionFocusMode] = useState(
+    initialTreeSettingsRef.current.selectionFocusMode,
+  );
+  const [relativeZoom, setRelativeZoom] = useState(
+    initialTreeSettingsRef.current.relativeZoom,
+  ); // 0 = fit tree, 1 = selected-node zoom
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [internalSelected, setInternalSelected] = useState(selectedId);
   const [branchPopup, setBranchPopup] = useState(null); // { parentId, children, selectedIndex }
@@ -166,12 +220,33 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     selectionFocusModeRef.current = selectionFocusMode;
   }, [selectionFocusMode]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        TREE_SETTINGS_STORAGE_KEY,
+        JSON.stringify({
+          branchFocusMode,
+          horizontalCollapse,
+          selectionFocusMode,
+          relativeZoom,
+        }),
+      );
+    } catch {
+      // Ignore storage write errors.
+    }
+  }, [
+    branchFocusMode,
+    horizontalCollapse,
+    selectionFocusMode,
+    relativeZoom,
+  ]);
+
   // Build internal structure from flat nodes array
   const {
     internalNodes,
     internalLinks,
     childrenMap,
-    parentMap,
     rootId,
     nodeMap,
   } = useMemo(() => {
@@ -180,7 +255,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         internalNodes: [],
         internalLinks: [],
         childrenMap: new Map(),
-        parentMap: new Map(),
         rootId: null,
         nodeMap: new Map(),
       };
@@ -261,7 +335,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       internalNodes,
       internalLinks,
       childrenMap,
-      parentMap,
       rootId,
       nodeMap,
     };
@@ -273,13 +346,230 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const targetId = (l) =>
     typeof l.target === "string" ? l.target : (l.target?.id ?? l.target);
 
+  // Collapsed model for horizontal collapse:
+  // - bundleInfo marks hidden nodes within a same-type linear chain
+  // - display* maps represent the compact tree made only from visible nodes
+  const collapseModel = useMemo(() => {
+    const info = new Map();
+
+    if (!horizontalCollapse) {
+      for (const node of internalNodes) {
+        info.set(node.id, {
+          bundleCount: 1,
+          isHidden: false,
+          bundleType: null,
+        });
+      }
+
+      const displayChildrenMap = new Map();
+      const displayParentMap = new Map();
+      const displayNodeIds = new Set();
+      for (const node of internalNodes) displayNodeIds.add(node.id);
+      for (const [pId, kids] of childrenMap) {
+        displayChildrenMap.set(
+          pId,
+          kids.map((k, idx) => ({ id: k.id, order: idx })),
+        );
+        for (const k of kids) displayParentMap.set(k.id, pId);
+      }
+      const displayLinks = internalLinks.map((l) => ({
+        ...l,
+        source: sourceId(l),
+        target: targetId(l),
+      }));
+
+      return {
+        bundleInfo: info,
+        displayChildrenMap,
+        displayParentMap,
+        displayNodeIds,
+        displayRootId: rootId,
+        displayLinks,
+      };
+    }
+
+    const processed = new Set();
+
+    const processChain = (startId) => {
+      let cur = startId;
+      while (cur != null && !processed.has(cur)) {
+        processed.add(cur);
+        const curNode = nodeMap.get(cur);
+        if (!curNode) break;
+
+        const curBundleKey = getBundleKey(curNode.actionType);
+
+        if (curBundleKey === null) {
+          info.set(cur, { bundleCount: 1, isHidden: false, bundleType: null });
+          const kids = childrenMap.get(cur) ?? [];
+          for (const kid of kids) processChain(kid.id);
+          cur = null;
+          continue;
+        }
+
+        const bundle = [cur];
+        let next = cur;
+        while (true) {
+          const kids = childrenMap.get(next) ?? [];
+          if (kids.length !== 1) break;
+
+          const nextNode = nodeMap.get(kids[0].id);
+          if (!nextNode) break;
+
+          const nextBundleKey = getBundleKey(nextNode.actionType);
+          if (nextBundleKey !== curBundleKey) break;
+          if (processed.has(kids[0].id)) break;
+
+          processed.add(kids[0].id);
+          bundle.push(kids[0].id);
+          next = kids[0].id;
+        }
+
+        for (let i = 0; i < bundle.length - 1; i++) {
+          info.set(bundle[i], {
+            bundleCount: 1,
+            isHidden: true,
+            bundleType: curBundleKey,
+          });
+        }
+        info.set(bundle[bundle.length - 1], {
+          bundleCount: bundle.length,
+          isHidden: false,
+          bundleType: curBundleKey,
+        });
+
+        const lastInBundle = bundle[bundle.length - 1];
+        const kids = childrenMap.get(lastInBundle) ?? [];
+        for (const kid of kids) processChain(kid.id);
+        cur = null;
+      }
+    };
+
+    if (rootId != null) processChain(rootId);
+
+    for (const node of internalNodes) {
+      if (!info.has(node.id)) {
+        info.set(node.id, {
+          bundleCount: 1,
+          isHidden: false,
+          bundleType: null,
+        });
+      }
+    }
+
+    const resolveVisibleDescendant = (startId) => {
+      let cur = startId;
+      const seen = new Set();
+      while (cur != null && info.get(cur)?.isHidden) {
+        if (seen.has(cur)) break;
+        seen.add(cur);
+        const kids = childrenMap.get(cur) ?? [];
+        cur = kids.length > 0 ? kids[0].id : null;
+      }
+      return cur;
+    };
+
+    const displayChildrenMap = new Map();
+    const displayParentMap = new Map();
+    const displayNodeIds = new Set();
+    for (const node of internalNodes) {
+      if (!info.get(node.id)?.isHidden) displayNodeIds.add(node.id);
+    }
+
+    for (const node of internalNodes) {
+      if (info.get(node.id)?.isHidden) continue;
+      const kids = childrenMap.get(node.id) ?? [];
+      const visibleKids = [];
+      const seenKids = new Set();
+
+      for (const k of kids) {
+        const visibleKid = resolveVisibleDescendant(k.id);
+        if (visibleKid == null || visibleKid === node.id) continue;
+        if (seenKids.has(visibleKid)) continue;
+        seenKids.add(visibleKid);
+        visibleKids.push({ id: visibleKid, order: visibleKids.length });
+      }
+
+      if (visibleKids.length > 0) {
+        displayChildrenMap.set(node.id, visibleKids);
+        for (const k of visibleKids) displayParentMap.set(k.id, node.id);
+      }
+    }
+
+    let displayRootId = rootId;
+    if (displayRootId != null && info.get(displayRootId)?.isHidden) {
+      displayRootId = resolveVisibleDescendant(displayRootId);
+    }
+
+    const displayLinks = [];
+    for (const [pId, kids] of displayChildrenMap) {
+      kids.forEach((k, idx) => {
+        displayLinks.push({
+          id: `link_${pId}_${k.id}_collapsed`,
+          source: pId,
+          target: k.id,
+          kind: idx === 0 ? "cont" : "fork",
+          order: idx,
+        });
+      });
+    }
+
+    return {
+      bundleInfo: info,
+      displayChildrenMap,
+      displayParentMap,
+      displayNodeIds,
+      displayRootId,
+      displayLinks,
+    };
+  }, [horizontalCollapse, internalNodes, internalLinks, childrenMap, nodeMap, rootId]);
+
+  const activeChildrenMap = collapseModel.displayChildrenMap;
+  const activeParentMap = collapseModel.displayParentMap;
+  const activeRootId = collapseModel.displayRootId;
+  const activeLinks = collapseModel.displayLinks;
+  const bundleInfo = collapseModel.bundleInfo;
+  const activeNodeIds = collapseModel.displayNodeIds;
+
+  const resolveCollapsedSelection = useCallback(
+    (nodeId) => {
+      if (!horizontalCollapse || nodeId == null) return nodeId;
+      let cur = nodeId;
+      const seen = new Set();
+      while (cur != null && bundleInfo.get(cur)?.isHidden) {
+        if (seen.has(cur)) break;
+        seen.add(cur);
+        const kids = childrenMap.get(cur) ?? [];
+        cur = kids.length > 0 ? kids[0].id : null;
+      }
+      return cur ?? nodeId;
+    },
+    [horizontalCollapse, bundleInfo, childrenMap],
+  );
+
+  useEffect(() => {
+    if (!horizontalCollapse || internalSelected == null) return;
+    const resolved = resolveCollapsedSelection(internalSelected);
+    if (resolved != null && resolved !== internalSelected) {
+      setInternalSelected(resolved);
+      setSelectedEdge(null);
+      setBranchPopup(null);
+      onSelectNode?.(resolved);
+    }
+  }, [
+    horizontalCollapse,
+    internalSelected,
+    resolveCollapsedSelection,
+    onSelectNode,
+  ]);
+
   // Compute checkpoint groups - which "wave" each node belongs to
   // checkpointsBefore = number of checkpoints on path from root to node (exclusive of node itself)
   const computeCheckpointGroups = useCallback(() => {
     const checkpointsBefore = new Map();
-    if (rootId == null) return { checkpointsBefore, maxGroup: 0 };
+    if (activeRootId == null) return { checkpointsBefore, maxGroup: 0 };
 
-    const queue = [{ id: rootId, cpCount: 0 }];
+    const queue = [{ id: activeRootId, cpCount: 0 }];
     let maxGroup = 0;
 
     while (queue.length > 0) {
@@ -291,32 +581,34 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const isCP = node?.isCheckpoint ?? false;
       const nextCount = isCP ? cpCount + 1 : cpCount;
 
-      for (const k of childrenMap.get(id) ?? []) {
+      for (const k of activeChildrenMap.get(id) ?? []) {
         queue.push({ id: k.id, cpCount: nextCount });
       }
     }
 
     return { checkpointsBefore, maxGroup };
-  }, [childrenMap, rootId, nodeMap]);
+  }, [activeChildrenMap, activeRootId, nodeMap]);
 
   // Navigation: step forward along main branch from a node
   const stepForward = useCallback(
     (fromNodeId) => {
-      const kids = childrenMap.get(fromNodeId) ?? [];
+      const fromId = resolveCollapsedSelection(fromNodeId);
+      const kids = activeChildrenMap.get(fromId) ?? [];
       if (kids.length === 0) return null;
-      if (kids.length === 1) return kids[0].id;
+      if (kids.length === 1) return resolveCollapsedSelection(kids[0].id);
       // Multiple children - return info for popup
-      return { branch: true, parentId: fromNodeId, children: kids };
+      return { branch: true, parentId: fromId, children: kids };
     },
-    [childrenMap],
+    [activeChildrenMap, resolveCollapsedSelection],
   );
 
   // Navigation: step backward along the path
   const stepBackward = useCallback(
     (fromNodeId) => {
-      return parentMap.get(fromNodeId) ?? null;
+      const fromId = resolveCollapsedSelection(fromNodeId);
+      return activeParentMap.get(fromId) ?? null;
     },
-    [parentMap],
+    [activeParentMap, resolveCollapsedSelection],
   );
 
   // Navigation: jump to previous checkpoint's parent
@@ -324,10 +616,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     (fromNodeId) => {
       // Find path from root to current node
       const pathToNode = [];
-      let cur = fromNodeId;
+      let cur = resolveCollapsedSelection(fromNodeId);
       while (cur != null) {
         pathToNode.unshift(cur);
-        cur = parentMap.get(cur);
+        cur = activeParentMap.get(cur);
       }
 
       // Find checkpoints on this path, before current node
@@ -336,7 +628,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         const node = nodeMap.get(pathToNode[i]);
         if (node?.isCheckpoint) {
           // Get parent of this checkpoint
-          lastCheckpointParent = parentMap.get(pathToNode[i]) ?? pathToNode[i];
+          lastCheckpointParent =
+            activeParentMap.get(pathToNode[i]) ?? pathToNode[i];
         }
       }
 
@@ -347,38 +640,38 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         for (let i = pathToNode.length - 2; i >= 0; i--) {
           const node = nodeMap.get(pathToNode[i]);
           if (node?.isCheckpoint) {
-            return parentMap.get(pathToNode[i]) ?? pathToNode[i];
+            return activeParentMap.get(pathToNode[i]) ?? pathToNode[i];
           }
         }
-        return rootId; // No previous checkpoint, go to root
+        return activeRootId; // No previous checkpoint, go to root
       }
 
-      return lastCheckpointParent ?? rootId;
+      return lastCheckpointParent ?? activeRootId;
     },
-    [parentMap, nodeMap, rootId],
+    [activeParentMap, nodeMap, activeRootId, resolveCollapsedSelection],
   );
 
   // Navigation: jump to next checkpoint's parent (along main branch from current)
   const jumpToNextCheckpoint = useCallback(
     (fromNodeId) => {
       // Start from current node
-      let cur = fromNodeId;
+      let cur = resolveCollapsedSelection(fromNodeId);
       const currentNode = nodeMap.get(cur);
 
       // If we're exactly on a checkpoint, skip it
       if (currentNode?.isCheckpoint) {
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         cur = kids.length > 0 ? kids[0].id : null;
       }
 
       // Also check: if the first child is a checkpoint, we're "right before" it
       // In that case, skip that checkpoint and find the one after
-      const firstKids = childrenMap.get(cur) ?? [];
+      const firstKids = activeChildrenMap.get(cur) ?? [];
       if (firstKids.length > 0) {
         const firstChild = nodeMap.get(firstKids[0].id);
         if (firstChild?.isCheckpoint) {
           // Skip past this checkpoint
-          const nextKids = childrenMap.get(firstKids[0].id) ?? [];
+          const nextKids = activeChildrenMap.get(firstKids[0].id) ?? [];
           cur = nextKids.length > 0 ? nextKids[0].id : null;
         }
       }
@@ -387,37 +680,37 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         const node = nodeMap.get(cur);
         if (node?.isCheckpoint) {
           // Return parent of this checkpoint
-          return parentMap.get(cur) ?? cur;
+          return activeParentMap.get(cur) ?? cur;
         }
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         cur = kids.length > 0 ? kids[0].id : null;
       }
 
       // No next checkpoint found - go to end of main branch
-      let endNode = fromNodeId;
-      let cur2 = fromNodeId;
+      let endNode = resolveCollapsedSelection(fromNodeId);
+      let cur2 = resolveCollapsedSelection(fromNodeId);
       while (cur2 != null) {
         endNode = cur2;
-        const kids = childrenMap.get(cur2) ?? [];
+        const kids = activeChildrenMap.get(cur2) ?? [];
         cur2 = kids.length > 0 ? kids[0].id : null;
       }
       return endNode;
     },
-    [nodeMap, childrenMap, parentMap],
+    [nodeMap, activeChildrenMap, activeParentMap, resolveCollapsedSelection],
   );
 
   // Check if a node is on the main branch (first child path from root)
   const isOnMainBranch = useCallback(
     (nodeId) => {
-      let cur = rootId;
+      let cur = activeRootId;
       while (cur != null) {
         if (cur === nodeId) return true;
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         cur = kids.length > 0 ? kids[0].id : null;
       }
       return false;
     },
-    [rootId, childrenMap],
+    [activeRootId, activeChildrenMap],
   );
 
   // Compute depths (distance from root within each checkpoint group)
@@ -425,13 +718,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const depth = new Map();
     const depthSinceCheckpoint = new Map();
     const { checkpointsBefore, maxGroup } = computeCheckpointGroups();
-    if (rootId == null)
+    if (activeRootId == null)
       return { depth, depthSinceCheckpoint, checkpointsBefore, maxGroup };
 
     // Track depth relative to last checkpoint on each path
-    const queue = [rootId];
-    depth.set(rootId, 0);
-    depthSinceCheckpoint.set(rootId, 0);
+    const queue = [activeRootId];
+    depth.set(activeRootId, 0);
+    depthSinceCheckpoint.set(activeRootId, 0);
 
     while (queue.length) {
       const cur = queue.shift();
@@ -440,7 +733,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const curIsCP = curNode?.isCheckpoint ?? false;
       const curDepthSinceCP = depthSinceCheckpoint.get(cur) ?? 0;
 
-      for (const k of childrenMap.get(cur) ?? []) {
+      for (const k of activeChildrenMap.get(cur) ?? []) {
         depth.set(k.id, curDepth + 1);
         // Reset depth counter after checkpoint, otherwise increment
         depthSinceCheckpoint.set(k.id, curIsCP ? 1 : curDepthSinceCP + 1);
@@ -449,7 +742,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     }
 
     return { depth, depthSinceCheckpoint, checkpointsBefore, maxGroup };
-  }, [childrenMap, rootId, nodeMap, computeCheckpointGroups]);
+  }, [activeChildrenMap, activeRootId, nodeMap, computeCheckpointGroups]);
 
   // Compute branch counts for row allocation
   const computeBranchCounts = useCallback(
@@ -458,7 +751,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
       const dfs = (id) => {
         if (memo.has(id)) return memo.get(id);
-        const kids = childrenMap.get(id) ?? [];
+        const kids = activeChildrenMap.get(id) ?? [];
         const visibleKids = showAll
           ? kids
           : kids.filter((k) => visibleNodes.has(k.id));
@@ -472,10 +765,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         return total;
       };
 
-      if (rootId != null) dfs(rootId);
+      if (activeRootId != null) dfs(activeRootId);
       return memo;
     },
-    [childrenMap, rootId],
+    [activeChildrenMap, activeRootId],
   );
 
   // Compute row starts
@@ -486,7 +779,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const dfs = (id, startRow) => {
         starts.set(id, startRow);
         let cursor = startRow;
-        const kids = childrenMap.get(id) ?? [];
+        const kids = activeChildrenMap.get(id) ?? [];
         const visibleKids = showAll
           ? kids
           : kids.filter((k) => visibleNodes.has(k.id));
@@ -497,10 +790,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         }
       };
 
-      if (rootId != null) dfs(rootId, 0);
+      if (activeRootId != null) dfs(activeRootId, 0);
       return starts;
     },
-    [childrenMap, rootId],
+    [activeChildrenMap, activeRootId],
   );
 
   // Compute visibility (focus mode)
@@ -511,13 +804,17 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     const visible = new Set();
     const hiddenEdgeHints = [];
+    const selectedNodeId = resolveCollapsedSelection(internalSelected);
+    if (selectedNodeId == null) {
+      return { visibleNodes: new Set(), hiddenEdgeHints: [], showAll: true };
+    }
 
     // Path from root to selected
     const pathToSelected = [];
-    let current = internalSelected;
+    let current = selectedNodeId;
     while (current != null) {
       pathToSelected.unshift(current);
-      current = parentMap.get(current);
+      current = activeParentMap.get(current);
     }
     const pathSet = new Set(pathToSelected);
 
@@ -526,7 +823,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     for (let i = 1; i < pathToSelected.length; i++) {
       const pId = pathToSelected[i - 1];
       const nodeId = pathToSelected[i];
-      const kids = childrenMap.get(pId) ?? [];
+      const kids = activeChildrenMap.get(pId) ?? [];
       const idx = kids.findIndex((k) => k.id === nodeId);
       pathIndices.push({ nodeId, parentId: pId, childIndex: idx });
     }
@@ -536,29 +833,29 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       let cur = startId;
       while (cur != null) {
         visible.add(cur);
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         if (kids.length === 0) break;
         cur = kids[0].id;
       }
     };
 
     // Add main branch from root
-    if (rootId != null) addMainBranch(rootId);
+    if (activeRootId != null) addMainBranch(activeRootId);
 
     // Add path to selected
     for (const nodeId of pathToSelected) visible.add(nodeId);
 
     // Add main branch from selected downward
-    addMainBranch(internalSelected);
+    addMainBranch(selectedNodeId);
 
     // Add direct children of selected
-    const selectedKids = childrenMap.get(internalSelected) ?? [];
+    const selectedKids = activeChildrenMap.get(selectedNodeId) ?? [];
     for (const kid of selectedKids) visible.add(kid.id);
 
     // Hints along path - check for hidden siblings
     for (const step of pathIndices) {
       const { parentId, childIndex } = step;
-      const kids = childrenMap.get(parentId) ?? [];
+      const kids = activeChildrenMap.get(parentId) ?? [];
       // hasAbove: there are siblings above index 0 (index 0 is always visible as main branch)
       // We show hint if childIndex > 0 AND there's a sibling between main branch and us
       const hasAbove = childIndex > 1; // siblings between index 0 and childIndex
@@ -578,7 +875,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const addMainBranchHints = (startId) => {
       let cur = startId;
       while (cur != null) {
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         // Skip if this node is ON the path to selected (hints already handled above)
         if (pathSet.has(cur)) {
           cur = kids.length > 0 ? kids[0].id : null;
@@ -596,14 +893,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         cur = kids.length > 0 ? kids[0].id : null;
       }
     };
-    if (rootId != null) addMainBranchHints(rootId);
+    if (activeRootId != null) addMainBranchHints(activeRootId);
 
     // Hints along the main branch DOWNWARD from selected node
     // This catches hidden branches below the selected node (like K2 in R-S-C-K1/K2)
     const addSelectedBranchHints = () => {
-      let cur = internalSelected;
+      let cur = selectedNodeId;
       while (cur != null) {
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         if (kids.length === 0) break;
 
         // If there are multiple children, the ones after index 0 are hidden
@@ -623,114 +920,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     addSelectedBranchHints();
 
     return { visibleNodes: visible, hiddenEdgeHints, showAll: false };
-  }, [branchFocusMode, internalSelected, parentMap, childrenMap, rootId]);
-
-  // Compute bundle information when horizontal collapse is active
-  // Returns a map: nodeId -> { bundleCount, isHidden, bundleType }
-  const bundleInfo = useMemo(() => {
-    const info = new Map();
-
-    if (!horizontalCollapse) {
-      // No bundling - all nodes shown normally
-      for (const node of internalNodes) {
-        info.set(node.id, {
-          bundleCount: 1,
-          isHidden: false,
-          bundleType: null,
-        });
-      }
-      return info;
-    }
-
-    // Find bundles by traversing from root along each branch
-    const processed = new Set();
-
-    const processChain = (startId) => {
-      let cur = startId;
-      while (cur != null && !processed.has(cur)) {
-        processed.add(cur);
-        const curNode = nodeMap.get(cur);
-        if (!curNode) break;
-
-        const curBundleKey = getBundleKey(curNode.actionType);
-
-        // If this node can't be bundled, mark it as single
-        if (curBundleKey === null) {
-          info.set(cur, { bundleCount: 1, isHidden: false, bundleType: null });
-          const kids = childrenMap.get(cur) ?? [];
-          // Process all branches
-          for (const kid of kids) {
-            processChain(kid.id);
-          }
-          cur = null;
-          continue;
-        }
-
-        // Collect consecutive nodes with same bundle key
-        const bundle = [cur];
-        let next = cur;
-        while (true) {
-          const kids = childrenMap.get(next) ?? [];
-          // Stop if branching (multiple children)
-          if (kids.length !== 1) break;
-
-          const nextNode = nodeMap.get(kids[0].id);
-          if (!nextNode) break;
-
-          const nextBundleKey = getBundleKey(nextNode.actionType);
-          // Stop if different bundle type
-          if (nextBundleKey !== curBundleKey) break;
-
-          // Stop if already processed (shouldn't happen, but safety)
-          if (processed.has(kids[0].id)) break;
-
-          processed.add(kids[0].id);
-          bundle.push(kids[0].id);
-          next = kids[0].id;
-        }
-
-        // Mark all but last as hidden, last gets the bundle count
-        for (let i = 0; i < bundle.length - 1; i++) {
-          info.set(bundle[i], {
-            bundleCount: 1,
-            isHidden: true,
-            bundleType: curBundleKey,
-          });
-        }
-        info.set(bundle[bundle.length - 1], {
-          bundleCount: bundle.length,
-          isHidden: false,
-          bundleType: curBundleKey,
-        });
-
-        // Continue from after the bundle
-        const lastInBundle = bundle[bundle.length - 1];
-        const kids = childrenMap.get(lastInBundle) ?? [];
-        // Process all branches from end of bundle
-        for (const kid of kids) {
-          processChain(kid.id);
-        }
-        cur = null; // Stop this chain, we've handled it
-      }
-    };
-
-    if (rootId != null) {
-      processChain(rootId);
-    }
-
-    // Mark any unprocessed nodes (shouldn't happen, but safety)
-    for (const node of internalNodes) {
-      if (!info.has(node.id)) {
-        info.set(node.id, {
-          bundleCount: 1,
-          isHidden: false,
-          bundleType: null,
-        });
-      }
-    }
-
-    return info;
-  }, [horizontalCollapse, internalNodes, nodeMap, childrenMap, rootId]);
+  }, [
+    branchFocusMode,
+    internalSelected,
+    activeParentMap,
+    activeChildrenMap,
+    activeRootId,
+    resolveCollapsedSelection,
+  ]);
 
   // Compute node positions with checkpoint synchronization
   // Checkpoints act as "barriers" - all parallel branches must reach a checkpoint
@@ -745,6 +942,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       // Group nodes by checkpointsBefore
       const groups = new Map(); // groupNum -> nodeIds[]
       for (const n of internalNodes) {
+        if (!activeNodeIds.has(n.id)) continue;
         const group = checkpointsBefore.get(n.id) ?? 0;
         if (!groups.has(group)) groups.set(group, []);
         groups.get(group).push(n);
@@ -782,6 +980,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const checkpointXPositions = [];
 
       for (const n of internalNodes) {
+        if (!activeNodeIds.has(n.id)) continue;
         const group = checkpointsBefore.get(n.id) ?? 0;
         const row = rowStarts.get(n.id) ?? 0;
         const y = cfg.topPadding + row * cfg.rowSpacing;
@@ -807,7 +1006,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
       // Build child index map for edges
       const childIndexMap = new Map();
-      for (const [pId, kids] of childrenMap) {
+      for (const [pId, kids] of activeChildrenMap) {
         kids.forEach((k, idx) => childIndexMap.set(`${pId}|${k.id}`, idx));
       }
 
@@ -829,18 +1028,20 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       computeBranchCounts,
       computeRowStarts,
       internalNodes,
-      childrenMap,
+      activeChildrenMap,
+      activeNodeIds,
       cfg,
     ],
   );
 
   const isNodeRenderable = useCallback(
     (nodeId, visibleNodes, showAll) => {
+      if (!activeNodeIds.has(nodeId)) return false;
       if (!showAll && !visibleNodes.has(nodeId)) return false;
       const bundle = bundleInfo.get(nodeId);
       return !bundle?.isHidden;
     },
-    [bundleInfo],
+    [bundleInfo, activeNodeIds],
   );
 
   const computeZoomMetrics = useCallback(() => {
@@ -896,7 +1097,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
   const scaleToRelative = useCallback((scale, fitScale) => {
     const denom = ZOOM_MAX_SCALE - fitScale;
-    if (denom <= 0.000001) return 0;
+    if (denom <= 0.000001) return 1;
     return clamp((scale - fitScale) / denom, 0, 1);
   }, []);
 
@@ -1223,10 +1424,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     // If it wasn't a real drag (just a click), select the node
     if (dragState && !wasDragging) {
-      setInternalSelected(dragState.nodeId);
+      const selectedNodeId = resolveCollapsedSelection(dragState.nodeId);
+      setInternalSelected(selectedNodeId);
       setSelectedEdge(null);
       setBranchPopup(null);
-      onSelectNode?.(dragState.nodeId);
+      onSelectNode?.(selectedNodeId);
     }
 
     setDragState(null);
@@ -1235,7 +1437,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     setTimeout(() => {
       isDraggingRef.current = false;
     }, 0);
-  }, [dragState, dropTarget, onCopyBranch, stopAutoScroll, onSelectNode]);
+  }, [
+    dragState,
+    dropTarget,
+    onCopyBranch,
+    stopAutoScroll,
+    onSelectNode,
+    resolveCollapsedSelection,
+  ]);
 
   // Global mouse/touch event listeners for drag
   useEffect(() => {
@@ -1280,17 +1489,18 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     // Filter visible (also filter out hidden bundle nodes)
     const isNodeVisible = (n) => {
+      if (!activeNodeIds.has(n.id)) return false;
       if (!showAll && !visibleNodes.has(n.id)) return false;
       const bundle = bundleInfo.get(n.id);
       if (bundle?.isHidden) return false;
       return true;
     };
     const visibleLinksArr = showAll
-      ? internalLinks.filter((l) => {
+      ? activeLinks.filter((l) => {
           const tBundle = bundleInfo.get(targetId(l));
           return !tBundle?.isHidden;
         })
-      : internalLinks.filter((l) => {
+      : activeLinks.filter((l) => {
           const sId = sourceId(l);
           const tId = targetId(l);
           if (!visibleNodes.has(sId) || !visibleNodes.has(tId)) return false;
@@ -1342,11 +1552,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const bIdx = getChildIndex(b);
       const aIsSelected =
         highlightedEdge?.parentId === sourceId(a) &&
-        (childrenMap.get(sourceId(a)) ?? [])[highlightedEdge.childIndex]?.id ===
+        (activeChildrenMap.get(sourceId(a)) ?? [])[highlightedEdge.childIndex]
+          ?.id ===
           targetId(a);
       const bIsSelected =
         highlightedEdge?.parentId === sourceId(b) &&
-        (childrenMap.get(sourceId(b)) ?? [])[highlightedEdge.childIndex]?.id ===
+        (activeChildrenMap.get(sourceId(b)) ?? [])[highlightedEdge.childIndex]
+          ?.id ===
           targetId(b);
 
       if (aIsSelected && !bIsSelected) return 1;
@@ -1368,7 +1580,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         const sId = sourceId(d);
         const tId = targetId(d);
         if (highlightedEdge?.parentId === sId) {
-          const kids = childrenMap.get(sId) ?? [];
+          const kids = activeChildrenMap.get(sId) ?? [];
           if (kids[highlightedEdge.childIndex]?.id === tId) return 3;
         }
         return getChildIndex(d) === 0 ? 1.5 : 1.5;
@@ -1385,7 +1597,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         }
 
         if (highlightedEdge?.parentId === sId) {
-          const kids = childrenMap.get(sId) ?? [];
+          const kids = activeChildrenMap.get(sId) ?? [];
           if (kids[highlightedEdge.childIndex]?.id === tId) return "#000000";
         }
         return idx === 0 ? "#ffffff" : "#9aa4b2";
@@ -1396,7 +1608,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const hintData = [];
       for (const hint of hiddenEdgeHints) {
         const pPos = positions.get(hint.parentId);
-        const kids = childrenMap.get(hint.parentId) ?? [];
+        const kids = activeChildrenMap.get(hint.parentId) ?? [];
         const targetKid = kids[hint.targetChildIndex];
         const tPos = targetKid ? positions.get(targetKid.id) : null;
         if (!pPos || !tPos) continue;
@@ -1760,12 +1972,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       });
   }, [
     internalNodes,
-    internalLinks,
+    activeLinks,
+    activeNodeIds,
     internalSelected,
     branchFocusMode,
     selectedEdge,
     branchPopup,
-    childrenMap,
+    activeChildrenMap,
     nodeMap,
     bundleInfo,
     cfg,

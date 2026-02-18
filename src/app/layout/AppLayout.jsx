@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, useCallback } from "react";
+import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { Board } from "../../components/Board/Board";
 import { ExpansionCostNotice } from "../../components/Board/ExpansionCostNotice";
 import { TopBarPager } from "../../components/TopBar/TopBarPager";
@@ -46,7 +46,7 @@ export function AppLayout({
   // Tree visualizer ref and state for toolbar
   const treeRef = useRef(null);
   const [treeState, setTreeState] = useState({
-    focusMode: true,
+    focusMode: false,
     horizontalCollapse: false,
     currentOnMainBranch: true,
   });
@@ -69,6 +69,11 @@ export function AppLayout({
       });
     }
   }, []);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(updateTreeState, 0);
+    return () => clearTimeout(timeoutId);
+  }, [updateTreeState, historyProps.historyIndex]);
 
   // Get skipToEnd preference from config (default true)
   const skipToEnd = config?.skipToEnd !== false;

@@ -21,86 +21,149 @@ const getBundleKey = (actionType) => {
   return actionType;
 };
 
-// Check if two nodes can be bundled together
-const canBundle = (node1, node2) => {
-  if (!node1 || !node2) return false;
-  const key1 = getBundleKey(node1.actionType);
-  const key2 = getBundleKey(node2.actionType);
-  return key1 !== null && key1 === key2;
-};
-
 export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = true, horizontalCollapse = false) {
   // Build parent/children maps from nodes
-  const { childrenMap, parentMap, nodeMap } = useMemo(() => {
+  const { childrenMap, nodeMap, rootId } = useMemo(() => {
     const childrenMap = new Map();
-    const parentMap = new Map();
     const nodeMap = new Map();
+    let rootId = null;
 
     for (const node of nodes) {
       nodeMap.set(node.id, node);
       if (node.parentId != null) {
-        parentMap.set(node.id, node.parentId);
         if (!childrenMap.has(node.parentId)) {
           childrenMap.set(node.parentId, []);
         }
         childrenMap.get(node.parentId).push({ id: node.id });
+      } else if (rootId == null) {
+        rootId = node.id;
       }
     }
 
-    return { childrenMap, parentMap, nodeMap };
+    return { childrenMap, nodeMap, rootId };
   }, [nodes]);
 
-  // Step forward along main branch (with optional bundle skipping)
-  const stepForward = useCallback(() => {
-    const kids = childrenMap.get(selectedId) ?? [];
-    if (kids.length === 0) return;
-    
-    let targetId = kids[0].id;
-    
-    // If horizontal collapse is active, skip to end of bundle
-    if (horizontalCollapse) {
-      const currentNode = nodeMap.get(selectedId);
-      let nextNode = nodeMap.get(targetId);
-      
-      // Keep moving forward while we can bundle
-      while (nextNode && canBundle(currentNode, nextNode)) {
-        const nextKids = childrenMap.get(targetId) ?? [];
-        if (nextKids.length === 0) break;
-        const nextNextNode = nodeMap.get(nextKids[0].id);
-        if (!canBundle(currentNode, nextNextNode)) break;
-        targetId = nextKids[0].id;
-        nextNode = nextNextNode;
-      }
-    }
-    
-    onSelectNode?.(targetId);
-  }, [childrenMap, selectedId, onSelectNode, horizontalCollapse, nodeMap]);
+  const collapseModel = useMemo(() => {
+    const bundleInfo = new Map();
 
-  // Step backward (with optional bundle skipping)
-  const stepBackward = useCallback(() => {
-    const parent = parentMap.get(selectedId);
-    if (parent == null) return;
-    
-    let targetId = parent;
-    
-    // If horizontal collapse is active, skip to start of bundle
-    if (horizontalCollapse) {
-      const currentNode = nodeMap.get(selectedId);
-      let parentNode = nodeMap.get(parent);
-      
-      // Keep moving backward while we can bundle
-      while (parentNode && canBundle(currentNode, parentNode)) {
-        const grandparent = parentMap.get(targetId);
-        if (grandparent == null) break;
-        const grandparentNode = nodeMap.get(grandparent);
-        if (!canBundle(currentNode, grandparentNode)) break;
-        targetId = grandparent;
-        parentNode = grandparentNode;
+    if (!horizontalCollapse) {
+      for (const node of nodes) {
+        bundleInfo.set(node.id, { isHidden: false });
+      }
+    } else {
+      const processed = new Set();
+
+      const processChain = (startId) => {
+        let cur = startId;
+        while (cur != null && !processed.has(cur)) {
+          processed.add(cur);
+          const curNode = nodeMap.get(cur);
+          if (!curNode) break;
+
+          const curBundleKey = getBundleKey(curNode.actionType);
+          if (curBundleKey === null) {
+            bundleInfo.set(cur, { isHidden: false });
+            for (const kid of childrenMap.get(cur) ?? []) processChain(kid.id);
+            cur = null;
+            continue;
+          }
+
+          const chain = [cur];
+          let walk = cur;
+          while (true) {
+            const kids = childrenMap.get(walk) ?? [];
+            if (kids.length !== 1) break;
+            const nextId = kids[0].id;
+            const nextNode = nodeMap.get(nextId);
+            if (!nextNode) break;
+            if (getBundleKey(nextNode.actionType) !== curBundleKey) break;
+            if (processed.has(nextId)) break;
+            processed.add(nextId);
+            chain.push(nextId);
+            walk = nextId;
+          }
+
+          for (let i = 0; i < chain.length - 1; i++) {
+            bundleInfo.set(chain[i], { isHidden: true });
+          }
+          bundleInfo.set(chain[chain.length - 1], { isHidden: false });
+
+          for (const kid of childrenMap.get(chain[chain.length - 1]) ?? []) {
+            processChain(kid.id);
+          }
+          cur = null;
+        }
+      };
+
+      if (rootId != null) processChain(rootId);
+      for (const node of nodes) {
+        if (!bundleInfo.has(node.id)) bundleInfo.set(node.id, { isHidden: false });
       }
     }
-    
-    onSelectNode?.(targetId);
-  }, [parentMap, selectedId, onSelectNode, horizontalCollapse, nodeMap]);
+
+    const resolveVisible = (id) => {
+      if (!horizontalCollapse || id == null) return id;
+      let cur = id;
+      const seen = new Set();
+      while (cur != null && bundleInfo.get(cur)?.isHidden) {
+        if (seen.has(cur)) break;
+        seen.add(cur);
+        const kids = childrenMap.get(cur) ?? [];
+        cur = kids.length > 0 ? kids[0].id : null;
+      }
+      return cur ?? id;
+    };
+
+    const activeChildrenMap = new Map();
+    const activeParentMap = new Map();
+
+    const visibleIds = new Set();
+    for (const node of nodes) {
+      if (!bundleInfo.get(node.id)?.isHidden) visibleIds.add(node.id);
+    }
+
+    for (const nodeId of visibleIds) {
+      const rawKids = childrenMap.get(nodeId) ?? [];
+      const kids = [];
+      const seen = new Set();
+      for (const k of rawKids) {
+        const visibleKid = resolveVisible(k.id);
+        if (visibleKid == null || visibleKid === nodeId || seen.has(visibleKid)) continue;
+        seen.add(visibleKid);
+        kids.push({ id: visibleKid });
+      }
+      if (kids.length > 0) {
+        activeChildrenMap.set(nodeId, kids);
+        for (const k of kids) activeParentMap.set(k.id, nodeId);
+      }
+    }
+
+    const activeRootId = resolveVisible(rootId);
+
+    return {
+      resolveVisible,
+      activeChildrenMap,
+      activeParentMap,
+      activeRootId,
+    };
+  }, [horizontalCollapse, nodes, nodeMap, childrenMap, rootId]);
+
+  const { resolveVisible, activeChildrenMap, activeParentMap, activeRootId } = collapseModel;
+  const activeSelectedId = resolveVisible(selectedId);
+
+  // Step forward along main branch
+  const stepForward = useCallback(() => {
+    const kids = activeChildrenMap.get(activeSelectedId) ?? [];
+    if (kids.length === 0) return;
+    onSelectNode?.(kids[0].id);
+  }, [activeChildrenMap, activeSelectedId, onSelectNode]);
+
+  // Step backward
+  const stepBackward = useCallback(() => {
+    const parent = activeParentMap.get(activeSelectedId);
+    if (parent == null) return;
+    onSelectNode?.(parent);
+  }, [activeParentMap, activeSelectedId, onSelectNode]);
 
   // Jump to previous checkpoint (or start of branch if none)
   // skipToEnd=true (Ende des Checkpoints): Check current node first, if checkpoint go 1 left
@@ -108,10 +171,10 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
   const jumpToPrevCheckpoint = useCallback(() => {
     // Build path from root to current node
     const pathToNode = [];
-    let cur = selectedId;
+    let cur = activeSelectedId;
     while (cur != null) {
       pathToNode.unshift(cur);
-      cur = parentMap.get(cur);
+      cur = activeParentMap.get(cur);
     }
 
     if (pathToNode.length === 0) return;
@@ -138,7 +201,7 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       }
       
       // No checkpoint found - jump to start (root)
-      onSelectNode?.(pathToNode[0]);
+      onSelectNode?.(pathToNode[0] ?? activeRootId);
     } else {
       // Strategy: "Anfang des Checkpoints"
       // Find previous checkpoint that's not the current node, stay exactly there
@@ -151,24 +214,23 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       }
       
       // No checkpoint found - jump to start (root)
-      onSelectNode?.(pathToNode[0]);
+      onSelectNode?.(pathToNode[0] ?? activeRootId);
     }
-  }, [selectedId, parentMap, nodeMap, onSelectNode, skipToEnd]);
+  }, [activeSelectedId, activeParentMap, nodeMap, onSelectNode, skipToEnd, activeRootId]);
 
   // Jump to next checkpoint (or end of branch if none)
   // skipToEnd=true (Ende des Checkpoints): Move 2 nodes first, then check, land before checkpoint
   // skipToEnd=false (Anfang des Checkpoints): Find next checkpoint that's not current, stay there
   const jumpToNextCheckpoint = useCallback(() => {
-    const firstKids = childrenMap.get(selectedId) ?? [];
+    const firstKids = activeChildrenMap.get(activeSelectedId) ?? [];
     if (firstKids.length === 0) return; // Already at end
     
     if (skipToEnd) {
       // Strategy: "Ende des Checkpoints"
       // Move 2 nodes first before checking for checkpoints
       let cur = firstKids[0].id;
-      let prevId = selectedId;
-      let prevPrevId = selectedId;
-      const visited = new Set([selectedId]);
+      let prevId = activeSelectedId;
+      const visited = new Set([activeSelectedId]);
       let stepsTaken = 1;
       
       while (cur != null && !visited.has(cur)) {
@@ -182,7 +244,7 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
           return;
         }
         
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         if (kids.length === 0) {
           // Reached end of branch without finding checkpoint - stay here
           onSelectNode?.(cur);
@@ -190,7 +252,6 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
         }
         
         // Move to next node
-        prevPrevId = prevId;
         prevId = cur;
         cur = kids[0].id;
         stepsTaken++;
@@ -202,7 +263,7 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       // Strategy: "Anfang des Checkpoints"
       // Find next checkpoint that's not the current node, stay exactly there
       let cur = firstKids[0].id;
-      const visited = new Set([selectedId]);
+      const visited = new Set([activeSelectedId]);
       
       while (cur != null && !visited.has(cur)) {
         visited.add(cur);
@@ -214,7 +275,7 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
           return;
         }
         
-        const kids = childrenMap.get(cur) ?? [];
+        const kids = activeChildrenMap.get(cur) ?? [];
         if (kids.length === 0) {
           // Reached end of branch without finding checkpoint - stay here
           onSelectNode?.(cur);
@@ -224,14 +285,14 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
         cur = kids[0].id;
       }
     }
-  }, [selectedId, childrenMap, nodeMap, onSelectNode, skipToEnd]);
+  }, [activeSelectedId, activeChildrenMap, nodeMap, onSelectNode, skipToEnd]);
 
   return {
     stepForward,
     stepBackward,
     jumpToPrevCheckpoint,
     jumpToNextCheckpoint,
-    hasParent: parentMap.has(selectedId),
-    hasChildren: (childrenMap.get(selectedId)?.length ?? 0) > 0,
+    hasParent: activeParentMap.has(activeSelectedId),
+    hasChildren: (activeChildrenMap.get(activeSelectedId)?.length ?? 0) > 0,
   };
 }
