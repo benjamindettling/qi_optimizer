@@ -77,77 +77,81 @@ export function AppRoot() {
     applyThemeToDocument(adminMode);
   }, [adminMode]);
 
+  // Keep topbar height CSS variable updated
   useEffect(() => {
     const el = topBarRef.current;
     if (!el || typeof window === "undefined") return;
     const root = document.documentElement;
 
-    const updateBoardSize = () => {
+    const updateTopBarHeight = () => {
       const topBarHeight = el.getBoundingClientRect().height;
       root.style.setProperty("--topbar-height", `${topBarHeight}px`);
+    };
 
-      // Layout constants
-      const WORKSPACE_PADDING = 32; // 16px * 2
-      const WORKSPACE_GAP = 16;
-      const EXPANSION_NOTICE_HEIGHT = 40;
-      const TOOLBAR_WIDTH = 60;
-      const TOOLBAR_HEIGHT = 60;
-      const MIN_REMAINING_WIDTH = 360;
+    updateTopBarHeight();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateTopBarHeight);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
-      const toolbarPos = controller.toolbarPosition || "left";
+  // Observe the actual .board-content element and feed its real size
+  // to the controller so the board scales fluidly — just like the tree.
+  // Width: read from the element (stable — determined by flex layout, not content).
+  // Height: capped to the element's width (board is square-ish) and also to
+  //         the viewport-available height, whichever is smaller.  This prevents
+  //         the board from extending vertically beyond its flex row.
+  const boardContentRef = useRef(null);
 
-      // Calculate available height for board
-      // = viewport - topbar - padding - expansion notice - (toolbar height if "top")
-      let availableHeight =
+  useEffect(() => {
+    const el = boardContentRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    const EXPANSION_NOTICE_HEIGHT = 40;
+    const WORKSPACE_PADDING = 32;
+
+    const update = () => {
+      const { width } = el.getBoundingClientRect();
+      if (width < 1) return;
+
+      // Viewport-based height ceiling
+      const topBarH = parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--topbar-height",
+        ) || "60",
+      );
+      const viewportH = Math.max(
+        240,
         window.innerHeight -
-        topBarHeight -
-        WORKSPACE_PADDING -
-        EXPANSION_NOTICE_HEIGHT;
-      if (toolbarPos === "top") {
-        availableHeight -= TOOLBAR_HEIGHT;
-      }
-
-      // Calculate available width for board
-      // = viewport - padding - gap - min remaining width - (toolbar width if "left")
-      let availableWidth =
-        window.innerWidth -
-        WORKSPACE_PADDING -
-        WORKSPACE_GAP -
-        MIN_REMAINING_WIDTH;
-      if (toolbarPos === "left") {
-        availableWidth -= TOOLBAR_WIDTH;
-      }
-
-      // Board is square, take the minimum
-      const boardSize = Math.max(
-        200,
-        Math.min(availableWidth, availableHeight),
+          topBarH -
+          WORKSPACE_PADDING -
+          EXPANSION_NOTICE_HEIGHT,
       );
 
-      // Set CSS custom property for the board size
-      root.style.setProperty("--board-size", `${boardSize}px`);
+      // Board height = min(element width, viewport available height).
+      const availableH = Math.min(width, viewportH);
 
-      // Tell the controller the available size for board scaling
-      controller.setContainerHeight(boardSize);
-      controller.setContainerWidth(boardSize);
+      controller.setContainerWidth(width);
+      controller.setContainerHeight(availableH);
+
+      // Publish the computed height as a CSS variable on :root so that
+      // .board-content can use it as max-height without a resize loop.
+      document.documentElement.style.setProperty(
+        "--board-content-h",
+        `${availableH + EXPANSION_NOTICE_HEIGHT + 8}px`,
+      );
     };
 
-    updateBoardSize();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(updateBoardSize);
+    update();
+    const observer = new ResizeObserver(update);
     observer.observe(el);
-    window.addEventListener("resize", updateBoardSize);
+    window.addEventListener("resize", update);
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", updateBoardSize);
+      window.removeEventListener("resize", update);
     };
-  }, [
-    controller.setContainerHeight,
-    controller.setContainerWidth,
-    controller.toolbarPosition,
-  ]);
+  }, [controller.setContainerHeight, controller.setContainerWidth]);
 
-  // boardClusterRef is still passed to AppLayout for potential other uses
   const boardClusterRef = useRef(null);
 
   // Shop is now manually opened via button, no auto-open based on screen size
@@ -377,6 +381,7 @@ export function AppRoot() {
         carried={controller.carried}
         topBarRef={topBarRef}
         boardClusterRef={boardClusterRef}
+        boardContentRef={boardContentRef}
         isShopOpen={isShopOpen}
         onCloseShop={() => setIsShopOpen(false)}
         onOpenShop={() => setIsShopOpen(true)}

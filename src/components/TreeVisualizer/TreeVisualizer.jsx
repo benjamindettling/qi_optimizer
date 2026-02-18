@@ -9,8 +9,8 @@ import React, {
   forwardRef,
 } from "react";
 import * as d3 from "d3";
+import { Focus, ZoomIn, ZoomOut } from "lucide-react";
 import { ACTION_COLORS } from "../../config/colors";
-import { GoogleAd } from "../GoogleAd/GoogleAd";
 import "./TreeVisualizer.css";
 
 // Checkpoint action types - these divide the tree into columns
@@ -63,6 +63,11 @@ const getBundleKey = (actionType) => {
   return actionType; // Exact match required
 };
 
+const ZOOM_MIN_SCALE = 0.05;
+const ZOOM_MAX_SCALE = 1;
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
 /**
  * TreeVisualizer - A git branch-like horizontal tree for history navigation
  * With checkpoint support and auto-centering
@@ -109,15 +114,17 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const width = containerSize.width;
   const height = containerSize.height;
 
-  const [focusMode, setFocusMode] = useState(true);
+  const [branchFocusMode, setBranchFocusMode] = useState(true);
   const [horizontalCollapse, setHorizontalCollapse] = useState(false); // Bundle consecutive same-type actions
-  const [autoCenter, setAutoCenter] = useState(true);
+  const [selectionFocusMode, setSelectionFocusMode] = useState(true);
+  const [relativeZoom, setRelativeZoom] = useState(1); // 0 = fit tree, 1 = selected-node zoom
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [internalSelected, setInternalSelected] = useState(selectedId);
   const [branchPopup, setBranchPopup] = useState(null); // { parentId, children, selectedIndex }
-  const [zoomedOut, setZoomedOut] = useState(false); // true = show entire tree
   const [currentTransform, setCurrentTransform] = useState(d3.zoomIdentity);
-  const isUserInteractingRef = useRef(false); // Track if user is manually panning/zooming
+  const currentTransformRef = useRef(d3.zoomIdentity);
+  const selectionFocusModeRef = useRef(true);
+  const prevRelativeZoomRef = useRef(1);
 
   // Store positions for fix button overlay
   const [nodePositions, setNodePositions] = useState(new Map());
@@ -154,6 +161,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       setBranchPopup(null);
     });
   }
+
+  useEffect(() => {
+    selectionFocusModeRef.current = selectionFocusMode;
+  }, [selectionFocusMode]);
 
   // Build internal structure from flat nodes array
   const {
@@ -494,7 +505,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
   // Compute visibility (focus mode)
   const computeVisibility = useCallback(() => {
-    if (!focusMode || internalSelected == null) {
+    if (!branchFocusMode || internalSelected == null) {
       return { visibleNodes: new Set(), hiddenEdgeHints: [], showAll: true };
     }
 
@@ -612,7 +623,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     addSelectedBranchHints();
 
     return { visibleNodes: visible, hiddenEdgeHints, showAll: false };
-  }, [focusMode, internalSelected, parentMap, childrenMap, rootId]);
+  }, [branchFocusMode, internalSelected, parentMap, childrenMap, rootId]);
 
   // Compute bundle information when horizontal collapse is active
   // Returns a map: nodeId -> { bundleCount, isHidden, bundleType }
@@ -823,6 +834,114 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     ],
   );
 
+  const isNodeRenderable = useCallback(
+    (nodeId, visibleNodes, showAll) => {
+      if (!showAll && !visibleNodes.has(nodeId)) return false;
+      const bundle = bundleInfo.get(nodeId);
+      return !bundle?.isHidden;
+    },
+    [bundleInfo],
+  );
+
+  const computeZoomMetrics = useCallback(() => {
+    const { visibleNodes, showAll } = computeVisibility();
+    const { positions } = computePositions(visibleNodes, showAll);
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const node of internalNodes) {
+      if (!isNodeRenderable(node.id, visibleNodes, showAll)) continue;
+      const pos = positions.get(node.id);
+      if (!pos) continue;
+      minX = Math.min(minX, pos.x);
+      maxX = Math.max(maxX, pos.x);
+      minY = Math.min(minY, pos.y);
+      maxY = Math.max(maxY, pos.y);
+    }
+
+    if (minX === Infinity) return null;
+
+    const padding = 60;
+    const bounds = {
+      minX: minX - padding,
+      maxX: maxX + padding,
+      minY: minY - padding,
+      maxY: maxY + padding,
+    };
+    const contentWidth = Math.max(bounds.maxX - bounds.minX, 1);
+    const contentHeight = Math.max(bounds.maxY - bounds.minY, 1);
+    const fitScale = Math.min(
+      width / contentWidth,
+      height / contentHeight,
+      ZOOM_MAX_SCALE,
+    );
+
+    return { positions, bounds, fitScale };
+  }, [
+    computeVisibility,
+    computePositions,
+    internalNodes,
+    isNodeRenderable,
+    width,
+    height,
+  ]);
+
+  const relativeToScale = useCallback((relative, fitScale) => {
+    const r = clamp(relative, 0, 1);
+    return fitScale + (ZOOM_MAX_SCALE - fitScale) * r;
+  }, []);
+
+  const scaleToRelative = useCallback((scale, fitScale) => {
+    const denom = ZOOM_MAX_SCALE - fitScale;
+    if (denom <= 0.000001) return 0;
+    return clamp((scale - fitScale) / denom, 0, 1);
+  }, []);
+
+  const clampTransformToBounds = useCallback(
+    (scale, desiredX, desiredY, bounds) => {
+      const contentWidth = (bounds.maxX - bounds.minX) * scale;
+      const contentHeight = (bounds.maxY - bounds.minY) * scale;
+
+      let x = desiredX;
+      let y = desiredY;
+
+      if (contentWidth <= width) {
+        x = (width - contentWidth) / 2 - bounds.minX * scale;
+      } else {
+        const minTx = width - bounds.maxX * scale;
+        const maxTx = -bounds.minX * scale;
+        x = clamp(x, minTx, maxTx);
+      }
+
+      if (contentHeight <= height) {
+        y = (height - contentHeight) / 2 - bounds.minY * scale;
+      } else {
+        const minTy = height - bounds.maxY * scale;
+        const maxTy = -bounds.minY * scale;
+        y = clamp(y, minTy, maxTy);
+      }
+
+      return d3.zoomIdentity.translate(x, y).scale(scale);
+    },
+    [width, height],
+  );
+
+  const applyTransform = useCallback((nextTransform, duration = 0) => {
+    const api = apiRef.current;
+    if (!api) return;
+
+    const { svg, zoom } = api;
+    svg.interrupt();
+    if (duration > 0) {
+      svg.transition().duration(duration).call(zoom.transform, nextTransform);
+    } else {
+      svg.call(zoom.transform, nextTransform);
+    }
+  }, []);
+
   // Initialize D3
   useEffect(() => {
     if (!svgRef.current) return;
@@ -838,45 +957,32 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const gCheckpoints = gRoot.append("g").attr("class", "checkpoints");
     const gLinks = gRoot.append("g").attr("class", "links");
     const gNodes = gRoot.append("g").attr("class", "nodes");
-
-    // Zoom
-    // Labels group - outside of zoom transform for fixed size
     const gLabels = svg.append("g").attr("class", "checkpoint-labels");
 
     const zoom = d3
       .zoom()
-      .scaleExtent([0.2, 2.5])
+      .scaleExtent([ZOOM_MIN_SCALE, ZOOM_MAX_SCALE])
       .filter((event) => {
-        // Don't zoom when dragging a node
-        if (isDraggingRef.current) return false;
-        // Allow wheel zoom and middle-click pan, but require modifier for left-click drag
-        // This allows node dragging on left-click
-        if (event.type === "mousedown" && event.button === 0) {
-          // Check if clicked on a node - if so, let node handle it
-          const target = event.target;
-          if (target.closest(".node-group, .square-group, .triangle-group")) {
-            return false;
+        if (isDraggingRef.current || event.ctrlKey) return false;
+        if (event.type === "mousedown") {
+          if (event.button === 0) {
+            const target = event.target;
+            if (target.closest(".node-group, .square-group, .triangle-group")) {
+              return false;
+            }
           }
+          return event.button === 0 || event.button === 1;
         }
-        return !event.ctrlKey && !event.button;
-      })
-      .on("start", (event) => {
-        // Track if this is a user-initiated interaction (not programmatic)
-        if (event.sourceEvent) {
-          isUserInteractingRef.current = true;
-        }
+        return true;
       })
       .on("zoom", (event) => {
         gRoot.attr("transform", event.transform);
-        // Update transform state
+        currentTransformRef.current = event.transform;
         setCurrentTransform(event.transform);
-        // If user is manually panning/zooming, disable auto-center
-        if (isUserInteractingRef.current) {
-          setAutoCenter(false);
+
+        if (event.sourceEvent && selectionFocusModeRef.current) {
+          setSelectionFocusMode(false);
         }
-      })
-      .on("end", () => {
-        isUserInteractingRef.current = false;
       });
 
     svg.call(zoom);
@@ -897,67 +1003,43 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     };
   }, [width, height]);
 
-  // Auto-center on selected node or fit entire tree
+  // Focus mode: keep selected node in view and preserve relative zoom across tree size changes.
   useEffect(() => {
-    const api = apiRef.current;
-    if (!api) return;
+    if (!selectionFocusMode) return;
+    const metrics = computeZoomMetrics();
+    if (!metrics) return;
 
-    const { visibleNodes, showAll } = computeVisibility();
-    const { positions } = computePositions(visibleNodes, showAll);
-    const { svg, zoom } = api;
+    const scale = relativeToScale(relativeZoom, metrics.fitScale);
+    const selectedPos =
+      internalSelected != null ? metrics.positions.get(internalSelected) : null;
+    const anchorX = selectedPos
+      ? selectedPos.x
+      : (metrics.bounds.minX + metrics.bounds.maxX) / 2;
+    const anchorY = selectedPos
+      ? selectedPos.y
+      : (metrics.bounds.minY + metrics.bounds.maxY) / 2;
+    const desiredX = width / 2 - anchorX * scale;
+    const desiredY = height / 2 - anchorY * scale;
 
-    if (zoomedOut) {
-      // Fit entire tree in view
-      let minX = Infinity,
-        maxX = -Infinity,
-        minY = Infinity,
-        maxY = -Infinity;
-      for (const [, pos] of positions) {
-        minX = Math.min(minX, pos.x);
-        maxX = Math.max(maxX, pos.x);
-        minY = Math.min(minY, pos.y);
-        maxY = Math.max(maxY, pos.y);
-      }
-      if (minX === Infinity) return;
-
-      const padding = 60;
-      const treeWidth = maxX - minX + padding * 2;
-      const treeHeight = maxY - minY + padding * 2;
-      const scale = Math.min(width / treeWidth, height / treeHeight, 1);
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const targetX = width / 2 - centerX * scale;
-      const targetY = height / 2 - centerY * scale;
-
-      svg
-        .transition()
-        .duration(300)
-        .call(
-          zoom.transform,
-          d3.zoomIdentity.translate(targetX, targetY).scale(scale),
-        );
-    } else if (autoCenter && internalSelected != null) {
-      const pos = positions.get(internalSelected);
-      if (!pos) return;
-
-      const centerX = width / 2;
-      const centerY = height / 2;
-      const targetX = centerX - pos.x;
-      const targetY = centerY - pos.y;
-
-      svg
-        .transition()
-        .duration(300)
-        .call(zoom.transform, d3.zoomIdentity.translate(targetX, targetY));
-    }
+    const nextTransform = clampTransformToBounds(
+      scale,
+      desiredX,
+      desiredY,
+      metrics.bounds,
+    );
+    const zoomChanged = Math.abs(relativeZoom - prevRelativeZoomRef.current) > 0.000001;
+    prevRelativeZoomRef.current = relativeZoom;
+    applyTransform(nextTransform, zoomChanged ? 0 : 180);
   }, [
+    selectionFocusMode,
+    relativeZoom,
     internalSelected,
-    autoCenter,
-    zoomedOut,
     width,
     height,
-    computeVisibility,
-    computePositions,
+    computeZoomMetrics,
+    relativeToScale,
+    clampTransformToBounds,
+    applyTransform,
   ]);
 
   // ============ DRAG AND DROP HANDLERS ============
@@ -976,7 +1058,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const positions = getPositionsRef.current;
       if (!positions || !apiRef.current) return null;
 
-      const transform = currentTransform;
+      const transform = currentTransformRef.current;
       const hitRadius = cfg.nodeRadius * 1.5; // Slightly larger hit area
 
       for (const [nodeId, pos] of positions) {
@@ -994,7 +1076,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       }
       return null;
     },
-    [currentTransform, cfg.nodeRadius],
+    [cfg.nodeRadius],
   );
 
   // Auto-scroll when dragging near edges
@@ -1035,9 +1117,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         }
 
         if (dx !== 0 || dy !== 0) {
-          const newTransform = currentTransform.translate(
-            dx / currentTransform.k,
-            dy / currentTransform.k,
+          const transform = currentTransformRef.current;
+          const newTransform = transform.translate(
+            dx / transform.k,
+            dy / transform.k,
           );
           svg.call(zoom.transform, newTransform);
         }
@@ -1050,7 +1133,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       }
       dragScrollRef.current = requestAnimationFrame(autoScrollTick);
     },
-    [currentTransform],
+    [],
   );
 
   const stopAutoScroll = useCallback(() => {
@@ -1081,7 +1164,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       currentY: clientY - (rect?.top ?? 0),
       hasMoved: false, // Track if mouse actually moved beyond threshold
     });
-    setAutoCenter(false); // Disable auto-center while dragging
+    setSelectionFocusMode(false);
   }, []);
 
   // Handle drag move
@@ -1679,10 +1762,12 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     internalNodes,
     internalLinks,
     internalSelected,
-    focusMode,
+    branchFocusMode,
     selectedEdge,
     branchPopup,
     childrenMap,
+    nodeMap,
+    bundleInfo,
     cfg,
     computeVisibility,
     computePositions,
@@ -1843,16 +1928,78 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     return internalSelected ? isOnMainBranch(internalSelected) : true;
   }, [internalSelected, isOnMainBranch]);
 
-  // Handle zoom in (center on selected node)
+  const displayedRelativeZoom = useMemo(() => {
+    if (selectionFocusMode) return relativeZoom;
+    const metrics = computeZoomMetrics();
+    if (!metrics) return relativeZoom;
+    return scaleToRelative(currentTransform.k, metrics.fitScale);
+  }, [
+    selectionFocusMode,
+    relativeZoom,
+    computeZoomMetrics,
+    scaleToRelative,
+    currentTransform.k,
+  ]);
+
+  const handleZoomSliderChange = useCallback(
+    (event) => {
+      const nextRelative = clamp(Number(event.target.value) / 100, 0, 1);
+      if (selectionFocusMode) {
+        setRelativeZoom(nextRelative);
+        return;
+      }
+
+      const metrics = computeZoomMetrics();
+      if (!metrics) return;
+
+      const current = currentTransformRef.current;
+      const nextScale = relativeToScale(nextRelative, metrics.fitScale);
+      const centerX = width / 2;
+      const centerY = height / 2;
+      const worldX = (centerX - current.x) / current.k;
+      const worldY = (centerY - current.y) / current.k;
+      const nextX = centerX - worldX * nextScale;
+      const nextY = centerY - worldY * nextScale;
+
+      applyTransform(d3.zoomIdentity.translate(nextX, nextY).scale(nextScale));
+    },
+    [
+      selectionFocusMode,
+      computeZoomMetrics,
+      relativeToScale,
+      width,
+      height,
+      applyTransform,
+    ],
+  );
+
+  const handleToggleSelectionFocusMode = useCallback(() => {
+    if (selectionFocusMode) {
+      setSelectionFocusMode(false);
+      return;
+    }
+
+    const metrics = computeZoomMetrics();
+    if (metrics) {
+      const nextRelative = scaleToRelative(
+        currentTransformRef.current.k,
+        metrics.fitScale,
+      );
+      setRelativeZoom(nextRelative);
+    }
+    setSelectionFocusMode(true);
+  }, [selectionFocusMode, computeZoomMetrics, scaleToRelative]);
+
+  // Compatibility API for external callers.
   const handleZoomIn = useCallback(() => {
-    setZoomedOut(false);
-    setAutoCenter(true);
+    setSelectionFocusMode(true);
+    setRelativeZoom(1);
   }, []);
 
-  // Handle zoom out (show entire tree)
+  // Compatibility API for external callers.
   const handleZoomOut = useCallback(() => {
-    setZoomedOut(true);
-    setAutoCenter(false);
+    setSelectionFocusMode(true);
+    setRelativeZoom(0);
   }, []);
 
   // Expose control methods via ref
@@ -1861,18 +2008,18 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     () => ({
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
-      toggleFocusMode: () => setFocusMode((f) => !f),
+      toggleFocusMode: () => setBranchFocusMode((f) => !f),
       toggleHorizontalCollapse: () => setHorizontalCollapse((h) => !h),
       makeTop: () => onMakeTop?.(internalSelected),
       // State for toolbar
       get zoomedOut() {
-        return zoomedOut;
+        return displayedRelativeZoom <= 0.001;
       },
       get autoCenter() {
-        return autoCenter;
+        return selectionFocusMode;
       },
       get focusMode() {
-        return focusMode;
+        return branchFocusMode;
       },
       get horizontalCollapse() {
         return horizontalCollapse;
@@ -1884,9 +2031,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     [
       handleZoomIn,
       handleZoomOut,
-      zoomedOut,
-      autoCenter,
-      focusMode,
+      displayedRelativeZoom,
+      selectionFocusMode,
+      branchFocusMode,
       horizontalCollapse,
       currentOnMainBranch,
       onMakeTop,
@@ -2012,12 +2159,35 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         )}
       </div>
 
-      {/* Google AdSense ad at the bottom */}
-      <GoogleAd
-        adSlot={import.meta.env.VITE_ADSENSE_TREE_SLOT}
-        maxHeight={90}
-        className="tree-visualizer-ad"
-      />
+      <div className="tree-zoom-controls">
+        <div className="tree-zoom-slider-row">
+          <ZoomOut size={16} aria-hidden="true" />
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            value={displayedRelativeZoom * 100}
+            onInput={handleZoomSliderChange}
+            className="tree-zoom-slider"
+            aria-label="Tree zoom level"
+            title="Zoomstufe"
+          />
+          <ZoomIn size={16} aria-hidden="true" />
+        </div>
+        <button
+          className={`tree-focus-toggle ${selectionFocusMode ? "active" : ""}`}
+          onClick={handleToggleSelectionFocusMode}
+          title={
+            selectionFocusMode
+              ? "Node-Fokus aktiv"
+              : "Node-Fokus deaktiviert"
+          }
+          aria-label="Toggle node focus mode"
+        >
+          <Focus size={18} />
+        </button>
+      </div>
     </div>
   );
 });

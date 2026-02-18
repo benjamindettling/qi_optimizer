@@ -13,8 +13,6 @@ import { useTreeNavigation } from "../../hooks/useTreeNavigation";
 import { REGION_COLS, REGION_MASK } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
 import {
-  Maximize,
-  Focus,
   FoldVertical,
   UnfoldVertical,
   FoldHorizontal,
@@ -36,6 +34,7 @@ export function AppLayout({
   config,
   updateConfig,
   boardClusterRef,
+  boardContentRef,
   topBarRef,
   toolbarPosition = "left",
   // Sync config props
@@ -47,8 +46,6 @@ export function AppLayout({
   // Tree visualizer ref and state for toolbar
   const treeRef = useRef(null);
   const [treeState, setTreeState] = useState({
-    zoomedOut: false,
-    autoCenter: true,
     focusMode: true,
     horizontalCollapse: false,
     currentOnMainBranch: true,
@@ -66,8 +63,6 @@ export function AppLayout({
   const updateTreeState = useCallback(() => {
     if (treeRef.current) {
       setTreeState({
-        zoomedOut: treeRef.current.zoomedOut,
-        autoCenter: treeRef.current.autoCenter,
         focusMode: treeRef.current.focusMode,
         horizontalCollapse: treeRef.current.horizontalCollapse,
         currentOnMainBranch: treeRef.current.currentOnMainBranch,
@@ -214,7 +209,7 @@ export function AppLayout({
               onOpenPastEditWarning={toolbarProps.onOpenPastEditWarning}
               position={toolbarPosition}
             />
-            <div className="board-content">
+            <div className="board-content" ref={boardContentRef}>
               <Board
                 {...boardProps}
                 finishProductions={toolbarProps.finishProductions}
@@ -239,95 +234,78 @@ export function AppLayout({
           <div className="tree-cluster">
             {/* Tree Toolbar */}
             <div className="tree-toolbar">
-              <button
-                className={`mini-btn ${treeState.zoomedOut ? "active-mode" : ""}`}
-                style={{ background: ACTION_COLORS.default }}
-                onClick={() => {
-                  treeRef.current?.zoomOut();
-                  setTimeout(updateTreeState, 50);
-                }}
-                title="Gesamten Baum anzeigen"
-              >
-                <Maximize size={20} />
-              </button>
-              <button
-                className={`mini-btn ${!treeState.zoomedOut && treeState.autoCenter ? "active-mode" : ""}`}
-                style={{ background: ACTION_COLORS.default }}
-                onClick={() => {
-                  treeRef.current?.zoomIn();
-                  setTimeout(updateTreeState, 50);
-                }}
-                title="Auf ausgewählte Node zoomen"
-              >
-                <Focus size={20} />
-              </button>
-              <button
-                className={`mini-btn ${treeState.focusMode ? "active-mode" : ""}`}
-                style={{ background: ACTION_COLORS.default }}
-                onClick={() => {
-                  treeRef.current?.toggleFocusMode();
-                  setTimeout(updateTreeState, 50);
-                }}
-                title={
-                  treeState.focusMode
-                    ? "Branches sind eingeklappt"
-                    : "Branches sind ausgeklappt"
-                }
-              >
-                {treeState.focusMode ? (
-                  <FoldVertical size={20} />
-                ) : (
-                  <UnfoldVertical size={20} />
-                )}
-              </button>
-              <button
-                className={`mini-btn ${treeState.horizontalCollapse ? "active-mode" : ""}`}
-                style={{ background: ACTION_COLORS.default }}
-                onClick={() => {
-                  treeRef.current?.toggleHorizontalCollapse();
-                  setTimeout(updateTreeState, 50);
-                }}
-                title={
-                  treeState.horizontalCollapse
-                    ? "Aktionen sind zusammengefasst"
-                    : "Aktionen sind ausgeklappt"
-                }
-              >
-                {treeState.horizontalCollapse ? (
-                  <FoldHorizontal size={20} />
-                ) : (
-                  <UnfoldHorizontal size={20} />
-                )}
-              </button>
-              <button
-                className="mini-btn"
-                style={{ background: ACTION_COLORS.regionUnlock }}
-                onClick={() => {
-                  treeRef.current?.makeTop();
-                  setTimeout(updateTreeState, 50);
-                }}
-                disabled={treeState.currentOnMainBranch}
-                title={
-                  treeState.currentOnMainBranch
-                    ? "Bereits auf dem Hauptbranch"
-                    : "Diesen Branch zum Hauptbranch machen"
-                }
-              >
-                <ArrowUpFromLine size={20} />
-              </button>
-              <button
-                className="mini-btn"
-                style={{ background: "var(--ui-error-red)" }}
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={historyProps.historyIndex === 0}
-                title={
-                  historyProps.historyIndex === 0
-                    ? "Root kann nicht gelöscht werden"
-                    : "Ausgewählte Node löschen"
-                }
-              >
-                <Trash2 size={20} />
-              </button>
+              <div className="tree-toolbar-group">
+                <button
+                  className={`mini-btn ${treeState.focusMode ? "active-mode" : ""}`}
+                  style={{ background: ACTION_COLORS.default }}
+                  onClick={() => {
+                    treeRef.current?.toggleFocusMode();
+                    setTimeout(updateTreeState, 50);
+                  }}
+                  title={
+                    treeState.focusMode
+                      ? "Branches sind eingeklappt"
+                      : "Branches sind ausgeklappt"
+                  }
+                >
+                  {treeState.focusMode ? (
+                    <FoldVertical size={20} />
+                  ) : (
+                    <UnfoldVertical size={20} />
+                  )}
+                </button>
+                <button
+                  className={`mini-btn ${treeState.horizontalCollapse ? "active-mode" : ""}`}
+                  style={{ background: ACTION_COLORS.default }}
+                  onClick={() => {
+                    treeRef.current?.toggleHorizontalCollapse();
+                    setTimeout(updateTreeState, 50);
+                  }}
+                  title={
+                    treeState.horizontalCollapse
+                      ? "Aktionen sind zusammengefasst"
+                      : "Aktionen sind ausgeklappt"
+                  }
+                >
+                  {treeState.horizontalCollapse ? (
+                    <FoldHorizontal size={20} />
+                  ) : (
+                    <UnfoldHorizontal size={20} />
+                  )}
+                </button>
+              </div>
+              <div className="tree-toolbar-spacer" />
+              <div className="tree-toolbar-group">
+                <button
+                  className="mini-btn"
+                  style={{ background: ACTION_COLORS.regionUnlock }}
+                  onClick={() => {
+                    treeRef.current?.makeTop();
+                    setTimeout(updateTreeState, 50);
+                  }}
+                  disabled={treeState.currentOnMainBranch}
+                  title={
+                    treeState.currentOnMainBranch
+                      ? "Bereits auf dem Hauptbranch"
+                      : "Diesen Branch zum Hauptbranch machen"
+                  }
+                >
+                  <ArrowUpFromLine size={20} />
+                </button>
+                <button
+                  className="mini-btn"
+                  style={{ background: "var(--ui-error-red)" }}
+                  onClick={() => setShowDeleteConfirm(true)}
+                  disabled={historyProps.historyIndex === 0}
+                  title={
+                    historyProps.historyIndex === 0
+                      ? "Root kann nicht gelöscht werden"
+                      : "Ausgewählte Node löschen"
+                  }
+                >
+                  <Trash2 size={20} />
+                </button>
+              </div>
             </div>
 
             {/* Tree Visualizer */}
