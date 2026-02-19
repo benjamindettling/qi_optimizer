@@ -23,6 +23,7 @@ import "../../components/modals/LoadSavesModal.css";
 export function AppModals({
   controller,
   accountModalOpen,
+  accountInitialTab,
   setAccountModalOpen,
   viewMode,
   setViewMode,
@@ -182,6 +183,7 @@ export function AppModals({
       <HelpModal open={!!helpModal} onClose={() => setHelpModal(false)} />
       <AccountModal
         open={!!accountModalOpen}
+        initialTab={accountInitialTab}
         onClose={() => setAccountModalOpen(false)}
         config={config}
         onSave={updateConfig}

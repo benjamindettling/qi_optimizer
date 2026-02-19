@@ -25,6 +25,66 @@ const CHECKPOINT_TYPES = new Set(["finishProductions"]);
 
 // Full harvest types (collect all)
 const HARVEST_ALL_TYPES = new Set(["harvestAll", "harvestAllAdmin"]);
+const BOOST_HARVEST_TYPES = new Set(["boostReady", "harvest", ...HARVEST_ALL_TYPES]);
+
+function resolveActionShortName(action, libraryMap, shortIdMap) {
+  const defId = action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null);
+  if (!defId || !libraryMap) return "?";
+  const def = libraryMap[defId];
+  return def?.short || def?.name || "?";
+}
+
+function getChainDescriptor(action, libraryMap, shortIdMap) {
+  if (!action) return null;
+  const type = action.type || "";
+
+  if (type === "build") {
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    return {
+      chainKind: "build",
+      bucketKey: shortName,
+      color: "green",
+      textForCount: (count) => `+${count} ${shortName}`,
+    };
+  }
+
+  if (type === "sell") {
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    return {
+      chainKind: "sell",
+      bucketKey: shortName,
+      color: "red",
+      textForCount: (count) => `-${count} ${shortName}`,
+    };
+  }
+
+  if (type === "boostUnlock") {
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    return {
+      chainKind: "unlock",
+      bucketKey: shortName,
+      color: "yellow",
+      textForCount: (count) => `${count}x unlock ${shortName}`,
+    };
+  }
+
+  if (BOOST_HARVEST_TYPES.has(type)) {
+    const isBoost = type === "boostReady";
+    const isHarvestAll = HARVEST_ALL_TYPES.has(type);
+    const target = isHarvestAll
+      ? "all"
+      : resolveActionShortName(action, libraryMap, shortIdMap);
+    const op = isBoost ? "boost" : "harvest";
+    return {
+      chainKind: "boostHarvest",
+      bucketKey: `${op}|${target}`,
+      color: isBoost ? "yellow" : "harvest",
+      textForCount: (count) => `${count}x ${op} ${target}`,
+    };
+  }
+
+  return null;
+}
 
 /**
  * Format an action for display in the log
@@ -37,33 +97,24 @@ function formatAction(action, libraryMap, shortIdMap) {
   // Skip ignored actions
   if (IGNORED_TYPES.has(type)) return null;
 
-  // Resolve building definition if needed
-  const resolveShortName = (act) => {
-    const defId =
-      act?.defId || (act?.shortId ? shortIdMap?.[act.shortId] : null);
-    if (!defId || !libraryMap) return "?";
-    const def = libraryMap[defId];
-    return def?.short || def?.name || "?";
-  };
-
   // Build actions
   if (type === "build") {
-    return { text: `+1 ${resolveShortName(action)}`, color: "green" };
+    return { text: `+1 ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "green" };
   }
 
   // Sell actions
   if (type === "sell") {
-    return { text: `-1 ${resolveShortName(action)}`, color: "red" };
+    return { text: `-1 ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "red" };
   }
 
   // Boost unlock (unlock building)
   if (type === "boostUnlock") {
-    return { text: `→ unlock ${resolveShortName(action)}`, color: "yellow" };
+    return { text: `→ unlock ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
   }
 
   // Boost ready (finish production)
   if (type === "boostReady") {
-    return { text: `→ boost ${resolveShortName(action)}`, color: "yellow" };
+    return { text: `→ boost ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
   }
 
   // Goods purchase
@@ -129,7 +180,7 @@ function formatAction(action, libraryMap, shortIdMap) {
 
   // Single harvest (not typically shown, but just in case)
   if (type === "harvest") {
-    return { text: `→ harvest ${resolveShortName(action)}`, color: "yellow" };
+    return { text: `→ harvest ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
   }
 
   return null;
@@ -227,10 +278,56 @@ export function ActionLog({
       relevantNodeIds.push(nodeId);
     }
 
+    let pendingChain = null; // { kind, order: string[], buckets: Map<string, bucket> }
+    const flushPendingChain = () => {
+      if (!pendingChain) return;
+      for (const key of pendingChain.order) {
+        const bucket = pendingChain.buckets.get(key);
+        if (!bucket) continue;
+        logEntries.push({
+          text: bucket.textForCount(bucket.count),
+          color: bucket.color,
+          nodeId: bucket.lastNodeId,
+          isHighlighted: bucket.includesSelected,
+        });
+      }
+      pendingChain = null;
+    };
+
     // Format each action
     for (let i = 0; i < relevantNodeIds.length; i++) {
       const nodeId = relevantNodeIds[i];
       const node = nodes.get(nodeId);
+      const descriptor = getChainDescriptor(node?.action, libraryMap, shortIdMap);
+      if (descriptor) {
+        if (!pendingChain || pendingChain.kind !== descriptor.chainKind) {
+          flushPendingChain();
+          pendingChain = {
+            kind: descriptor.chainKind,
+            order: [],
+            buckets: new Map(),
+          };
+        }
+
+        const existing = pendingChain.buckets.get(descriptor.bucketKey);
+        if (existing) {
+          existing.count += 1;
+          existing.lastNodeId = nodeId;
+          if (nodeId === selectedNodeId) existing.includesSelected = true;
+        } else {
+          pendingChain.order.push(descriptor.bucketKey);
+          pendingChain.buckets.set(descriptor.bucketKey, {
+            count: 1,
+            color: descriptor.color,
+            textForCount: descriptor.textForCount,
+            lastNodeId: nodeId,
+            includesSelected: nodeId === selectedNodeId,
+          });
+        }
+        continue;
+      }
+
+      flushPendingChain();
       const formatted = formatAction(node.action, libraryMap, shortIdMap);
 
       if (!formatted) continue;
@@ -248,6 +345,7 @@ export function ActionLog({
         });
       }
     }
+    flushPendingChain();
 
     return logEntries;
   }, [historyTree, selectedNodeId, libraryMap, shortIdMap]);

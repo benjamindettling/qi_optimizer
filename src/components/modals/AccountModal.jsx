@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -29,6 +29,16 @@ const TABS = [
   { key: "premium", label: "Premium" },
 ];
 
+const LEGAL_TABS = [
+  { key: "contact", label: "Kontakt" },
+  { key: "imprint", label: "Impressum" },
+  { key: "privacy", label: "Datenschutz" },
+];
+
+const ALL_TABS = [...TABS, ...LEGAL_TABS];
+
+const isValidTabKey = (tabKey) => ALL_TABS.some((tab) => tab.key === tabKey);
+
 export function AccountModal({
   open,
   onClose,
@@ -46,6 +56,7 @@ export function AccountModal({
   saveAccountToCloud,
   canCloudSave,
   cloudProfile,
+  initialTab = "account",
 }) {
   const { user, authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
@@ -104,6 +115,12 @@ export function AccountModal({
   if (open !== lastOpen) {
     setLastOpen(open);
   }
+
+  useEffect(() => {
+    if (!open) return;
+    if (!isValidTabKey(initialTab)) return;
+    setActiveTab(initialTab);
+  }, [open, initialTab]);
 
   if (!open) return null;
 
@@ -476,6 +493,106 @@ export function AccountModal({
     </div>
   );
 
+  const renderContactTab = () => (
+    <div className="legal-content">
+      <p>
+        Wenn du Fragen hast oder Inhalte melden moechtest, kannst du mich direkt
+        kontaktieren.
+      </p>
+      <div className="legal-block">
+        <p>
+          <strong>Name:</strong> Benjamin Dettling
+        </p>
+        <p>
+          <strong>E-Mail:</strong> benjamin@benjamindettling.ch
+        </p>
+        <p>
+          <strong>Antwortzeit:</strong> 2-3 Werktage
+        </p>
+      </div>
+      <p className="legal-note">
+        Hinweis: Dieses Projekt wird privat und nicht im Namen einer Firma
+        betrieben.
+      </p>
+    </div>
+  );
+
+  const renderImprintTab = () => (
+    <div className="legal-content">
+      <p>
+        Angaben gemaess Paragraph 5 TMG fuer ein privat betriebenes
+        Online-Angebot.
+      </p>
+      <div className="legal-block">
+        <p>
+          <strong>Name:</strong> Benjamin Dettling
+        </p>
+        <p>
+          <strong>Adresse:</strong> Winterthur, Schweiz
+        </p>
+        <p>
+          <strong>E-Mail:</strong> benjamin@benjamindettling.ch
+        </p>
+      </div>
+      <div className="legal-block">
+        <p>
+          <strong>Verantwortlich fuer Inhalte:</strong>
+        </p>
+        <p>Benjamin Dettling, Winterthur, Schweiz</p>
+      </div>
+      <p className="legal-note">
+        Keine Firma, kein Verein und keine gewerbliche Redaktion.
+      </p>
+    </div>
+  );
+
+  const renderPrivacyTab = () => (
+    <div className="legal-content">
+      <p>
+        Diese Seite ist ein privat betriebenes Projekt. Personenbezogene Daten
+        werden nur verarbeitet, wenn es technisch notwendig ist oder du sie
+        aktiv eingibst.
+      </p>
+
+      <h4>Verarbeitete Daten</h4>
+      <ul>
+        <li>Technische Zugriffsdaten (z. B. IP, Browser, Zeitstempel)</li>
+        <li>Optional: Login-Daten bei Nutzung der Account-Funktionen</li>
+        <li>Optional: Cookie-Einwilligungen und Komfort-Einstellungen</li>
+      </ul>
+
+      <h4>Zwecke</h4>
+      <ul>
+        <li>Bereitstellung und Sicherheit der Webseite</li>
+        <li>Speichern von Einstellungen und Spielstaenden</li>
+        <li>Betrieb von Login- und Cloud-Funktionen</li>
+      </ul>
+
+      <h4>Google AdSense (geplant)</h4>
+      <p>
+        Bei aktivierter Einbindung kann Google AdSense Cookies und
+        nutzungsbezogene Daten fuer personalisierte oder nicht-personalisierte
+        Werbung verarbeiten. Die Auslieferung erfolgt nur gemaess deiner
+        Consent-Auswahl.
+      </p>
+
+      <h4>Kontakt fuer Datenschutzanfragen</h4>
+      <div className="legal-block">
+        <p>
+          <strong>Name:</strong> Benjamin Dettling
+        </p>
+        <p>
+          <strong>E-Mail:</strong> [datenschutz@example.com]
+        </p>
+      </div>
+
+      <p className="legal-note">
+        Bitte ersetze alle Platzhalter vor dem Live-Betrieb mit deinen echten
+        Angaben.
+      </p>
+    </div>
+  );
+
   // Auth handlers
   const handleEmailAuth = async (e) => {
     e.preventDefault();
@@ -732,19 +849,32 @@ export function AccountModal({
       <div className="modal-card account-modal">
         <div className="account-layout">
           <div className="account-tabs">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
+            <div className="account-tabs-main">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <div className="account-tabs-legal">
+              {LEGAL_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="account-content">
             <div className="account-header">
-              <h3>{TABS.find((t) => t.key === activeTab)?.label}</h3>
+              <h3>{ALL_TABS.find((t) => t.key === activeTab)?.label}</h3>
               <button onClick={onClose}>×</button>
             </div>
             <div className="account-body">
@@ -752,6 +882,9 @@ export function AccountModal({
               {activeTab === "config" && renderConfigTab()}
               {activeTab === "preferences" && renderPreferencesTab()}
               {activeTab === "premium" && renderPremiumTab()}
+              {activeTab === "contact" && renderContactTab()}
+              {activeTab === "imprint" && renderImprintTab()}
+              {activeTab === "privacy" && renderPrivacyTab()}
             </div>
             {saveError && <div className="save-error">{saveError}</div>}
             <div className="account-footer">

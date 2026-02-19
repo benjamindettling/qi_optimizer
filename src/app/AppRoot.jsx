@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useGameController } from "../hooks/useGameController";
 import { AppLayout } from "./layout/AppLayout";
 import { AppModals } from "./layout/AppModals";
@@ -10,6 +11,7 @@ import { useSnapshotNavigation } from "./hooks/useSnapshotNavigation";
 import { useBoardExport } from "./hooks/useBoardExport";
 import { useAccountCloudSync } from "../hooks/useAccountCloudSync";
 import { applyThemeToDocument, initializeCssColors } from "../config/colors";
+import { StartingPage } from "../components/StartingPage/StartingPage";
 
 // Entry component that wires controller state into all UI pieces.
 export function AppRoot() {
@@ -19,6 +21,10 @@ export function AppRoot() {
   const adminMode = controller.infiniteResources;
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountInitialTab, setAccountInitialTab] = useState("account");
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isSimulator = location.pathname === "/simulator";
 
   // Cloud sync for account settings (config + preferences)
   const {
@@ -93,7 +99,7 @@ export function AppRoot() {
     const observer = new ResizeObserver(updateTopBarHeight);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [isSimulator]);
 
   // Observe the actual .board-content element and feed its real size
   // to the controller so the board scales fluidly — just like the tree.
@@ -150,7 +156,11 @@ export function AppRoot() {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [controller.setContainerHeight, controller.setContainerWidth]);
+  }, [
+    isSimulator,
+    controller.setContainerHeight,
+    controller.setContainerWidth,
+  ]);
 
   const boardClusterRef = useRef(null);
 
@@ -196,6 +206,11 @@ export function AppRoot() {
     controller.handleSyncConfig?.(controller.userConfig);
   };
 
+  const openAccountModal = (tabKey = "account") => {
+    setAccountInitialTab(tabKey);
+    setAccountModalOpen(true);
+  };
+
   const sidebarProps = {
     selectedCategory: controller.selectedCategory,
     setSelectedCategory: controller.setSelectedCategory,
@@ -233,7 +248,7 @@ export function AppRoot() {
     useShortNames: controller.useShortNames,
     setUseShortNames: controller.setUseShortNames,
     onOpenHelp: () => controller.setHelpModal(true),
-    onOpenAccount: () => setAccountModalOpen(true),
+    onOpenAccount: () => openAccountModal("account"),
     onEditResource: controller.handleEditResource,
     onEditGood: controller.handleEditGood,
     onEditUnit: controller.handleEditUnit,
@@ -369,32 +384,57 @@ export function AppRoot() {
   // NOTE: regionPanelProps removed - region functionality moved to Board overlays
   // and expansion costs moved under the Board.
 
+  // ---- Route-based rendering ----
   return (
     <>
-      <AppLayout
-        sidebarProps={sidebarProps}
-        topBarProps={topBarProps}
-        boardProps={boardProps}
-        toolbarProps={toolbarProps}
-        historyProps={historyProps}
-        status={controller.status}
-        carried={controller.carried}
-        topBarRef={topBarRef}
-        boardClusterRef={boardClusterRef}
-        boardContentRef={boardContentRef}
-        isShopOpen={isShopOpen}
-        onCloseShop={() => setIsShopOpen(false)}
-        onOpenShop={() => setIsShopOpen(true)}
-        config={controller.config}
-        updateConfig={controller.updateConfig}
-        toolbarPosition={controller.toolbarPosition}
-        showSyncConfig={showSyncConfig}
-        onSyncConfig={handleSyncConfig}
-      />
-      <HoldTooltip tooltip={tooltip} />
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <StartingPage
+              config={controller.config}
+              updateConfig={controller.updateConfig}
+              onStartSimulator={() => navigate("/simulator")}
+              onOpenSaves={() => controller.setLoadSavesModal(true)}
+              onOpenAccount={openAccountModal}
+            />
+          }
+        />
+        <Route
+          path="/simulator"
+          element={
+            <>
+              <AppLayout
+                sidebarProps={sidebarProps}
+                topBarProps={topBarProps}
+                boardProps={boardProps}
+                toolbarProps={toolbarProps}
+                historyProps={historyProps}
+                status={controller.status}
+                carried={controller.carried}
+                topBarRef={topBarRef}
+                boardClusterRef={boardClusterRef}
+                boardContentRef={boardContentRef}
+                isShopOpen={isShopOpen}
+                onCloseShop={() => setIsShopOpen(false)}
+                onOpenShop={() => setIsShopOpen(true)}
+                config={controller.config}
+                updateConfig={controller.updateConfig}
+                toolbarPosition={controller.toolbarPosition}
+                showSyncConfig={showSyncConfig}
+                onSyncConfig={handleSyncConfig}
+              />
+              <HoldTooltip tooltip={tooltip} />
+              <PdfProgressModal progress={pdfProgress} />
+            </>
+          }
+        />
+      </Routes>
+      {/* Modals rendered on all routes so Account & LoadSaves work everywhere */}
       <AppModals
         controller={controller}
         accountModalOpen={accountModalOpen}
+        accountInitialTab={accountInitialTab}
         setAccountModalOpen={setAccountModalOpen}
         viewMode={controller.viewMode}
         setViewMode={controller.setViewMode}
@@ -408,7 +448,6 @@ export function AppRoot() {
         canCloudSave={canCloudSave}
         cloudProfile={cloudProfile}
       />
-      <PdfProgressModal progress={pdfProgress} />
     </>
   );
 }

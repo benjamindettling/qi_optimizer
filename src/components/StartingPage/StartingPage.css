@@ -1,0 +1,388 @@
+/* Starting Page – full-viewport landing screen */
+.starting-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--color-bg);
+  padding: 24px 16px 32px;
+  width: 100%;
+}
+
+.starting-page-main {
+  min-height: calc(100vh - 120px);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 40px;
+}
+
+.starting-page-hero {
+  text-align: center;
+  max-width: 620px;
+}
+
+.starting-page-hero h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  color: var(--color-text-strong);
+  margin: 0 0 16px;
+  letter-spacing: -0.5px;
+}
+
+.starting-page-hero p {
+  font-size: 1.05rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Button group */
+.starting-page-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 320px;
+  max-width: 100%;
+}
+
+.starting-page-actions button {
+  width: 100%;
+  padding: 14px 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.15s ease;
+}
+
+.starting-page-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-pop);
+}
+
+/* Primary action – accent colour */
+.btn-start {
+  background: var(--color-accent);
+  color: var(--ui-white, #fff);
+  border: none;
+}
+
+/* Secondary actions – panel-style */
+.btn-secondary {
+  background: var(--color-button-bg);
+  color: var(--color-text-strong);
+  border: 1px solid var(--color-border);
+}
+
+.starting-page-footer {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+  margin-bottom: 28px;
+}
+
+.starting-page-footer-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.starting-page-footer-link:hover {
+  color: var(--color-text-strong);
+}
+
+.starting-page-footer-separator {
+  color: var(--color-text-muted);
+}
+
+/* Tutorial section */
+.starting-page-tutorial {
+  width: 100%;
+  max-width: 1180px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.starting-page-tutorial-intro {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.01)
+  );
+  padding: 20px 22px;
+}
+
+.starting-page-tutorial-intro h2 {
+  margin: 0 0 10px;
+  color: var(--color-text-strong);
+  font-size: 1.35rem;
+}
+
+.starting-page-tutorial-intro p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.65;
+}
+
+.tutorial-block {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+  gap: 18px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg);
+  padding: 16px;
+  box-shadow: var(--shadow-soft, 0 8px 20px rgba(0, 0, 0, 0.18));
+}
+
+.tutorial-block-reverse {
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+}
+
+.tutorial-block-reverse .tutorial-block-visual {
+  order: 2;
+}
+
+.tutorial-block-reverse .tutorial-block-copy {
+  order: 1;
+}
+
+.tutorial-block-visual {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-panel-bg-alt);
+}
+
+.tutorial-block-visual img {
+  width: 100%;
+  height: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
+.tutorial-block-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tutorial-block-copy h3 {
+  margin: 0;
+  color: var(--color-text-strong);
+  font-size: 1.12rem;
+}
+
+.tutorial-block-copy p {
+  margin: 0;
+  color: var(--color-text);
+  line-height: 1.62;
+}
+
+.tutorial-block-copy ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tutorial-block-copy li {
+  line-height: 1.58;
+}
+
+.tutorial-icon-term {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 6px;
+  font-weight: 600;
+}
+
+.tutorial-icon-term img {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 1024px) {
+  .tutorial-block,
+  .tutorial-block-reverse {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-block-reverse .tutorial-block-visual,
+  .tutorial-block-reverse .tutorial-block-copy {
+    order: initial;
+  }
+
+  .tutorial-block-visual img {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 640px) {
+  .starting-page {
+    padding: 18px 12px 22px;
+  }
+
+  .starting-page-main {
+    min-height: auto;
+    gap: 24px;
+    margin-bottom: 18px;
+  }
+
+  .starting-page-footer {
+    margin-bottom: 20px;
+  }
+
+  .starting-page-tutorial-intro {
+    padding: 16px;
+  }
+
+  .tutorial-block {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .tutorial-block-copy ul {
+    padding-left: 18px;
+  }
+}
+
+/* Config-setup modal (standalone, no side tabs) */
+.config-setup-modal {
+  width: 460px;
+  max-width: 95vw;
+  padding: 0;
+  overflow: hidden;
+}
+
+.config-setup-content {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  max-height: 80vh;
+}
+
+.config-setup-content h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+
+.config-setup-content .config-setup-subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.config-setup-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.config-setup-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+/* Reuse config-grid styling identical to AccountModal */
+.config-setup-modal .config-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+}
+
+.config-setup-modal .config-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.config-setup-modal .config-row.army-row {
+  flex-wrap: wrap;
+}
+
+.config-setup-modal .config-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--color-text);
+}
+
+.config-setup-modal .config-label .inline-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.config-setup-modal .config-input {
+  width: 80px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-input-bg);
+  color: var(--color-text-strong);
+  font-size: 13px;
+  text-align: right;
+}
+
+.config-setup-modal .config-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.config-setup-modal .preference-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.config-setup-modal .preference-buttons button {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.config-setup-modal .preference-buttons button.active {
+  background: var(--color-accent);
+  color: var(--ui-white, #fff);
+  border-color: var(--color-accent);
+}
+
+.config-setup-modal .army-unit {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
