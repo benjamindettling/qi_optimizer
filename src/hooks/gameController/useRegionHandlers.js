@@ -84,7 +84,7 @@ export const useRegionHandlers = ({
       updateStatus(
         `naechste Region: ${formatNumber(prevCost)} -> ${formatNumber(
           nextCost,
-        )} Gueter`,
+        )} Güter`,
       );
       requestAutoSnapshot();
     },
@@ -173,7 +173,7 @@ export const useRegionHandlers = ({
 
       if (method === "goods") {
         if (goodsUnlocks >= REGION_GOODS_COSTS.length) {
-          updateStatus("Keine weiteren Gueter-Erweiterungen verfuegbar.");
+          updateStatus("Keine weiteren Güter-Erweiterungen verfügbar.");
           return;
         }
         if (
@@ -204,9 +204,9 @@ export const useRegionHandlers = ({
           setFastBuyTarget(idx);
           return;
         }
-        const label = `Erweiterung gekauft fuer ${formatNumber(
+        const label = `Erweiterung gekauft für ${formatNumber(
           currentGoodsCost,
-        )} Gueter`;
+        )} Güter`;
         applyAdjustGoods(goodKey, -currentGoodsCost);
         setGoodsUnlocks((prev) =>
           Math.min(prev + 1, REGION_GOODS_COSTS.length - 1),
@@ -218,7 +218,7 @@ export const useRegionHandlers = ({
         didUnlock = true;
       } else {
         if (isInfinityCost(currentShardCost)) {
-          updateStatus("Keine weiteren Scherben-Erweiterungen verfuegbar.");
+          updateStatus("Keine weiteren Scherben-Erweiterungen verfügbar.");
           return;
         }
         if (
@@ -229,7 +229,7 @@ export const useRegionHandlers = ({
           updateStatus("Need more shards to unlock.");
           return;
         }
-        const label = `Erweiterung gekauft fuer ${formatNumber(
+        const label = `Erweiterung gekauft für ${formatNumber(
           currentShardCost,
         )} Scherben`;
         if (!infiniteResources) {
@@ -361,7 +361,7 @@ export const useRegionHandlers = ({
       if (!unlockedRegions[idx]) return;
 
       if (hasAnyBuildingInRegion(idx)) {
-        updateStatus("Kann Region nicht entfernen, Gebaeude stehen noch drauf.");
+        updateStatus("Kann Region nicht entfernen, Gebäude stehen noch drauf.");
         return;
       }
 

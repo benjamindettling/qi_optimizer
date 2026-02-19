@@ -290,7 +290,7 @@ export const useSmartInvest = ({
 
     const error =
       results.length === 0
-        ? "Keine Ergebnisse fuer das aktuelle Budget gefunden."
+        ? "Keine Ergebnisse für das aktuelle Budget gefunden."
         : null;
 
     setSmartInvestResults(results);
@@ -345,7 +345,7 @@ export const useSmartInvest = ({
         return;
       }
       if (carried) {
-        updateStatus("Bitte zuerst das getragene Gebaeude ablegen.");
+        updateStatus("Bitte zuerst das getragene Gebäude ablegen.");
         return;
       }
       trimFutureCheckpoints();

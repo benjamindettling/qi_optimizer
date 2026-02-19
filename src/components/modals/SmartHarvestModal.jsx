@@ -23,8 +23,8 @@ export function SmartHarvestModal({ smartHarvestModal, onConfirm }) {
             )}
           </div>
           <div className="smart-harvest-summary">
-            Neuer Stand: {formatNumber(resources.coins ?? 0)} Muenzen,{" "}
-            {formatNumber(resources.supplies ?? 0)} Vorraete,{" "}
+            Neuer Stand: {formatNumber(resources.coins ?? 0)} Münzen,{" "}
+            {formatNumber(resources.supplies ?? 0)} Vorräte,{" "}
             {formatNumber(resources.chronos ?? 0)} Chronos
           </div>
         </div>

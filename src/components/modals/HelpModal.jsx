@@ -29,7 +29,7 @@ const content = {
     "Load lädt einen beliebigen Spielstand wieder",
   ],
   stadt: [
-    "Ernte-bereite Gebaeude leuchten gelb und können im 'Default' Modus eingesammelt werden.",
+    "Ernte-bereite Gebäude leuchten gelb und können im 'Default' Modus eingesammelt werden.",
     "Andere Modi sind zB 'Gebäude vom Shop platzieren', 'Bewegen', oder 'Verkaufen'",
     "Im Default Modus können auch Gütergebäude angeklickt werden, um Güter zu produzieren",
   ],

@@ -3,8 +3,8 @@ import { GOODS_TYPES } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
 
 const RESOURCE_LABELS = {
-  coins: "Muenzen",
-  supplies: "Vorraete",
+  coins: "Münzen",
+  supplies: "Vorräte",
   chronos: "Chronos",
   shards: "Scherben",
   quantumActions: "QA",
@@ -15,7 +15,7 @@ const GOODS_LABELS = {
   Honig: "Honig",
   Stein: "Stein",
   Seil: "Seil",
-  Schiesspulver: "Schiesspulver",
+  Schießpulver: "Schießpulver",
 };
 
 // Admin-only edit flows for resources, goods, and units.
@@ -95,7 +95,7 @@ export const useAdminEditors = ({
       const nextVal = Math.floor(Number(amount) || 0);
       const prevVal = editGoodModal?.value ?? 0;
       const label = applyAll
-        ? `Alle Gueter: ${formatNumber(nextVal)}`
+        ? `Alle Güter: ${formatNumber(nextVal)}`
         : `${
             GOODS_LABELS[editGoodModal?.goodKey] ?? editGoodModal?.goodKey
           }: ${formatNumber(prevVal)} -> ${formatNumber(nextVal)}`;

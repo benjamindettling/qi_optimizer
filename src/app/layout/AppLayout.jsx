@@ -629,11 +629,11 @@ function generateActionTitle(action, libraryMap, shortIdMap) {
       const prev = action.prevValue ?? action.oldValue ?? action.prevCost;
       const next = action.nextValue ?? action.newValue ?? action.nextCost;
       if (prev !== undefined && next !== undefined) {
-        return `Gueterkosten: ${formatCostValue(prev)} -> ${formatCostValue(
+        return `Güterkosten: ${formatCostValue(prev)} -> ${formatCostValue(
           next,
         )} (Admin)`;
       }
-      return "Gueterkosten angepasst (Admin)";
+      return "Güterkosten angepasst (Admin)";
     }
 
     case "shardsCostAdmin": {

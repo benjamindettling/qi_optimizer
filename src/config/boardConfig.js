@@ -48,7 +48,7 @@ export const GOODS_TYPES = [
   "Honig",
   "Stein",
   "Seil",
-  "Schiesspulver",
+  "Schießpulver",
 ];
 export const UNIT_TYPES = Array.from(
   new Set((military || []).map((m) => m.produces).filter(Boolean))

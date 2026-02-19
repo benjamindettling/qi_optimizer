@@ -336,8 +336,8 @@ export function StartingPage({
             <h1>Quantum Incursion Optimizer</h1>
             <p>
               Plane und optimiere dein Quantum Incursion Stadtlayout. Platziere
-              Gebaeude, berechne Produktionsketten und verwalte mehrere
-              Spielstaende - alles direkt im Browser.
+              Gebäude, berechne Produktionsketten und verwalte mehrere
+              Spielstände - alles direkt im Browser.
             </p>
           </div>
 
@@ -346,7 +346,7 @@ export function StartingPage({
               Starte Simulator
             </button>
             <button className="btn-secondary" onClick={onOpenSaves}>
-              Verwalte Spielstaende
+              Verwalte Spielstände
             </button>
             <button
               className="btn-secondary"
@@ -389,11 +389,11 @@ export function StartingPage({
 
         <section className="starting-page-tutorial" aria-label="Tutorial">
           <div className="starting-page-tutorial-intro">
-            <h2>Tutorial und komplette Oberflaechen-Erklaerung</h2>
+            <h2>Tutorial und komplette Oberflächen-Erklärung</h2>
             <p>
-              Wenn du neu im Optimizer bist, findest du hier einen vollstaendigen
+              Wenn du neu im Optimizer bist, findest du hier einen vollständigen
               Rundgang durch alle wichtigen Bereiche. Jede Sektion zeigt dir ein
-              passendes Beispielbild und erklaert die relevanten Buttons,
+              passendes Beispielbild und erklärt die relevanten Buttons,
               Anzeigen und den typischen Ablauf in der Praxis.
             </p>
           </div>
@@ -409,25 +409,25 @@ export function StartingPage({
             <div className="tutorial-block-copy">
               <h3>1) Stadtbereich, Shop und Schnellaktionen</h3>
               <p>
-                Das Zentrum deiner Arbeit ist die Stadtflaeche. Hier platzierst,
-                verschiebst und optimierst du Gebaeude. Direkt daneben findest du
-                die Mini-Toolbar fuer schnelle Bau- und Produktionsaktionen.
+                Das Zentrum deiner Arbeit ist die Stadtfläche. Hier platzierst,
+                verschiebst und optimierst du Gebäude. Direkt daneben findest du
+                die Mini-Toolbar für schnelle Bau- und Produktionsaktionen.
               </p>
               <ul>
                 <li>
-                  <strong>Move:</strong> Verschiebt Gebaeude oder tauscht
+                  <strong>Move:</strong> Verschiebt Gebäude oder tauscht
                   Positionen, ohne Werte zu verlieren.
                 </li>
                 <li>
-                  <strong>Verkaufen:</strong> Entfernt Gebaeude und gibt die
-                  regulaere Erstattung zurueck.
+                  <strong>Verkaufen:</strong> Entfernt Gebäude und gibt die
+                  reguläre Erstattung zurück.
                 </li>
                 <li>
                   <strong>Boost einzeln:</strong> Nutze den Zeit-Boost gezielt
-                  auf einzelne Gebaeude.
+                  auf einzelne Gebäude.
                 </li>
                 <li>
-                  <strong>Shop:</strong> Oeffnet die Bauauswahl. Wenn bereits ein
+                  <strong>Shop:</strong> Öffnet die Bauauswahl. Wenn bereits ein
                   Bauobjekt aktiv ist, beendet der Button den Platziermodus.
                 </li>
                 <li>
@@ -440,9 +440,9 @@ export function StartingPage({
                 </li>
               </ul>
               <p>
-                Im Shop wechselst du ueber die Tabs zwischen Favoriten, Housing,
+                Im Shop wechselst du über die Tabs zwischen Favoriten, Housing,
                 Production, Goods, Culture, Decoration und Military. Jede Karte
-                zeigt dir Kosten, Voraussetzungen und den direkten Effekt fuer
+                zeigt dir Kosten, Voraussetzungen und den direkten Effekt für
                 deinen Aufbau.
               </p>
             </div>
@@ -452,44 +452,44 @@ export function StartingPage({
             <div className="tutorial-block-visual">
               <img
                 src="/examples/stats_example.png"
-                alt="Stats Uebersicht mit Ressourcen und Multiplikatoren"
+                alt="Stats Übersicht mit Ressourcen und Multiplikatoren"
                 loading="lazy"
               />
             </div>
             <div className="tutorial-block-copy">
-              <h3>2) Stats Uebersicht im Detail (jede Kennzahl)</h3>
+              <h3>2) Stats Übersicht im Detail (jede Kennzahl)</h3>
               <p>
                 Die Stats sind dein zentrales Kontrollzentrum. Lies diese Werte
-                regelmaessig, bevor du baust, boostest oder exportierst.
+                regelmäßig, bevor du baust, boostest oder exportierst.
               </p>
               <ul>
                 <li>
                   <IconTerm icon={moneyIcon} text="Geld" /> zeigt dein aktuelles
-                  Kapital fuer Bauten und Aktionen.
+                  Kapital für Bauten und Aktionen.
                 </li>
                 <li>
-                  <IconTerm icon={suppliesIcon} text="Vorraete" /> sind die
-                  zweite Hauptwaehrung fuer Ausbau und Produktion.
+                  <IconTerm icon={suppliesIcon} text="Vorräte" /> sind die
+                  zweite Hauptwährung für Ausbau und Produktion.
                 </li>
                 <li>
-                  <IconTerm icon={chronosIcon} text="Chronos" /> sind fuer
-                  zeitbezogene Aktionen und Gebaeudeeffekte relevant.
+                  <IconTerm icon={chronosIcon} text="Chronos" /> sind für
+                  zeitbezogene Aktionen und Gebäudeeffekte relevant.
                 </li>
                 <li>
-                  <IconTerm icon={shardsIcon} text="Scherben" /> brauchst du
-                  vor allem fuer Regionen und spezielle Fortschritte.
+                  <IconTerm icon={shardsIcon} text="Scherben" /> brauchst du vor
+                  allem für Regionen und spezielle Fortschritte.
                 </li>
                 <li>
                   <IconTerm icon={qaIcon} text="QA" /> wird inklusive QA/h
                   dargestellt, damit du deinen langfristigen Durchsatz siehst.
                 </li>
                 <li>
-                  <IconTerm icon={goodsIcon} text="Gueter" /> zeigen jede
-                  Ware einzeln (z. B. Kupfer, Honig, Seil, Schiesspulver, Stein).
+                  <IconTerm icon={goodsIcon} text="Güter" /> zeigen jede Ware
+                  einzeln (z. B. Kupfer, Honig, Seil, Schießpulver, Stein).
                 </li>
                 <li>
                   <IconTerm icon={troopIcon} text="Truppen" /> zeigt jede
-                  Einheit mit eigenem Zaehler.
+                  Einheit mit eigenem Zähler.
                 </li>
                 <li>
                   <IconTerm icon={redAttackIcon} text="Angriff" /> und{" "}
@@ -502,20 +502,21 @@ export function StartingPage({
                 </li>
                 <li>
                   <IconTerm icon={happinessIcon} text="Zufriedenheit" /> zeigt
-                  den Gesamtbonus in Prozent. Darunter siehst du die Multiplikatoren
-                  fuer <IconTerm icon={moneyIcon} text="Geld" />,{" "}
-                  <IconTerm icon={suppliesIcon} text="Vorraete" /> und{" "}
+                  den Gesamtbonus in Prozent. Darunter siehst du die
+                  Multiplikatoren für <IconTerm icon={moneyIcon} text="Geld" />,{" "}
+                  <IconTerm icon={suppliesIcon} text="Vorräte" /> und{" "}
                   <IconTerm icon={chronosIcon} text="Chronos" />.
                 </li>
                 <li>
-                  <IconTerm icon={populationIcon} text="Bevoelkerung" /> zeigt
+                  <IconTerm icon={populationIcon} text="Bevölkerung" /> zeigt
                   <strong>tot</strong> (gesamt) und <strong>free</strong>
-                  (frei verfuegbar).
+                  (frei verfügbar).
                 </li>
               </ul>
               <p>
-                Rechts in der Zufriedenheits-Spalte siehst du ausserdem, wie viele
-                Punkte bis zu einer hoeheren oder niedrigeren Tier-Stufe fehlen.
+                Rechts in der Zufriedenheits-Spalte siehst du außerdem, wie
+                viele Punkte bis zu einer höheren oder niedrigeren Tier-Stufe
+                fehlen.
               </p>
             </div>
           </article>
@@ -531,31 +532,31 @@ export function StartingPage({
             <div className="tutorial-block-copy">
               <h3>3) Schritt-Navigation (Timeline)</h3>
               <p>
-                Der Step-Tracker steuert, wo du dich in deiner Simulations-Historie
-                befindest. Angezeigt werden Schritt-Nummer, Tagesphase und
-                aktueller Save-Name.
+                Der Step-Tracker steuert, wo du dich in deiner
+                Simulations-Historie befindest. Angezeigt werden Schritt-Nummer,
+                Tagesphase und aktueller Save-Name.
               </p>
               <ul>
                 <li>
-                  <strong>Zum ersten Schritt springen:</strong> springt direkt zum
-                  Anfang des aktiven Checkpoint-Abschnitts.
+                  <strong>Zum ersten Schritt springen:</strong> springt direkt
+                  zum Anfang des aktiven Checkpoint-Abschnitts.
                 </li>
                 <li>
-                  <strong>Einen Schritt zurueck:</strong> geht eine Aktion
-                  rueckwaerts.
+                  <strong>Einen Schritt zurück:</strong> geht eine Aktion
+                  rückwärts.
                 </li>
                 <li>
-                  <strong>Einen Schritt vorwaerts:</strong> geht eine Aktion
-                  vorwaerts.
+                  <strong>Einen Schritt vorwärts:</strong> geht eine Aktion
+                  vorwärts.
                 </li>
                 <li>
-                  <strong>Zum letzten Schritt springen:</strong> springt zum Ende
-                  des aktuellen Abschnitts.
+                  <strong>Zum letzten Schritt springen:</strong> springt zum
+                  Ende des aktuellen Abschnitts.
                 </li>
               </ul>
               <p>
-                So kannst du Entscheidungen vergleichen, Fehler schnell finden und
-                die beste Reihenfolge fuer Produktion und Ausbau ermitteln.
+                So kannst du Entscheidungen vergleichen, Fehler schnell finden
+                und die beste Reihenfolge für Produktion und Ausbau ermitteln.
               </p>
             </div>
           </article>
@@ -571,36 +572,37 @@ export function StartingPage({
             <div className="tutorial-block-copy">
               <h3>4) Menu-Tools und Account-Bereich</h3>
               <p>
-                Rechts oben liegen die Verwaltungs- und Account-Funktionen. Diese
-                Buttons brauchst du fuer Dateiverwaltung, Hilfe und Einstellungen.
+                Rechts oben liegen die Verwaltungs- und Account-Funktionen.
+                Diese Buttons brauchst du für Dateiverwaltung, Hilfe und
+                Einstellungen.
               </p>
               <ul>
                 <li>
-                  <strong>Speichern:</strong> legt einen neuen oder aktualisierten
-                  Save an.
+                  <strong>Speichern:</strong> legt einen neuen oder
+                  aktualisierten Save an.
                 </li>
                 <li>
-                  <strong>Laden:</strong> oeffnet die Save-Verwaltung mit Laden,
-                  Umbenennen, Export und Loeschen.
+                  <strong>Laden:</strong> öffnet die Save-Verwaltung mit Laden,
+                  Umbenennen, Export und Löschen.
                 </li>
                 <li>
                   <strong>Sync Config:</strong> synchronisiert Save-Config mit
                   deiner Account-Config (wenn Unterschiede erkannt werden).
                 </li>
                 <li>
-                  <strong>Admin:</strong> schaltet erweiterte Bearbeitung fuer
+                  <strong>Admin:</strong> schaltet erweiterte Bearbeitung für
                   Test- und Analyse-Szenarien.
                 </li>
                 <li>
-                  <strong>Hilfe:</strong> oeffnet das Hilfefenster.
+                  <strong>Hilfe:</strong> öffnet das Hilfefenster.
                 </li>
                 <li>
-                  <strong>Profil:</strong> oeffnet Account, Config,
-                  Praeferenzen, Premium sowie Kontakt/Impressum/Datenschutz.
+                  <strong>Profil:</strong> öffnet Account, Config, Präferenzen,
+                  Premium sowie Kontakt/Impressum/Datenschutz.
                 </li>
               </ul>
               <p>
-                Auf kleineren Displays erscheinen zusaetzlich Pfeile, um zwischen
+                Auf kleineren Displays erscheinen zusätzlich Pfeile, um zwischen
                 Stats-, Step- und Menu-Panel zu wechseln.
               </p>
             </div>
@@ -631,17 +633,17 @@ export function StartingPage({
                   unterscheiden.
                 </li>
                 <li>
-                  Beim Anklicken eines Knotens springt die gesamte Simulation auf
-                  genau diesen Zustand.
+                  Beim Anklicken eines Knotens springt die gesamte Simulation
+                  auf genau diesen Zustand.
                 </li>
                 <li>
-                  Ueber Branches vergleichst du verschiedene Build-Orders, ohne
+                  Über Branches vergleichst du verschiedene Build-Orders, ohne
                   den Hauptpfad zu verlieren.
                 </li>
               </ul>
               <p>
                 Das ist besonders stark, wenn du dieselbe Ausgangslage mit
-                verschiedenen Investitionsfolgen testen moechtest.
+                verschiedenen Investitionsfolgen testen möchtest.
               </p>
             </div>
           </article>
@@ -658,23 +660,23 @@ export function StartingPage({
               <h3>6) Tree-Tools, Log und Extra-Tools</h3>
               <p>
                 Rund um den Baum und das Log findest du weitere Analyse-Buttons,
-                die fuer Optimierung und Dokumentation wichtig sind.
+                die für Optimierung und Dokumentation wichtig sind.
               </p>
               <ul>
                 <li>
                   <strong>Branches ein/ausklappen:</strong> reduziert visuelle
-                  Komplexitaet.
+                  Komplexität.
                 </li>
                 <li>
-                  <strong>Aktionen zusammenfassen:</strong> komprimiert horizontale
-                  Ausdehnung im Tree.
+                  <strong>Aktionen zusammenfassen:</strong> komprimiert
+                  horizontale Ausdehnung im Tree.
                 </li>
                 <li>
-                  <strong>Zum Hauptbranch machen:</strong> setzt einen alternativen
-                  Pfad als neue Hauptlinie.
+                  <strong>Zum Hauptbranch machen:</strong> setzt einen
+                  alternativen Pfad als neue Hauptlinie.
                 </li>
                 <li>
-                  <strong>Node loeschen:</strong> entfernt den aktuellen Knoten
+                  <strong>Node löschen:</strong> entfernt den aktuellen Knoten
                   optional inklusive nachfolgender Nodes.
                 </li>
                 <li>
@@ -682,13 +684,13 @@ export function StartingPage({
                   Checkpoints.
                 </li>
                 <li>
-                  <strong>Weitere Tools:</strong> enthaelt Volle Erstattung,
+                  <strong>Weitere Tools:</strong> enthält Volle Erstattung,
                   Select (mit Auto-Select Checkbox), Screenshot, File -&gt; PDF
                   und Finde schlechtestes.
                 </li>
               </ul>
               <p>
-                Typischer Workflow: im Tree die Variante waehlen, im Log pruefen,
+                Typischer Workflow: im Tree die Variante wählen, im Log prüfen,
                 dann mit Screenshot oder PDF dokumentieren.
               </p>
             </div>
@@ -706,4 +708,3 @@ export function StartingPage({
     </>
   );
 }
-

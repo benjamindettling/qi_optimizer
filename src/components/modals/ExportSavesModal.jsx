@@ -25,16 +25,16 @@ export function ExportSavesModal({ open, saves = {}, onClose, onExport }) {
           <div className="import-v2-info">
             <strong>Version 2 Export</strong>
             <p>Der gesamte Aktions-Baum wird exportiert.</p>
-            <p>Der Spielzustand kann daraus vollstaendig rekonstruiert werden.</p>
+            <p>
+              Der Spielzustand kann daraus vollständig rekonstruiert werden.
+            </p>
             <p style={{ marginTop: "10px", fontSize: "0.9em", color: "#888" }}>
               Keine Snapshots oder Checkpoints werden gespeichert.
             </p>
           </div>
         </div>
         <div className="modal-actions">
-          <button onClick={handleExport}>
-            Export
-          </button>
+          <button onClick={handleExport}>Export</button>
           <button onClick={onClose}>Abbrechen</button>
         </div>
       </div>

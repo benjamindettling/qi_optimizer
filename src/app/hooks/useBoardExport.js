@@ -24,7 +24,7 @@ export function useBoardExport({
 
   const handleExportPdf = useCallback(async () => {
     if (!loadName) {
-      alert("Bitte zuerst einen Spielstand waehlen.");
+      alert("Bitte zuerst einen Spielstand wählen.");
       return;
     }
     if (!checkpoints?.length) {

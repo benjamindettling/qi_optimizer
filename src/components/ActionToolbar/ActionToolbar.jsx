@@ -157,7 +157,7 @@ export function ActionToolbar({
               onClick={onToggleMove}
               className={`mode-button ${moveMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.move }}
-              title="Bewege oder tausche Gebaeude nach Belieben"
+              title="Bewege oder tausche Gebäude nach Belieben"
             >
               <Move />
             </button>
@@ -165,7 +165,7 @@ export function ActionToolbar({
               onClick={onToggleSell}
               className={`mode-button ${sellMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.sell }}
-              title="Verkauf Gebaeude. Erhalte 1/4 des gezahlten Werts zurueck"
+              title="Verkauf Gebäude. Erhalte 1/4 des gezahlten Werts zurück"
             >
               <Trash2 />
             </button>
@@ -173,7 +173,7 @@ export function ActionToolbar({
               onClick={onToggleBoost}
               className={`mode-button ${boostMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.boostSingle }}
-              title="Boost einzelne Gebaeude: entsperre oder beende Produktionen"
+              title="Boost einzelne Gebäude: entsperre oder beende Produktionen"
             >
               <ClockArrowUp />
             </button>
@@ -290,7 +290,7 @@ export function ActionToolbar({
           <button
             onClick={onToggleRefund}
             className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
-            title="DEBUG: Erhalte den VOLLEN Wert des Gebaeudes zurueck"
+            title="DEBUG: Erhalte den VOLLEN Wert des Gebäudes zurück"
           >
             Volle Erstattung
           </button>
@@ -298,7 +298,7 @@ export function ActionToolbar({
             <button
               className={`mode-button select ${selectMode ? "active-mode" : ""}`}
               onClick={onToggleSelectMode}
-              title="Markiere Gebaeude rot, ohne sie zu aendern"
+              title="Markiere Gebäude rot, ohne sie zu ändern"
             >
               <span>Select</span>
               <label className="select-auto">
@@ -307,7 +307,7 @@ export function ActionToolbar({
                   checked={autoSelectNew}
                   onClick={(e) => e.stopPropagation()}
                   onChange={() => onToggleAutoSelectNew?.()}
-                  title="Neue Gebaeude automatisch markieren"
+                  title="Neue Gebäude automatisch markieren"
                 />
               </label>
             </button>
@@ -322,7 +322,7 @@ export function ActionToolbar({
           <button
             className="action-button worst"
             onClick={onFindWorst}
-            title="Berechne, welche Wohn-/Produktionsgebaeude beim Entfernen den hoechsten Ertrag uebrig lassen"
+            title="Berechne, welche Wohn-/Produktionsgebäude beim Entfernen den höchsten Ertrag übrig lassen"
           >
             Finde schlechtestes
           </button>

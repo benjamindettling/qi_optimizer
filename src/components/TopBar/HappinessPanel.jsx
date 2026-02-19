@@ -86,19 +86,16 @@ export function HappinessPanel({ stats, happyInfo }) {
           <img src={chronosIcon} alt="chronos" />
           <span className="happy-boost">x{chronosMult}</span>
         </div>
-        <div className="resource-line population-line" title="Bevoelkerung">
+        <div className="resource-line population-line" title="Bevölkerung">
           <img src={populationIcon} alt="population" />
           <div className="population-values">
             <span
               className={`pop-total ${totalClass}`}
-              title="Totale Bevoelkerung"
+              title="Totale Bevölkerung"
             >
               tot: {formatNumber(totalPeople)}
             </span>
-            <span
-              className={`pop-free ${freeClass}`}
-              title="Freie Bevoelkerung"
-            >
+            <span className={`pop-free ${freeClass}`} title="Freie Bevölkerung">
               free: {formatNumber(freePeople)}
             </span>
           </div>

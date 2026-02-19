@@ -42,8 +42,8 @@ export function SmartInvestModal({
             {last ? (
               <>
                 <div className="smart-invest-line">
-                  {formatNumber(last.resources?.coins ?? 0)} Muenzen,{" "}
-                  {formatNumber(last.resources?.supplies ?? 0)} Vorraete,{" "}
+                  {formatNumber(last.resources?.coins ?? 0)} Münzen,{" "}
+                  {formatNumber(last.resources?.supplies ?? 0)} Vorräte,{" "}
                   {formatNumber(last.resources?.chronos ?? 0)} Chronos
                 </div>
                 <div className="smart-invest-line">
@@ -61,8 +61,8 @@ export function SmartInvestModal({
             {best ? (
               <>
                 <div className="smart-invest-line">
-                  {formatNumber(best.resources?.coins ?? 0)} Muenzen,{" "}
-                  {formatNumber(best.resources?.supplies ?? 0)} Vorraete,{" "}
+                  {formatNumber(best.resources?.coins ?? 0)} Münzen,{" "}
+                  {formatNumber(best.resources?.supplies ?? 0)} Vorräte,{" "}
                   {formatNumber(best.resources?.chronos ?? 0)} Chronos
                 </div>
                 <div className="smart-invest-line">
@@ -107,8 +107,8 @@ export function SmartInvestModal({
               >
                 <div className="smart-invest-rank">#{idx + 1}</div>
                 <div className="smart-invest-line">
-                  {formatNumber(result.resources?.coins ?? 0)} Muenzen,{" "}
-                  {formatNumber(result.resources?.supplies ?? 0)} Vorraete,{" "}
+                  {formatNumber(result.resources?.coins ?? 0)} Münzen,{" "}
+                  {formatNumber(result.resources?.supplies ?? 0)} Vorräte,{" "}
                   {formatNumber(result.resources?.chronos ?? 0)} Chronos
                 </div>
                 <div className="smart-invest-line">

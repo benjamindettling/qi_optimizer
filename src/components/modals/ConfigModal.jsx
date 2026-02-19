@@ -61,7 +61,7 @@ export function ConfigModal({
         </div>
         <div className="config-grid">
           <label className="config-row">
-            <Label text="Totale Start-Gueter" />
+            <Label text="Totale Start-Güter" />
             <input
               {...numberProps}
               value={draft.goodsStartBonus ?? 0}
@@ -101,7 +101,7 @@ export function ConfigModal({
             />
           </label>
           <label className="config-row">
-            <Label icon={moneyIcon} text="Muenzen Boost (% additiv)" />
+            <Label icon={moneyIcon} text="Münzen Boost (% additiv)" />
             <input
               {...numberProps}
               value={draft.coinBoost ?? 0}
@@ -111,7 +111,7 @@ export function ConfigModal({
             />
           </label>
           <label className="config-row">
-            <Label icon={suppliesIcon} text="Vorraete Boost (% additiv)" />
+            <Label icon={suppliesIcon} text="Vorräte Boost (% additiv)" />
             <input
               {...numberProps}
               value={draft.supplyBoost ?? 0}

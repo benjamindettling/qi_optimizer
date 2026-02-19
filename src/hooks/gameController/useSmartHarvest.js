@@ -188,7 +188,7 @@ export const useSmartHarvest = ({
       };
 
       if (!ensureFreePopulation()) {
-        addLog("Abbruch: Freie Bevoelkerung unter 0.");
+        addLog("Abbruch: Freie Bevölkerung unter 0.");
         return { ok: false, log, reason: "population" };
       }
 
@@ -217,7 +217,7 @@ export const useSmartHarvest = ({
           if (placements) {
             const applied = applyTilingSolution(placements, groups, simNextId);
             if (!applied) {
-              failureReason = "Tiling konnte nicht uebertragen werden.";
+              failureReason = "Tiling konnte nicht übertragen werden.";
               break;
             }
             simLayout = applied.layout;
@@ -230,7 +230,7 @@ export const useSmartHarvest = ({
             addLog("Setze Kirche");
             placedChurch = true;
             if (!ensureFreePopulation()) {
-              failureReason = "Freie Bevoelkerung unter 0.";
+              failureReason = "Freie Bevölkerung unter 0.";
               break;
             }
           }
@@ -242,7 +242,7 @@ export const useSmartHarvest = ({
           simLayout.find((b) => b.defId === multiHouseDefId) ||
           simLayout.find((b) => b.defId === estateDefId);
         if (!target) {
-          failureReason = "Keine passenden Wohngebaeude mehr.";
+          failureReason = "Keine passenden Wohngebäude mehr.";
           break;
         }
 
@@ -258,10 +258,10 @@ export const useSmartHarvest = ({
         delete simReadyMap[target.id];
         delete simBuildLocks[target.id];
 
-        addLog(`Zerstoere ${libraryMap[target.defId]?.name ?? "Wohngebaeude"}`);
+        addLog(`Zerstöre ${libraryMap[target.defId]?.name ?? "Wohngebäude"}`);
 
         if (!ensureFreePopulation()) {
-          failureReason = "Freie Bevoelkerung unter 0.";
+          failureReason = "Freie Bevölkerung unter 0.";
           break;
         }
       }
@@ -277,9 +277,9 @@ export const useSmartHarvest = ({
       simulateHarvest(harvestTargets, finalHarvestStats, { extraQa: baseQa });
 
       addLog(
-        `Neuer Stand: ${formatNumber(simResources.coins ?? 0)} Muenzen, ${formatNumber(
+        `Neuer Stand: ${formatNumber(simResources.coins ?? 0)} Münzen, ${formatNumber(
           simResources.supplies ?? 0,
-        )} Vorraete, ${formatNumber(simResources.chronos ?? 0)} Chronos`,
+        )} Vorräte, ${formatNumber(simResources.chronos ?? 0)} Chronos`,
       );
 
       return {
@@ -317,7 +317,7 @@ export const useSmartHarvest = ({
       return;
     }
     if (carried) {
-      updateStatus("Bitte zuerst das getragene Gebaeude ablegen.");
+      updateStatus("Bitte zuerst das getragene Gebäude ablegen.");
       return;
     }
 

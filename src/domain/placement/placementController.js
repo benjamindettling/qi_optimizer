@@ -123,7 +123,7 @@ export const dropCarried = ({
     }));
     const label = carriedSwapped
       ? "Swapped Buildings"
-      : `Moved ${def?.name ?? "Gebaeude"}`;
+      : `Moved ${def?.name ?? "Gebäude"}`;
     updateStatus(label);
     setCarried(null);
     return { ok: true, done: true, swapped: carriedSwapped, label };
@@ -142,7 +142,7 @@ export const handleSaleOrRefund = ({
   updateStatus,
 }) => {
   const label = `${refundMode ? "Refunded" : "Sold"} ${
-    libraryMap[target.defId]?.name ?? "Gebaeude"
+    libraryMap[target.defId]?.name ?? "Gebäude"
   }`;
   const delta =
     refundMode && target.cost

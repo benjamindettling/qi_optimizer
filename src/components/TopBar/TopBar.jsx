@@ -54,23 +54,23 @@ export function TopBar({
   const resourceEntries = [
     {
       key: "coins",
-      label: "Muenzen",
+      label: "Münzen",
       icon: moneyIcon,
       value: resources.coins,
       valueClass: valueClassFor(resources.coins),
       onEdit: () =>
-        onEditResource?.({ key: "coins", label: "Muenzen", icon: moneyIcon }),
+        onEditResource?.({ key: "coins", label: "Münzen", icon: moneyIcon }),
     },
     {
       key: "supplies",
-      label: "Vorraete",
+      label: "Vorräte",
       icon: suppliesIcon,
       value: resources.supplies,
       valueClass: valueClassFor(resources.supplies),
       onEdit: () =>
         onEditResource?.({
           key: "supplies",
-          label: "Vorraete",
+          label: "Vorräte",
           icon: suppliesIcon,
         }),
     },

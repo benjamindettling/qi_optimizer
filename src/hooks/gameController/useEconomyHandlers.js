@@ -41,7 +41,7 @@ export const useEconomyHandlers = ({
         return;
       }
       branchFromPast();
-      const label = `Goods gekauft: ${def.produces} ${amount} fuer ${formatNumber(
+      const label = `Goods gekauft: ${def.produces} ${amount} für ${formatNumber(
         cost.coins ?? 0,
       )}/${formatNumber(cost.supplies ?? 0)}`;
       applySpend(cost);
@@ -83,7 +83,7 @@ export const useEconomyHandlers = ({
         return;
       }
       branchFromPast();
-      const label = `Units gekauft: ${def.produces} ${amount} fuer ${formatNumber(
+      const label = `Units gekauft: ${def.produces} ${amount} für ${formatNumber(
         cost.coins ?? 0,
       )}/${formatNumber(cost.supplies ?? 0)}`;
       applySpend(cost);
@@ -129,7 +129,7 @@ export const useEconomyHandlers = ({
       }
       branchFromPast();
       const totals = totalFastBuyCost(option);
-      const label = `Fastbuy ${goodKey} fuer ${formatNumber(
+      const label = `Fastbuy ${goodKey} für ${formatNumber(
         totals.coins,
       )}/${formatNumber(totals.supplies)}`;
       applySpend({ coins: totals.coins, supplies: totals.supplies });

@@ -12,9 +12,7 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
   if (!modal) return null;
 
   const goodKey = modal.goodKey;
-  const goodIcon = `/goods/${
-    goodKey === "Stein" ? "Backstein" : goodKey
-  }.webp`;
+  const goodIcon = `/goods/${goodKey === "Stein" ? "Backstein" : goodKey}.webp`;
 
   const numberProps = {
     type: "number",
@@ -52,7 +50,7 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
           <button onClick={saveSingle}>Ok</button>
           <button onClick={onClose}>Abbrechen</button>
           <button onClick={saveAll}>
-            Alle <img src={goodsIcon} alt="Gueter" className="inline-icon" />{" "}
+            Alle <img src={goodsIcon} alt="Güter" className="inline-icon" />{" "}
             anpassen
           </button>
         </div>

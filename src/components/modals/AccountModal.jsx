@@ -496,7 +496,7 @@ export function AccountModal({
   const renderContactTab = () => (
     <div className="legal-content">
       <p>
-        Wenn du Fragen hast oder Inhalte melden moechtest, kannst du mich direkt
+        Wenn du Fragen hast oder Inhalte melden möchtest, kannst du mich direkt
         kontaktieren.
       </p>
       <div className="legal-block">
@@ -520,8 +520,7 @@ export function AccountModal({
   const renderImprintTab = () => (
     <div className="legal-content">
       <p>
-        Angaben gemaess Paragraph 5 TMG fuer ein privat betriebenes
-        Online-Angebot.
+        Angaben gemäß Paragraph 5 TMG für ein privat betriebenes Online-Angebot.
       </p>
       <div className="legal-block">
         <p>
@@ -536,7 +535,7 @@ export function AccountModal({
       </div>
       <div className="legal-block">
         <p>
-          <strong>Verantwortlich fuer Inhalte:</strong>
+          <strong>Verantwortlich für Inhalte:</strong>
         </p>
         <p>Benjamin Dettling, Winterthur, Schweiz</p>
       </div>
@@ -564,19 +563,19 @@ export function AccountModal({
       <h4>Zwecke</h4>
       <ul>
         <li>Bereitstellung und Sicherheit der Webseite</li>
-        <li>Speichern von Einstellungen und Spielstaenden</li>
+        <li>Speichern von Einstellungen und Spielständen</li>
         <li>Betrieb von Login- und Cloud-Funktionen</li>
       </ul>
 
       <h4>Google AdSense (geplant)</h4>
       <p>
         Bei aktivierter Einbindung kann Google AdSense Cookies und
-        nutzungsbezogene Daten fuer personalisierte oder nicht-personalisierte
+        nutzungsbezogene Daten für personalisierte oder nicht-personalisierte
         Werbung verarbeiten. Die Auslieferung erfolgt nur gemaess deiner
         Consent-Auswahl.
       </p>
 
-      <h4>Kontakt fuer Datenschutzanfragen</h4>
+      <h4>Kontakt für Datenschutzanfragen</h4>
       <div className="legal-block">
         <p>
           <strong>Name:</strong> Benjamin Dettling

@@ -1,16 +1,19 @@
 /**
  * NOTE: This component is currently NOT IN USE.
- * 
+ *
  * Region functionality has been integrated elsewhere:
  * - Region unlock grid → Board.jsx (region overlay layer)
  * - Expansion costs display → TopBar/ExpansionCosts.jsx
- * 
+ *
  * This file is kept for reference/archive purposes.
  */
 
 // Regions panel with unlock grid and cost controls.
 import { Infinity as InfinityIcon } from "lucide-react";
-import { REGION_GOODS_COSTS, REGION_SHARD_COSTS } from "../../config/boardConfig";
+import {
+  REGION_GOODS_COSTS,
+  REGION_SHARD_COSTS,
+} from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
 import { RegionBadge } from "./RegionBadge";
 import "./RegionsPanel.css";
@@ -22,7 +25,11 @@ const isInfinityCost = (value) =>
 
 const renderCostValue = (value) =>
   isInfinityCost(value) ? (
-    <InfinityIcon className="inline-icon" aria-label="Infinity" title="Infinity" />
+    <InfinityIcon
+      className="inline-icon"
+      aria-label="Infinity"
+      title="Infinity"
+    />
   ) : (
     formatNumber(value)
   );
@@ -124,7 +131,7 @@ export function RegionsPanel({
               ) : null}
             </span>
           ) : (
-            <span>{renderCostValue(currentGoodsCost)} Gueter</span>
+            <span>{renderCostValue(currentGoodsCost)} Güter</span>
           )}
         </span>{" "}
         or{" "}
@@ -161,7 +168,7 @@ export function RegionsPanel({
           )}
         </span>
         . <br></br>
-        Werte aendern automatisch, oder koennen im Admin-Modus bearbeitet werden
+        Werte ändern automatisch, oder können im Admin-Modus bearbeitet werden
       </div>
     </div>
   );

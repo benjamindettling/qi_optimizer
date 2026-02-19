@@ -158,7 +158,7 @@ export function LoadSavesModal({
         {/* Savefiles list */}
         <div className="load-saves-list">
           {sortedNames.length === 0 ? (
-            <div className="load-saves-empty">Keine Spielstaende gefunden</div>
+            <div className="load-saves-empty">Keine Spielstände gefunden</div>
           ) : (
             sortedNames.map((name) => (
               <div key={name} className="load-saves-row">

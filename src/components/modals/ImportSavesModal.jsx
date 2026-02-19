@@ -3,17 +3,18 @@ import { useEffect, useRef, useState } from "react";
 const parseFile = async (file) => {
   const text = await file.text();
   const data = JSON.parse(text);
-  
+
   // Version 2: Tree-based, no saves array needed
   const isVersion2 = data.version === 2 || (data.tree && !data.saves?.length);
-  
+
   if (isVersion2) {
     // V2: Return empty entries but with full import data
     return { entries: [], importData: data, isVersion2: true };
   }
-  
+
   // Version 1: Legacy with saves array
-  if (!data?.saves || !Array.isArray(data.saves)) return { entries: [], importData: null, isVersion2: false };
+  if (!data?.saves || !Array.isArray(data.saves))
+    return { entries: [], importData: null, isVersion2: false };
   const entries = data.saves.map((entry, idx) => ({
     id: `${file.name}-${idx}`,
     name: entry.name || `import-${idx + 1}`,
@@ -50,7 +51,7 @@ export function ImportSavesModal({ open, onClose, onImport }) {
     if (!list.length) return;
     try {
       const parsedArrays = await Promise.all(list.map(parseFile));
-      
+
       // Check if any file is v2
       const v2File = parsedArrays.find((p) => p.isVersion2);
       if (v2File) {
@@ -60,10 +61,13 @@ export function ImportSavesModal({ open, onClose, onImport }) {
         setError("");
         return;
       }
-      
+
       // V1: Process saves
-      const flat = parsedArrays.flatMap((p) => p.entries).filter((e) => e.snapshot);
-      const dataWithTree = parsedArrays.find((p) => p.importData?.tree)?.importData ?? null;
+      const flat = parsedArrays
+        .flatMap((p) => p.entries)
+        .filter((e) => e.snapshot);
+      const dataWithTree =
+        parsedArrays.find((p) => p.importData?.tree)?.importData ?? null;
       setEntries(flat);
       setImportData(dataWithTree);
       setIsVersion2(false);
@@ -76,13 +80,13 @@ export function ImportSavesModal({ open, onClose, onImport }) {
 
   const toggle = (id) => {
     setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, selected: !e.selected } : e))
+      prev.map((e) => (e.id === id ? { ...e, selected: !e.selected } : e)),
     );
   };
 
   const startEdit = (id) => {
     setEntries((prev) =>
-      prev.map((e) => (e.id === id ? { ...e, editing: true } : e))
+      prev.map((e) => (e.id === id ? { ...e, editing: true } : e)),
     );
   };
 
@@ -90,8 +94,8 @@ export function ImportSavesModal({ open, onClose, onImport }) {
     const trimmed = name.trim();
     setEntries((prev) =>
       prev.map((e) =>
-        e.id === id ? { ...e, editing: false, name: trimmed || e.name } : e
-      )
+        e.id === id ? { ...e, editing: false, name: trimmed || e.name } : e,
+      ),
     );
   };
 
@@ -101,7 +105,7 @@ export function ImportSavesModal({ open, onClose, onImport }) {
       onImport?.([], importData);
       return;
     }
-    
+
     // V1: Pass selected entries
     const selectedEntries = entries
       .filter((e) => e.selected && e.snapshot)
@@ -134,7 +138,7 @@ export function ImportSavesModal({ open, onClose, onImport }) {
             handleFiles(e.dataTransfer.files);
           }}
         >
-          Datei hier ablegen oder klicken zum Auswaehlen
+          Datei hier ablegen oder klicken zum Auswählen
           <input
             ref={fileInputRef}
             type="file"
@@ -150,7 +154,10 @@ export function ImportSavesModal({ open, onClose, onImport }) {
           {isVersion2 ? (
             <div className="import-v2-info">
               <strong>Version 2 Datei erkannt</strong>
-              <p>Tree mit {importData?.tree?.tree?.length ?? 0} Branches wird importiert.</p>
+              <p>
+                Tree mit {importData?.tree?.tree?.length ?? 0} Branches wird
+                importiert.
+              </p>
               <p>Der Zustand wird aus dem Aktions-Baum rekonstruiert.</p>
             </div>
           ) : entries.length === 0 ? (
@@ -186,8 +193,8 @@ export function ImportSavesModal({ open, onClose, onImport }) {
         </div>
 
         <div className="modal-actions">
-          <button 
-            onClick={handleConfirm} 
+          <button
+            onClick={handleConfirm}
             disabled={!isVersion2 && !entries.some((e) => e.selected)}
           >
             Import
