@@ -1,16 +1,101 @@
 import { flushSync } from "react-dom";
 import { buildInitialState } from "../../config/initialState";
 import { buildSnapshot as buildSnapshotFromState } from "../../state/snapshot";
-import { GOODS_TYPES, UNIT_TYPES } from "../../config/boardConfig";
+import { formatNumber } from "../../utils/formatNumber";
 import { buildBauplanLines, drawBauplanTextBlock } from "./pdfText";
-import { createBoardCapturer, preloadTopBarAssets } from "./pdfCapture";
+import {
+  getSvgDimensions,
+  serializeSvgNode,
+  svgStringToElement,
+  waitForSvgReady,
+} from "./svgExport";
+
+const groupByTimeStep = (checkpoints) => {
+  const grouped = [];
+  (checkpoints || []).forEach((cp) => {
+    const step = cp.timeStep ?? 1;
+    let group = grouped.find((entry) => entry.timeStep === step);
+    if (!group) {
+      group = { timeStep: step, items: [] };
+      grouped.push(group);
+    }
+    group.items.push(cp);
+  });
+  return grouped;
+};
+
+const resourceLines = (resources = {}) => {
+  const goods = resources.goods || {};
+  const units = resources.units || {};
+
+  const lines = [
+    `Muenzen: ${formatNumber(resources.coins ?? 0)}`,
+    `Vorraete: ${formatNumber(resources.supplies ?? 0)}`,
+    `Chronos: ${formatNumber(resources.chronos ?? 0)}`,
+    `Scherben: ${formatNumber(resources.shards ?? 0)}`,
+    `QA: ${formatNumber(resources.quantumActions ?? 0)}`,
+    "",
+    "Gueter:",
+  ];
+
+  Object.entries(goods).forEach(([key, value]) => {
+    lines.push(`${key}: ${formatNumber(value ?? 0)}`);
+  });
+
+  lines.push("", "Truppen:");
+  Object.entries(units).forEach(([key, value]) => {
+    lines.push(`${key}: ${formatNumber(value ?? 0)}`);
+  });
+
+  return lines;
+};
+
+const drawResourceBlock = (
+  pdf,
+  resources,
+  { x, y, width, maxHeight, lineHeight = 12, padding = 8 },
+) => {
+  const lines = resourceLines(resources);
+  const maxLines = Math.max(
+    1,
+    Math.floor((Math.max(24, maxHeight) - padding * 2) / lineHeight),
+  );
+
+  const clipped = lines.slice(0, maxLines);
+  const truncated = lines.length > maxLines;
+
+  const usedLines = truncated ? Math.max(1, clipped.length - 1) : clipped.length;
+  const height = Math.min(maxHeight, usedLines * lineHeight + padding * 2);
+
+  pdf.setFillColor(16, 37, 60);
+  pdf.rect(x, y, width, height, "F");
+
+  pdf.setDrawColor(31, 62, 99);
+  pdf.setLineWidth(0.8);
+  pdf.rect(x, y, width, height, "S");
+
+  pdf.setFont("courier", "bold");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(240, 244, 255);
+
+  let cursorY = y + padding + lineHeight - 2;
+  clipped.forEach((line, idx) => {
+    if (truncated && idx === clipped.length - 1) {
+      pdf.text("...", x + padding, cursorY);
+    } else {
+      pdf.text(line, x + padding, cursorY);
+    }
+    cursorY += lineHeight;
+  });
+
+  return height;
+};
 
 // Full PDF export flow for checkpoints.
 export const exportBoardPdf = async ({
   checkpoints,
   loadName,
   boardRef,
-  topBarRef,
   buildSnapshot,
   applySnapshot,
   checkpointIndex,
@@ -20,18 +105,71 @@ export const exportBoardPdf = async ({
   harvestFullForPdf,
   setProgress,
 }) => {
-  const body = document.body;
-  body.classList.add("print-mode");
   pauseCheckpointTracking();
   const prevSnapshot = buildSnapshot();
   const prevIndex = checkpointIndex;
 
   try {
-    const PDF_BG_COLOR = "#132f4c";
-    const [{ jsPDF }, { default: html2canvas }] = await Promise.all([
+    const [{ jsPDF }, { svg2pdf }] = await Promise.all([
       import("jspdf"),
-      import("html2canvas"),
+      import("svg2pdf.js"),
     ]);
+
+    const timeLabel = (step) => {
+      const found = checkpoints.find((cp) => (cp.timeStep ?? 1) === step);
+      const base = `Schritt ${step}`;
+      const title = found?.snapshot?.title;
+      return title ? `${base} ${title}` : base;
+    };
+
+    const captureBoardSvg = async (snapshot) => {
+      const target = boardRef?.current;
+      if (!target || !snapshot) return null;
+
+      flushSync(() => {
+        applySnapshot(snapshot);
+        setCheckpointIndex(null);
+      });
+
+      await waitForSvgReady(target);
+
+      return {
+        svgString: serializeSvgNode(target),
+        ...getSvgDimensions(target),
+      };
+    };
+
+    const captureResources = async (snapshot, { withFullHarvest = false } = {}) => {
+      if (!snapshot) return {};
+
+      flushSync(() => {
+        applySnapshot(snapshot);
+        setCheckpointIndex(null);
+      });
+
+      await waitForSvgReady(boardRef?.current);
+
+      if (withFullHarvest) {
+        flushSync(() => {
+          harvestFullForPdf?.(snapshot?.layout, snapshot?.buildLocks);
+        });
+        await waitForSvgReady(boardRef?.current);
+      }
+
+      return buildSnapshot()?.resources || {};
+    };
+
+    const grouped = groupByTimeStep(checkpoints);
+
+    const pdf = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+      compress: true,
+    });
+
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
 
     const headerHeight = 40;
     const margin = 18;
@@ -39,44 +177,6 @@ export const exportBoardPdf = async ({
     const rightGap = 14;
     const leftColumnWidth = 320;
     const leftRowGap = 12;
-
-    const timeLabel = (step) => {
-      const found = checkpoints.find((c) => (c.timeStep ?? 1) === step);
-      const base = `Schritt ${step}`;
-      const title = found?.snapshot?.title;
-      return title ? `${base} ${title}` : base;
-    };
-
-    const grouped = [];
-    checkpoints.forEach((cp) => {
-      const step = cp.timeStep ?? 1;
-      let group = grouped.find((g) => g.timeStep === step);
-      if (!group) {
-        group = { timeStep: step, items: [] };
-        grouped.push(group);
-      }
-      group.items.push(cp);
-    });
-
-    await preloadTopBarAssets({ goodsTypes: GOODS_TYPES, unitTypes: UNIT_TYPES });
-
-    const { captureBoardImage, captureTopBarFiveCols } = createBoardCapturer({
-      boardRef,
-      topBarRef,
-      html2canvas,
-      applySnapshot,
-      setCheckpointIndex,
-      harvestFullForPdf,
-      pdfBgColor: PDF_BG_COLOR,
-    });
-
-    const pdf = new jsPDF({
-      orientation: "landscape",
-      unit: "pt",
-      format: "a4",
-    });
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
 
     const contentStartY = headerHeight + margin;
     const contentHeight = pageHeight - headerHeight - margin * 2;
@@ -87,41 +187,43 @@ export const exportBoardPdf = async ({
     const rightX = margin + leftW + columnGap;
     const rightW = pageWidth - rightX - margin;
 
-    let firstPage = true;
-
     const baseSnapshot = buildSnapshotFromState(buildInitialState());
     let prevForHarvestSnapshot = null;
+    let firstPage = true;
 
     for (let g = 0; g < grouped.length; g += 1) {
       const group = grouped[g];
       const step = group.timeStep;
-      const parts = group.items.length;
-      const lastCp = group.items[parts - 1];
+      const items = group.items || [];
+      const lastCheckpoint = items[items.length - 1];
 
-      const harvestSourceSnapshot = prevForHarvestSnapshot ?? baseSnapshot;
+      const harvestSource = prevForHarvestSnapshot ?? baseSnapshot;
+      const resourcesAfterHarvest = await captureResources(harvestSource, {
+        withFullHarvest: !!prevForHarvestSnapshot,
+      });
 
-      const resAfterHarvestImg = await captureTopBarFiveCols(
-        harvestSourceSnapshot,
-        { withFullHarvest: !!prevForHarvestSnapshot },
-      );
+      const boardSvgs = [];
+      const bauplanLines = buildBauplanLines(items);
 
-      const boardImgs = [];
-      const bauplanLines = buildBauplanLines(group.items);
-
-      for (let i = 0; i < group.items.length; i += 1) {
-        const cp = group.items[i];
-        const boardImg = await captureBoardImage(cp.snapshot);
-        boardImgs.push(boardImg);
-        setProgress((p) =>
-          p ? { ...p, current: Math.min(p.total, p.current + 1) } : p,
+      for (let i = 0; i < items.length; i += 1) {
+        const cp = items[i];
+        const svgSnapshot = await captureBoardSvg(cp.snapshot);
+        boardSvgs.push(svgSnapshot);
+        setProgress((progress) =>
+          progress
+            ? {
+                ...progress,
+                current: Math.min(progress.total, progress.current + 1),
+              }
+            : progress,
         );
       }
 
-      const resAfterBuildImg = await captureTopBarFiveCols(lastCp.snapshot, {
+      const resourcesAfterBuild = await captureResources(lastCheckpoint?.snapshot, {
         withFullHarvest: false,
       });
 
-      prevForHarvestSnapshot = lastCp.snapshot;
+      prevForHarvestSnapshot = lastCheckpoint?.snapshot ?? prevForHarvestSnapshot;
 
       if (!firstPage) {
         pdf.addPage("a4", "landscape");
@@ -149,64 +251,65 @@ export const exportBoardPdf = async ({
         yLeft += 16;
       };
 
-      const drawImageFitWidth = (img, maxHeight = null) => {
-        if (!img) return 0;
-        const scale = leftW / img.width;
-        let h = img.height * scale;
-        let w = leftW;
-        if (maxHeight !== null && h > maxHeight) {
-          const s2 = maxHeight / h;
-          h = maxHeight;
-          w = w * s2;
-        }
-        const x = leftX + (leftW - w) / 2;
-        pdf.addImage(img.dataUrl, "PNG", x, yLeft, w, h);
-        yLeft += h;
-        return h;
-      };
-
-      const estTopH = (img) => (img ? img.height * (leftW / img.width) : 0);
-
-      const labelsH = 16 * 3;
-      const gapsH = leftRowGap * 2;
-      const topbarsH = estTopH(resAfterHarvestImg) + estTopH(resAfterBuildImg);
-      const notesAvailable = contentHeight - labelsH - gapsH - topbarsH;
-
       drawSectionTitle("Ressourcen nach der Ernte");
-      drawImageFitWidth(resAfterHarvestImg);
-      yLeft += leftRowGap;
-
-      drawSectionTitle("Bauplan");
-      const usedNotesH = drawBauplanTextBlock(pdf, bauplanLines, {
+      const harvestH = drawResourceBlock(pdf, resourcesAfterHarvest, {
         x: leftX,
         y: yLeft,
         width: leftW,
-        maxHeight: Math.max(40, notesAvailable),
+        maxHeight: 150,
       });
-      yLeft += usedNotesH;
-      yLeft += leftRowGap;
+      yLeft += harvestH + leftRowGap;
+
+      drawSectionTitle("Bauplan");
+      const notesMaxHeight = Math.max(
+        50,
+        contentHeight - (yLeft - contentStartY) - 150 - leftRowGap - 16,
+      );
+      const notesH = drawBauplanTextBlock(pdf, bauplanLines, {
+        x: leftX,
+        y: yLeft,
+        width: leftW,
+        maxHeight: notesMaxHeight,
+      });
+      yLeft += notesH + leftRowGap;
 
       drawSectionTitle("Ressourcen nach dem Bau");
-      drawImageFitWidth(resAfterBuildImg);
+      drawResourceBlock(pdf, resourcesAfterBuild, {
+        x: leftX,
+        y: yLeft,
+        width: leftW,
+        maxHeight: Math.max(50, contentStartY + contentHeight - yLeft),
+      });
 
-      const nBoards = boardImgs.length;
-      if (nBoards > 0) {
-        const totalGaps = rightGap * (nBoards - 1);
-        const slotH = (contentHeight - totalGaps) / nBoards;
+      const boardCount = boardSvgs.length;
+      if (boardCount > 0) {
+        const totalGaps = rightGap * (boardCount - 1);
+        const slotH = (contentHeight - totalGaps) / boardCount;
         let yRight = contentStartY;
 
-        for (let i = 0; i < nBoards; i += 1) {
-          const img = boardImgs[i];
-          if (!img) {
+        for (let i = 0; i < boardCount; i += 1) {
+          const boardSvg = boardSvgs[i];
+          if (!boardSvg?.svgString) {
             yRight += slotH + rightGap;
             continue;
           }
-          const scale = Math.min(rightW / img.width, slotH / img.height);
-          const w = img.width * scale;
-          const h = img.height * scale;
-          const x = rightX + (rightW - w) / 2;
-          const y = yRight + (slotH - h) / 2;
-          pdf.addImage(img.dataUrl, "PNG", x, y, w, h);
+
+          const scale = Math.min(
+            rightW / Math.max(1, boardSvg.width),
+            slotH / Math.max(1, boardSvg.height),
+          );
+          const drawW = boardSvg.width * scale;
+          const drawH = boardSvg.height * scale;
+          const drawX = rightX + (rightW - drawW) / 2;
+          const drawY = yRight + (slotH - drawH) / 2;
+
+          const svgElement = svgStringToElement(boardSvg.svgString);
+          await svg2pdf(svgElement, pdf, {
+            x: drawX,
+            y: drawY,
+            width: drawW,
+            height: drawH,
+          });
 
           yRight += slotH + rightGap;
         }
@@ -214,8 +317,8 @@ export const exportBoardPdf = async ({
     }
 
     pdf.save(`QI_${loadName}_export.pdf`);
-  } catch (e) {
-    console.error("PDF Export fehlgeschlagen", e);
+  } catch (error) {
+    console.error("PDF Export fehlgeschlagen", error);
     alert("PDF Export fehlgeschlagen. Details in der Konsole.");
   } finally {
     try {
@@ -224,10 +327,10 @@ export const exportBoardPdf = async ({
         setCheckpointIndex(prevIndex);
       });
     } catch {
-      // ignore
+      // ignore restore errors
     }
+
     resumeCheckpointTracking();
-    body.classList.remove("print-mode");
     setProgress(null);
   }
 };

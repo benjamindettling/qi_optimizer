@@ -6,7 +6,7 @@ import { AppModals } from "./layout/AppModals";
 import { HoldTooltip } from "./ui/HoldTooltip";
 import { PdfProgressModal } from "./ui/PdfProgressModal";
 import { useHoldTooltip } from "./hooks/useHoldTooltip";
-import { useSelectionMode } from "./hooks/useSelectionMode";
+import { useHighlightMode } from "./hooks/useHighlightMode";
 import { useSnapshotNavigation } from "./hooks/useSnapshotNavigation";
 import { useBoardExport } from "./hooks/useBoardExport";
 import { useAccountCloudSync } from "../hooks/useAccountCloudSync";
@@ -43,13 +43,12 @@ export function AppRoot() {
   });
 
   const { tooltip } = useHoldTooltip();
-  const { selectMode, setSelectMode, toggleSelectMode, handleBoardClick } =
-    useSelectionMode({
+  const { highlightMode, toggleHighlightMode, highlightedIds } =
+    useHighlightMode({
+      historyTree: controller.historyTree,
+      selectedNodeId: controller.historyIndex,
       layout: controller.layout,
-      toggleSelectId: controller.toggleSelectId,
-      resetModes: controller.resetModes,
-      setSelectedBuildingId: controller.setSelectedBuildingId,
-      handleCellClick: controller.handleCellClick,
+      libraryMap: controller.libraryMap,
     });
 
   const { handleSnapshotBack, handleSnapshotForward } = useSnapshotNavigation({
@@ -274,11 +273,11 @@ export function AppRoot() {
     cellSizePx: controller.cellSizePx,
     previewOrigin: controller.previewOrigin,
     isCellUnlocked: controller.isCellUnlocked,
-    handleCellClick: handleBoardClick,
+    handleCellClick: controller.handleCellClick,
     setHoverCell: controller.setHoverCell,
     onDropComplete: () => controller.setSelectedBuildingId(null),
     boardRef,
-    selectedIds: controller.selectedIds,
+    highlightedIds,
     layout: controller.layout,
     libraryMap: controller.libraryMap,
     categoryColors: controller.categoryColors,
@@ -299,24 +298,12 @@ export function AppRoot() {
 
   const toolbarProps = {
     moveMode: controller.moveMode,
-    onToggleMove: () => {
-      setSelectMode(false);
-      controller.toggleMove();
-    },
+    onToggleMove: controller.toggleMove,
     sellMode: controller.sellMode,
     refundMode: controller.refundMode,
-    onToggleSell: () => {
-      setSelectMode(false);
-      controller.toggleSell();
-    },
-    onToggleRefund: () => {
-      setSelectMode(false);
-      controller.toggleRefund();
-    },
-    onToggleBoost: () => {
-      setSelectMode(false);
-      controller.toggleBoost();
-    },
+    onToggleSell: controller.toggleSell,
+    onToggleRefund: controller.toggleRefund,
+    onToggleBoost: controller.toggleBoost,
     finishProductions: controller.finishProductions,
     harvestIsPartial: Object.values(controller.readyMap || {}).some(Boolean),
     harvestPartial: controller.harvestPartialOnly,
@@ -334,10 +321,8 @@ export function AppRoot() {
     setLoadName: controller.setLoadName,
     notes: controller.notes,
     onChangeNotes: controller.handleChangeNotes,
-    selectMode,
-    onToggleSelectMode: toggleSelectMode,
-    autoSelectNew: controller.autoSelectNew,
-    onToggleAutoSelectNew: controller.toggleAutoSelectNew,
+    highlightMode,
+    onToggleHighlightMode: toggleHighlightMode,
     onPrintBoard: handlePrint,
     onFindWorst: controller.openWorstModal,
     timeStep: controller.timeStep,

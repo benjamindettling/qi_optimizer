@@ -17,10 +17,8 @@ export function NotesCluster({
   // Tools props
   refundMode,
   onToggleRefund,
-  selectMode,
-  onToggleSelectMode,
-  autoSelectNew = false,
-  onToggleAutoSelectNew,
+  highlightMode,
+  onToggleHighlightMode,
   onPrintBoard,
   onExportPdf,
   onFindWorst,
@@ -73,7 +71,7 @@ export function NotesCluster({
             onClick={() => setExtraToolsCollapsed((prev) => !prev)}
             title={extraToolsCollapsed ? "Einblenden" : "Ausblenden"}
           >
-            {extraToolsCollapsed ? "▼" : "▲"}
+            {extraToolsCollapsed ? "v" : "^"}
           </button>
         </div>
 
@@ -83,28 +81,17 @@ export function NotesCluster({
               onClick={onToggleRefund}
               className={`nc-btn refund ${refundMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.sell }}
-              title="Erhalte den VOLLEN Wert des Gebäudes zurück"
+              title="Erhalte den vollen Wert des Gebaeudes zurueck"
             >
               Volle Erstattung
             </button>
             <div className="nc-row">
               <button
-                className={`nc-btn ${selectMode ? "active-mode" : ""}`}
-                onClick={onToggleSelectMode}
-                title="Markiere Gebäude rot, ohne sie zu ändern"
+                className={`nc-btn ${highlightMode ? "active-mode" : ""}`}
+                onClick={onToggleHighlightMode}
+                title="Hebt betroffene Gebaeude seit dem letzten Checkpoint hervor"
               >
-                <span>Select</span>
-                <label
-                  className="select-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={autoSelectNew}
-                    onChange={() => onToggleAutoSelectNew?.()}
-                    title="Neue Gebäude automatisch markieren"
-                  />
-                </label>
+                <span>Highlight</span>
               </button>
               <button
                 className="nc-btn"
@@ -119,12 +106,12 @@ export function NotesCluster({
               onClick={onExportPdf}
               title="Aktuelle Datei als PDF exportieren"
             >
-              File → PDF
+              File -&gt; PDF
             </button>
             <button
               className="nc-btn"
               onClick={onFindWorst}
-              title="Berechne, welche Gebäude den geringsten Beitrag leisten"
+              title="Berechne, welche Gebaeude den geringsten Beitrag leisten"
             >
               Finde schlechtestes
             </button>

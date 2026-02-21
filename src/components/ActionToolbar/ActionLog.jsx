@@ -86,6 +86,24 @@ function getChainDescriptor(action, libraryMap, shortIdMap) {
   return null;
 }
 
+function getPurchaseTotal(action) {
+  if (
+    action?.q &&
+    typeof action.q === "object" &&
+    !Array.isArray(action.q)
+  ) {
+    return Object.entries(action.q).reduce((sum, [amountRaw, countRaw]) => {
+      const amount = Number(amountRaw);
+      const count = Number(countRaw);
+      if (!Number.isFinite(amount) || amount <= 0) return sum;
+      if (!Number.isFinite(count) || count <= 0) return sum;
+      return sum + amount * count;
+    }, 0);
+  }
+  const quantity = Number(action?.quantity ?? action?.amount ?? action?.count ?? 0);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+}
+
 /**
  * Format an action for display in the log
  * @returns {{ text: string, color: string } | null}
@@ -119,15 +137,15 @@ function formatAction(action, libraryMap, shortIdMap) {
 
   // Goods purchase
   if (type === "goodsPurchase") {
-    const amount = action.amount ?? action.count ?? 1;
-    const good = action.goodKey || action.good || "?";
+    const amount = getPurchaseTotal(action);
+    const good = action.goodKey || action.key || action.good || "?";
     return { text: `+${amount} ${good}`, color: "turquoise" };
   }
 
   // Unit purchase
   if (type === "unitPurchase") {
-    const amount = action.amount ?? action.count ?? 1;
-    const unit = action.unitKey || action.unit || "?";
+    const amount = getPurchaseTotal(action);
+    const unit = action.unitKey || action.key || action.unit || "?";
     return { text: `+${amount} ${unit}`, color: "turquoise" };
   }
 

@@ -1,6 +1,7 @@
 import { REGION_SIZE, REGION_COLS, REGION_ROWS, REGION_MASK } from "../../config/boardConfig";
 
 export const computeViewBounds = (unlockedRegions) => {
+  void unlockedRegions;
   // Calculate bounds based on ALL playable regions (not void), not just unlocked
   // This ensures the full game board is always visible
   const playableCoords = [];
@@ -86,14 +87,17 @@ export const computeViewTransforms = (
       heightFit = containerHeightPx / effectiveHeight;
     }
     
-    // Use the smaller of the two to fit both dimensions
-    cellSizePx = Math.floor(Math.min(widthFit, heightFit));
-    
-    // Apply manual scale factor - allow very small sizes for zooming out
-    cellSizePx = Math.max(4, cellSizePx * s);
+    // Use the smaller of the two to fit both dimensions.
+    // Keep sub-pixel precision for continuous scaling.
+    const fit = Math.min(widthFit, heightFit);
+    const baseFit = Number.isFinite(fit) ? fit : BASE_CELL_PX;
+    cellSizePx = Math.max(4, baseFit * s);
   } else {
     cellSizePx = Math.max(4, BASE_CELL_PX * s);
   }
+
+  // Stabilize floating-point noise across transforms and export snapshots.
+  cellSizePx = Number(cellSizePx.toFixed(4));
   
   const layoutWidthPx = viewWidth * cellSizePx;
   const layoutHeightPx = viewHeight * cellSizePx;

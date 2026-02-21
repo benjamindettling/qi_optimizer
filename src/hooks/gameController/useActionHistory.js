@@ -75,6 +75,82 @@ const resolveCostIndex = (value, costList, fallbackIndex = 0) => {
   return clampIndex(fallbackIndex, maxIdx);
 };
 
+const normalizeMovePositions = (action) => {
+  if (Array.isArray(action?.positions)) {
+    return action.positions
+      .filter(
+        (p) =>
+          Array.isArray(p) &&
+          p.length >= 4 &&
+          Number.isFinite(Number(p[0])) &&
+          Number.isFinite(Number(p[1])) &&
+          Number.isFinite(Number(p[2])) &&
+          Number.isFinite(Number(p[3])),
+      )
+      .map((p) => [Number(p[0]), Number(p[1]), Number(p[2]), Number(p[3])]);
+  }
+  const xs = Array.isArray(action?.x) ? action.x : [];
+  const ys = Array.isArray(action?.y) ? action.y : [];
+  const xns = Array.isArray(action?.xn) ? action.xn : [];
+  const yns = Array.isArray(action?.yn) ? action.yn : [];
+  const positions = [];
+  const count = Math.min(xs.length, ys.length, xns.length, yns.length);
+  for (let i = 0; i < count; i += 1) {
+    const fromX = Number(xs[i]);
+    const fromY = Number(ys[i]);
+    const toX = Number(xns[i]);
+    const toY = Number(yns[i]);
+    if (
+      Number.isFinite(fromX) &&
+      Number.isFinite(fromY) &&
+      Number.isFinite(toX) &&
+      Number.isFinite(toY)
+    ) {
+      positions.push([fromX, fromY, toX, toY]);
+    }
+  }
+  return positions;
+};
+
+const normalizeQuantityMap = (mapLike) => {
+  const next = {};
+  if (!mapLike || typeof mapLike !== "object" || Array.isArray(mapLike)) return next;
+  Object.entries(mapLike).forEach(([amountRaw, countRaw]) => {
+    const amount = Number(amountRaw);
+    const count = Number(countRaw);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (!Number.isFinite(count) || count <= 0) return;
+    const amountKey = String(amount);
+    next[amountKey] = (next[amountKey] ?? 0) + Math.floor(count);
+  });
+  return next;
+};
+
+const mergeQuantityMaps = (baseMap, appendedMap) => {
+  const merged = { ...normalizeQuantityMap(baseMap) };
+  const next = normalizeQuantityMap(appendedMap);
+  Object.entries(next).forEach(([amount, count]) => {
+    merged[amount] = (merged[amount] ?? 0) + count;
+  });
+  return merged;
+};
+
+const sumQuantityMap = (quantityMap) =>
+  Object.entries(normalizeQuantityMap(quantityMap)).reduce(
+    (sum, [amountRaw, count]) => sum + Number(amountRaw) * count,
+    0,
+  );
+
+const extractQuantityMapFromAction = (action) => {
+  const fromMap = normalizeQuantityMap(action?.q);
+  if (Object.keys(fromMap).length > 0) return fromMap;
+  const amount = Number(action?.quantity ?? action?.amount ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return {};
+  const rawCount = action?.cost ? 1 : Number(action?.count ?? 1);
+  if (!Number.isFinite(rawCount) || rawCount <= 0) return {};
+  return { [String(amount)]: Math.floor(rawCount) };
+};
+
 export const useActionHistory = ({
   layout,
   readyMap,
@@ -467,6 +543,40 @@ export const useActionHistory = ({
     [libraryMap],
   );
 
+  const getPurchaseDelta = useCallback(
+    (action, kind) => {
+      const isGoods = kind === "goods";
+      const key = isGoods
+        ? action?.goodsKey ?? action?.key
+        : action?.unitKey ?? action?.key;
+      if (!key) return null;
+      const quantityMap = extractQuantityMapFromAction(action);
+      const entries = Object.entries(quantityMap);
+      if (!entries.length) return null;
+      const table = isGoods
+        ? producerMap.goods[key]?.goodsCost
+        : producerMap.units[key]?.unitCosts;
+      const singleEntry = entries.length === 1;
+      let coins = 0;
+      let supplies = 0;
+      let totalAmount = 0;
+      entries.forEach(([amountRaw, count]) => {
+        const amount = Number(amountRaw);
+        if (!Number.isFinite(amount) || amount <= 0) return;
+        const mappedCost =
+          action?.costByAmount?.[amountRaw] ?? action?.costByAmount?.[amount];
+        const unitCost = mappedCost ?? (singleEntry ? action?.cost : null) ?? table?.[amount];
+        if (!unitCost) return;
+        coins += (unitCost.coins ?? 0) * count;
+        supplies += (unitCost.supplies ?? 0) * count;
+        totalAmount += amount * count;
+      });
+      if (totalAmount <= 0) return null;
+      return { key, totalAmount, coins, supplies };
+    },
+    [producerMap],
+  );
+
   const findInstanceId = useCallback((action) => {
     const list = layoutRef.current || [];
     if (action.instanceId !== null && action.instanceId !== undefined) {
@@ -481,25 +591,10 @@ export const useActionHistory = ({
   }, [resolveDefId]);
 
   const applyMoveAction = useCallback((action, direction) => {
-    // Handle new positions format: [[fromX, fromY, toX, toY], ...]
-    // Also support old format: { x: [], y: [], xn: [], yn: [] }
-    let moves = [];
-    if (action?.positions && Array.isArray(action.positions)) {
-      moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
-    } else {
-      const xs = Array.isArray(action?.x) ? action.x : [];
-      const ys = Array.isArray(action?.y) ? action.y : [];
-      const xns = Array.isArray(action?.xn) ? action.xn : [];
-      const yns = Array.isArray(action?.yn) ? action.yn : [];
-      for (let i = 0; i < xs.length; i++) {
-        if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
-          moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
-        }
-      }
-    }
+    const moves = normalizeMovePositions(action);
     if (!moves.length) return;
     const map = new Map();
-    moves.forEach(({ x, y, xn, yn }) => {
+    moves.forEach(([x, y, xn, yn]) => {
       if (direction >= 0) {
         map.set(`${x},${y}`, { x: xn, y: yn });
       } else {
@@ -863,36 +958,24 @@ export const useActionHistory = ({
         case ACTION_GOODS_PURCHASE:
         case ACTION_GOODS_PURCHASE_ADMIN: {
           if (action.type === ACTION_GOODS_PURCHASE_ADMIN) return;
-          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
-          const key = action.goodsKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) return;
-          // If cost is provided, use it directly; otherwise look up from producerMap
-          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
-          if (!unitCost) return;
+          const purchase = getPurchaseDelta(action, "goods");
+          if (!purchase) return;
           applyResourceDelta({
-            coins: -(unitCost.coins ?? 0) * count,
-            supplies: -(unitCost.supplies ?? 0) * count,
-            goods: { [key]: amount * count },
+            coins: -purchase.coins,
+            supplies: -purchase.supplies,
+            goods: { [purchase.key]: purchase.totalAmount },
           });
           return;
         }
         case ACTION_UNIT_PURCHASE:
         case ACTION_UNIT_PURCHASE_ADMIN: {
           if (action.type === ACTION_UNIT_PURCHASE_ADMIN) return;
-          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
-          const key = action.unitKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) return;
-          // If cost is provided, use it directly; otherwise look up from producerMap
-          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
-          if (!unitCost) return;
+          const purchase = getPurchaseDelta(action, "units");
+          if (!purchase) return;
           applyResourceDelta({
-            coins: -(unitCost.coins ?? 0) * count,
-            supplies: -(unitCost.supplies ?? 0) * count,
-            units: { [key]: amount * count },
+            coins: -purchase.coins,
+            supplies: -purchase.supplies,
+            units: { [purchase.key]: purchase.totalAmount },
           });
           return;
         }
@@ -924,6 +1007,7 @@ export const useActionHistory = ({
       applyMoveAction,
       applyAdminAdjust,
       producerMap,
+      getPurchaseDelta,
       setReadyMap,
       setBuildLocks,
     ],
@@ -1074,34 +1158,24 @@ export const useActionHistory = ({
         case ACTION_GOODS_PURCHASE:
         case ACTION_GOODS_PURCHASE_ADMIN: {
           if (action.type === ACTION_GOODS_PURCHASE_ADMIN) return;
-          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
-          const key = action.goodsKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) return;
-          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
-          if (!unitCost) return;
+          const purchase = getPurchaseDelta(action, "goods");
+          if (!purchase) return;
           applyResourceDelta({
-            coins: (unitCost.coins ?? 0) * count,
-            supplies: (unitCost.supplies ?? 0) * count,
-            goods: { [key]: -(amount * count) },
+            coins: purchase.coins,
+            supplies: purchase.supplies,
+            goods: { [purchase.key]: -purchase.totalAmount },
           });
           return;
         }
         case ACTION_UNIT_PURCHASE:
         case ACTION_UNIT_PURCHASE_ADMIN: {
           if (action.type === ACTION_UNIT_PURCHASE_ADMIN) return;
-          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
-          const key = action.unitKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) return;
-          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
-          if (!unitCost) return;
+          const purchase = getPurchaseDelta(action, "units");
+          if (!purchase) return;
           applyResourceDelta({
-            coins: (unitCost.coins ?? 0) * count,
-            supplies: (unitCost.supplies ?? 0) * count,
-            units: { [key]: -(amount * count) },
+            coins: purchase.coins,
+            supplies: purchase.supplies,
+            units: { [purchase.key]: -purchase.totalAmount },
           });
           return;
         }
@@ -1131,6 +1205,7 @@ export const useActionHistory = ({
       applyMoveAction,
       applyAdminAdjust,
       producerMap,
+      getPurchaseDelta,
       setReadyMap,
       setBuildLocks,
     ],
@@ -1276,25 +1351,10 @@ export const useActionHistory = ({
     };
 
     const applyMoveSim = (action) => {
-      // Handle new positions format: [[fromX, fromY, toX, toY], ...]
-      // Also support old format: { x: [], y: [], xn: [], yn: [] }
-      let moves = [];
-      if (action?.positions && Array.isArray(action.positions)) {
-        moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
-      } else {
-        const xs = Array.isArray(action?.x) ? action.x : [];
-        const ys = Array.isArray(action?.y) ? action.y : [];
-        const xns = Array.isArray(action?.xn) ? action.xn : [];
-        const yns = Array.isArray(action?.yn) ? action.yn : [];
-        for (let i = 0; i < xs.length; i++) {
-          if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
-            moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
-          }
-        }
-      }
+      const moves = normalizeMovePositions(action);
       if (!moves.length) return;
       const map = new Map();
-      moves.forEach(({ x, y, xn, yn }) => {
+      moves.forEach(([x, y, xn, yn]) => {
         map.set(`${x},${y}`, { x: xn, y: yn });
       });
       if (!map.size) return;
@@ -1582,34 +1642,24 @@ export const useActionHistory = ({
         case ACTION_GOODS_PURCHASE:
         case ACTION_GOODS_PURCHASE_ADMIN: {
           if (action.type === ACTION_GOODS_PURCHASE_ADMIN) break;
-          // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
-          const key = action.goodsKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) break;
-          const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
-          if (!unitCost) break;
+          const purchase = getPurchaseDelta(action, "goods");
+          if (!purchase) break;
           applyResourceDeltaSim({
-            coins: -(unitCost.coins ?? 0) * count,
-            supplies: -(unitCost.supplies ?? 0) * count,
-            goods: { [key]: amount * count },
+            coins: -purchase.coins,
+            supplies: -purchase.supplies,
+            goods: { [purchase.key]: purchase.totalAmount },
           });
           break;
         }
         case ACTION_UNIT_PURCHASE:
         case ACTION_UNIT_PURCHASE_ADMIN: {
           if (action.type === ACTION_UNIT_PURCHASE_ADMIN) break;
-          // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
-          const key = action.unitKey ?? action.key;
-          const amount = Number(action.quantity ?? action.amount ?? 0);
-          const count = action.cost ? 1 : Number(action.count ?? 1);
-          if (!amount || count <= 0 || !key) break;
-          const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
-          if (!unitCost) break;
+          const purchase = getPurchaseDelta(action, "units");
+          if (!purchase) break;
           applyResourceDeltaSim({
-            coins: -(unitCost.coins ?? 0) * count,
-            supplies: -(unitCost.supplies ?? 0) * count,
-            units: { [key]: amount * count },
+            coins: -purchase.coins,
+            supplies: -purchase.supplies,
+            units: { [purchase.key]: purchase.totalAmount },
           });
           break;
         }
@@ -1635,6 +1685,7 @@ export const useActionHistory = ({
     qaHoursPerHarvest,
     applyConfigBoosts,
     producerMap,
+    getPurchaseDelta,
     qaBasePerHour,
   ]);
 
@@ -1759,25 +1810,10 @@ export const useActionHistory = ({
       };
 
       const applyMoveSim = (action) => {
-        // Handle new positions format: [[fromX, fromY, toX, toY], ...]
-        // Also support old format: { x: [], y: [], xn: [], yn: [] }
-        let moves = [];
-        if (action?.positions && Array.isArray(action.positions)) {
-          moves = action.positions.map(([x, y, xn, yn]) => ({ x, y, xn, yn }));
-        } else {
-          const xs = Array.isArray(action?.x) ? action.x : [];
-          const ys = Array.isArray(action?.y) ? action.y : [];
-          const xns = Array.isArray(action?.xn) ? action.xn : [];
-          const yns = Array.isArray(action?.yn) ? action.yn : [];
-          for (let i = 0; i < xs.length; i++) {
-            if (xs[i] !== undefined && ys[i] !== undefined && xns[i] !== undefined && yns[i] !== undefined) {
-              moves.push({ x: xs[i], y: ys[i], xn: xns[i], yn: yns[i] });
-            }
-          }
-        }
+        const moves = normalizeMovePositions(action);
         if (!moves.length) return;
         const map = new Map();
-        moves.forEach(({ x, y, xn, yn }) => {
+        moves.forEach(([x, y, xn, yn]) => {
           map.set(`${x},${y}`, { x: xn, y: yn });
         });
         if (!map.size) return;
@@ -2045,34 +2081,24 @@ export const useActionHistory = ({
           case ACTION_GOODS_PURCHASE:
           case ACTION_GOODS_PURCHASE_ADMIN: {
             if (action.type === ACTION_GOODS_PURCHASE_ADMIN) break;
-            // Support new format (goodsKey, quantity, cost) and old format (key, amount, count)
-            const key = action.goodsKey ?? action.key;
-            const amount = Number(action.quantity ?? action.amount ?? 0);
-            const count = action.cost ? 1 : Number(action.count ?? 1);
-            if (!amount || count <= 0 || !key) break;
-            const unitCost = action.cost || producerMap.goods[key]?.goodsCost?.[amount];
-            if (!unitCost) break;
+            const purchase = getPurchaseDelta(action, "goods");
+            if (!purchase) break;
             applyResourceDeltaSim({
-              coins: -(unitCost.coins ?? 0) * count,
-              supplies: -(unitCost.supplies ?? 0) * count,
-              goods: { [key]: amount * count },
+              coins: -purchase.coins,
+              supplies: -purchase.supplies,
+              goods: { [purchase.key]: purchase.totalAmount },
             });
             break;
           }
           case ACTION_UNIT_PURCHASE:
           case ACTION_UNIT_PURCHASE_ADMIN: {
             if (action.type === ACTION_UNIT_PURCHASE_ADMIN) break;
-            // Support new format (unitKey, quantity, cost) and old format (key, amount, count)
-            const key = action.unitKey ?? action.key;
-            const amount = Number(action.quantity ?? action.amount ?? 0);
-            const count = action.cost ? 1 : Number(action.count ?? 1);
-            if (!amount || count <= 0 || !key) break;
-            const unitCost = action.cost || producerMap.units[key]?.unitCosts?.[amount];
-            if (!unitCost) break;
+            const purchase = getPurchaseDelta(action, "units");
+            if (!purchase) break;
             applyResourceDeltaSim({
-              coins: -(unitCost.coins ?? 0) * count,
-              supplies: -(unitCost.supplies ?? 0) * count,
-              units: { [key]: amount * count },
+              coins: -purchase.coins,
+              supplies: -purchase.supplies,
+              units: { [purchase.key]: purchase.totalAmount },
             });
             break;
           }
@@ -2111,6 +2137,7 @@ export const useActionHistory = ({
       qaHoursPerHarvest,
       applyConfigBoosts,
       producerMap,
+      getPurchaseDelta,
       qaBasePerHour,
     ],
   );
@@ -2348,141 +2375,149 @@ export const useActionHistory = ({
 
   const recordHistoryAction = useCallback(
     (action) => {
-      const currentNodeId = selectedNodeIdRef.current;
-      const nextAction = { ...action };
-      
-      // Clean up action object
-      const isSellAction =
-        nextAction.type === ACTION_SELL ||
-        nextAction.type === ACTION_SELL_ADMIN;
-      if (!isSellAction) {
-        delete nextAction.instanceId;
-      }
-      delete nextAction.ready;
-      delete nextAction.locked;
-      delete nextAction.readyBefore;
-      delete nextAction.lockedBefore;
-      if (
-        nextAction.type === ACTION_BUILD ||
-        nextAction.type === ACTION_BUILD_ADMIN
-      ) {
-        delete nextAction.width;
-        delete nextAction.height;
-      }
-      if (!nextAction.shortId && nextAction.defId) {
-        const shortId = defIdToShortId[nextAction.defId];
-        if (shortId) {
-          nextAction.shortId = shortId;
-          delete nextAction.defId;
-        }
-      }
+      const startNodeIdRaw = selectedNodeIdRef.current;
+      const startNodeId = Number.isFinite(startNodeIdRaw)
+        ? startNodeIdRaw
+        : 0;
+      const rawActions = Array.isArray(action) ? action : [action];
+      const preparedActions = rawActions
+        .filter(Boolean)
+        .map((entry) => {
+          const nextAction = { ...entry };
 
-      // Move merge helper
-      const mergeMoveActions = (baseAction, appendedAction) => {
-        const toMap = (source) => {
-          const xs = Array.isArray(source?.x) ? source.x : [];
-          const ys = Array.isArray(source?.y) ? source.y : [];
-          const xns = Array.isArray(source?.xn) ? source.xn : [];
-          const yns = Array.isArray(source?.yn) ? source.yn : [];
-          const map = new Map();
-          const count = Math.min(xs.length, ys.length, xns.length, yns.length);
-          for (let i = 0; i < count; i += 1) {
-            const x = xs[i];
-            const y = ys[i];
-            const xn = xns[i];
-            const yn = yns[i];
-            if (x === undefined || y === undefined || xn === undefined || yn === undefined) continue;
-            map.set(`${x},${y}`, `${xn},${yn}`);
+          // Clean up action object
+          const isSellAction =
+            nextAction.type === ACTION_SELL ||
+            nextAction.type === ACTION_SELL_ADMIN;
+          if (!isSellAction) {
+            delete nextAction.instanceId;
           }
-          return map;
-        };
-        const toAction = (map, base) => {
-          const x = [], y = [], xn = [], yn = [];
-          map.forEach((toKey, fromKey) => {
-            const [fromX, fromY] = fromKey.split(",").map(Number);
-            const [toX, toY] = toKey.split(",").map(Number);
-            x.push(fromX); y.push(fromY); xn.push(toX); yn.push(toY);
-          });
-          return { ...base, x, y, xn, yn };
-        };
-        const baseMap = toMap(baseAction);
-        const appendMap = toMap(appendedAction);
-        if (!baseMap.size) return { ...appendedAction };
-        if (!appendMap.size) return { ...baseAction };
-        const baseValues = new Set(baseMap.values());
-        const mergedMap = new Map();
-        baseMap.forEach((currentKey, originKey) => {
-          const nextKey = appendMap.get(currentKey) ?? currentKey;
-          if (nextKey !== originKey) mergedMap.set(originKey, nextKey);
-        });
-        appendMap.forEach((nextKey, currentKey) => {
-          if (!baseValues.has(currentKey) && nextKey !== currentKey) mergedMap.set(currentKey, nextKey);
-        });
-        return toAction(mergedMap, { ...baseAction, type: ACTION_MOVE });
-      };
+          delete nextAction.ready;
+          delete nextAction.locked;
+          delete nextAction.readyBefore;
+          delete nextAction.lockedBefore;
+          if (
+            nextAction.type === ACTION_BUILD ||
+            nextAction.type === ACTION_BUILD_ADMIN
+          ) {
+            delete nextAction.width;
+            delete nextAction.height;
+          }
+          if (!nextAction.shortId && nextAction.defId) {
+            const shortId = defIdToShortId[nextAction.defId];
+            if (shortId) {
+              nextAction.shortId = shortId;
+              delete nextAction.defId;
+            }
+          }
+
+          const isGoodsPurchaseType =
+            nextAction.type === ACTION_GOODS_PURCHASE ||
+            nextAction.type === ACTION_GOODS_PURCHASE_ADMIN;
+          const isUnitPurchaseType =
+            nextAction.type === ACTION_UNIT_PURCHASE ||
+            nextAction.type === ACTION_UNIT_PURCHASE_ADMIN;
+          const isPurchaseType = isGoodsPurchaseType || isUnitPurchaseType;
+
+          if (nextAction.type === ACTION_MOVE) {
+            const positions = normalizeMovePositions(nextAction).filter(
+              ([x, y, xn, yn]) => x !== xn || y !== yn,
+            );
+            if (!positions.length) return null;
+            nextAction.positions = positions;
+            delete nextAction.x;
+            delete nextAction.y;
+            delete nextAction.xn;
+            delete nextAction.yn;
+          }
+
+          if (isPurchaseType) {
+            const keyField = isGoodsPurchaseType ? "goodsKey" : "unitKey";
+            const key = nextAction[keyField] ?? nextAction.key;
+            const quantityMap = extractQuantityMapFromAction(nextAction);
+            if (!key || !Object.keys(quantityMap).length) return null;
+            nextAction[keyField] = key;
+            nextAction.key = key;
+            nextAction.q = quantityMap;
+            nextAction.quantity = sumQuantityMap(quantityMap);
+            delete nextAction.amount;
+            delete nextAction.count;
+          }
+
+          return nextAction;
+        })
+        .filter(Boolean);
+
+      if (!preparedActions.length) return;
 
       setHistoryTree((prev) => {
         const nodes = new Map(prev.nodes);
-        const currentNode = nodes.get(currentNodeId);
-        if (!currentNode) return prev;
+        let currentNodeId = nodes.has(startNodeId) ? startNodeId : 0;
+        let nextNodeId = prev.nextNodeId;
 
-        // Check if we can merge with the CURRENT node (for move/purchase actions)
-        // This happens when we're at a move/purchase node and do another move/purchase
-        const isPurchaseType =
-          nextAction.type === ACTION_GOODS_PURCHASE ||
-          nextAction.type === ACTION_GOODS_PURCHASE_ADMIN ||
-          nextAction.type === ACTION_UNIT_PURCHASE ||
-          nextAction.type === ACTION_UNIT_PURCHASE_ADMIN;
-        const isMoveType = nextAction.type === ACTION_MOVE;
+        preparedActions.forEach((nextAction) => {
+          const currentNode = nodes.get(currentNodeId);
+          if (!currentNode) return;
 
-        // Check if current node is the same type and can be merged INTO
-        // (merge with current node, not with a child - that was causing the bug)
-        if (currentNode.action) {
-          const currentAction = currentNode.action;
-          
-          // Try to merge purchases into current node
-          if (isPurchaseType && 
+          const isPurchaseType =
+            nextAction.type === ACTION_GOODS_PURCHASE ||
+            nextAction.type === ACTION_GOODS_PURCHASE_ADMIN ||
+            nextAction.type === ACTION_UNIT_PURCHASE ||
+            nextAction.type === ACTION_UNIT_PURCHASE_ADMIN;
+
+          // Merge only same-kind consecutive purchases (same goods/unit key).
+          if (currentNode.action) {
+            const currentAction = currentNode.action;
+            const currentPurchaseKey =
+              currentAction.key ??
+              currentAction.goodsKey ??
+              currentAction.unitKey;
+            const nextPurchaseKey =
+              nextAction.key ?? nextAction.goodsKey ?? nextAction.unitKey;
+            if (
+              isPurchaseType &&
               currentAction.type === nextAction.type &&
-              currentAction.key === nextAction.key &&
-              Number(currentAction.amount ?? 0) === Number(nextAction.amount ?? 0)) {
-            const nextCount = Number(currentAction.count ?? 1) + Number(nextAction.count ?? 1);
-            const merged = { ...currentAction, count: nextCount };
-            nodes.set(currentNodeId, { ...currentNode, action: merged });
-            // Selection stays at currentNodeId
-            setSelectedNodeId(currentNodeId);
-            return { ...prev, nodes };
+              currentPurchaseKey &&
+              nextPurchaseKey &&
+              currentPurchaseKey === nextPurchaseKey
+            ) {
+              const mergedQ = mergeQuantityMaps(
+                extractQuantityMapFromAction(currentAction),
+                nextAction.q,
+              );
+              if (Object.keys(mergedQ).length) {
+                const merged = {
+                  ...currentAction,
+                  q: mergedQ,
+                  quantity: sumQuantityMap(mergedQ),
+                };
+                nodes.set(currentNodeId, { ...currentNode, action: merged });
+                return;
+              }
+            }
           }
-          
-          // Try to merge moves into current node
-          if (isMoveType && currentAction.type === ACTION_MOVE) {
-            const merged = mergeMoveActions(currentAction, nextAction);
-            nodes.set(currentNodeId, { ...currentNode, action: merged });
-            // Selection stays at currentNodeId
-            setSelectedNodeId(currentNodeId);
-            return { ...prev, nodes };
-          }
-        }
 
-        // Create new node as child (this creates a branch if currentNode already has children)
-        const newNodeId = prev.nextNodeId;
-        const newNode = {
-          id: newNodeId,
-          parentId: currentNodeId,
-          action: nextAction,
-          childrenIds: [],
-        };
-        nodes.set(newNodeId, newNode);
+          // Create new node as child (appended in sequence)
+          const newNode = {
+            id: nextNodeId,
+            parentId: currentNodeId,
+            action: nextAction,
+            childrenIds: [],
+          };
+          nodes.set(nextNodeId, newNode);
 
-        // Add to parent's children at the END (new branches go below existing ones)
-        const updatedParent = {
-          ...currentNode,
-          childrenIds: [...currentNode.childrenIds, newNodeId],
-        };
-        nodes.set(currentNodeId, updatedParent);
+          const updatedParent = {
+            ...currentNode,
+            childrenIds: [...currentNode.childrenIds, nextNodeId],
+          };
+          nodes.set(currentNodeId, updatedParent);
 
-        // Select the new node immediately
-        setSelectedNodeId(newNodeId);
-        return { nodes, nextNodeId: newNodeId + 1 };
+          currentNodeId = nextNodeId;
+          nextNodeId += 1;
+        });
+
+        setSelectedNodeId(currentNodeId);
+        return { nodes, nextNodeId };
       });
     },
     [defIdToShortId],
@@ -2771,8 +2806,7 @@ export const useActionHistory = ({
         nodes.set(nodeId, { ...nodeToFix, action: updatedAction });
       }
       
-      // If there are move operations to insert, create a SINGLE bundled move node
-      // (using array format like flushMoveChain does)
+      // If there are move operations to insert, create a single bundled move node.
       if (moveOperations && moveOperations.length > 0) {
         const parentId = nodeToFix.parentId;
         const parentNode = nodes.get(parentId);
@@ -2787,14 +2821,15 @@ export const useActionHistory = ({
           ...parentNode.childrenIds.slice(nodeIndex + 1),
         ];
         
-        // Create a single bundled move action (array format)
+        // Create a single bundled move action (position tuples)
         const bundledMoveAction = {
           type: ACTION_MOVE,
-          // Use arrays for bundled moves (same format as flushMoveChain)
-          x: moveOperations.map((m) => m.fromX),
-          y: moveOperations.map((m) => m.fromY),
-          xn: moveOperations.map((m) => m.toX),
-          yn: moveOperations.map((m) => m.toY),
+          positions: moveOperations.map((m) => [
+            m.fromX,
+            m.fromY,
+            m.toX,
+            m.toY,
+          ]),
         };
         
         const moveNode = {

@@ -31,10 +31,8 @@ export function LeftSidebar({
   // Refund and other tools
   refundMode,
   onToggleRefund,
-  selectMode,
-  onToggleSelectMode,
-  autoSelectNew = false,
-  onToggleAutoSelectNew,
+  highlightMode,
+  onToggleHighlightMode,
   onPrintBoard,
   onExportPdf,
   onFindWorst,
@@ -192,22 +190,11 @@ export function LeftSidebar({
             </button>
             <div className="sidebar-row">
               <button
-                className={`sidebar-btn ${selectMode ? "active-mode" : ""}`}
-                onClick={onToggleSelectMode}
-                title="Markiere Gebäude rot, ohne sie zu ändern"
+                className={`sidebar-btn ${highlightMode ? "active-mode" : ""}`}
+                onClick={onToggleHighlightMode}
+                title="Hebt betroffene Gebaeude seit dem letzten Checkpoint hervor"
               >
-                <span>Select</span>
-                <label
-                  className="select-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    checked={autoSelectNew}
-                    onChange={() => onToggleAutoSelectNew?.()}
-                    title="Neue Gebäude automatisch markieren"
-                  />
-                </label>
+                <span>Highlight</span>
               </button>
               <button
                 className="sidebar-btn"
@@ -247,3 +234,4 @@ export function LeftSidebar({
     </aside>
   );
 }
+

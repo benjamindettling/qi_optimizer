@@ -1,7 +1,25 @@
 import { useCallback } from "react";
-import { REGION_GOODS_COSTS } from "../../config/boardConfig";
+import { GOODS_TYPES, REGION_GOODS_COSTS } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
 import { canAffordFastBuy, totalFastBuyCost } from "../../domain/economy/resourceTransactions";
+
+const goodsIndexForKey = (key) => {
+  const idx = GOODS_TYPES.indexOf(key);
+  return idx >= 0 ? idx + 1 : 1;
+};
+
+const buildQuantityMap = (entries = []) => {
+  const map = {};
+  entries.forEach(({ amount, count = 1 }) => {
+    const qty = Number(amount);
+    const qtyCount = Number(count);
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    if (!Number.isFinite(qtyCount) || qtyCount <= 0) return;
+    const amountKey = String(qty);
+    map[amountKey] = (map[amountKey] ?? 0) + Math.floor(qtyCount);
+  });
+  return map;
+};
 
 // Purchases for goods/units and fast-buy flow.
 export const useEconomyHandlers = ({
@@ -47,11 +65,13 @@ export const useEconomyHandlers = ({
       applySpend(cost);
       applyAdjustGoods(def.produces, Number(amount));
       updateStatus(label);
+      const quantity = Number(amount);
       recordHistoryAction?.({
         type: infiniteResources ? "goodsPurchaseAdmin" : "goodsPurchase",
         goodsKey: def.produces,
-        quantity: Number(amount),
-        cost: cost,
+        g: goodsIndexForKey(def.produces),
+        q: buildQuantityMap([{ amount: quantity, count: 1 }]),
+        quantity,
       });
     },
     [
@@ -129,6 +149,12 @@ export const useEconomyHandlers = ({
       }
       branchFromPast();
       const totals = totalFastBuyCost(option);
+      const purchaseMap = buildQuantityMap(
+        (option?.plan ?? []).map((entry) => ({
+          amount: entry?.amount,
+          count: 1,
+        })),
+      );
       const label = `Fastbuy ${goodKey} für ${formatNumber(
         totals.coins,
       )}/${formatNumber(totals.supplies)}`;
@@ -145,13 +171,23 @@ export const useEconomyHandlers = ({
       setUnlockChoice(null);
       setUnlockGoodSelect(null);
       updateStatus(label);
-      recordHistoryAction?.({
+      const actionChain = [];
+      if (Object.keys(purchaseMap).length > 0) {
+        actionChain.push({
+          type: infiniteResources ? "goodsPurchaseAdmin" : "goodsPurchase",
+          goodsKey: goodKey,
+          g: goodsIndexForKey(goodKey),
+          q: purchaseMap,
+          quantity: Number(option.totalAmount ?? 0),
+        });
+      }
+      actionChain.push({
         type: "regionUnlockGoods",
         regionIdx: fastBuyTarget,
         goodKey,
-        fastBuyAmount: option.totalAmount,
         admin: !!infiniteResources,
       });
+      recordHistoryAction?.(actionChain);
       requestAutoSnapshot();
     },
     [

@@ -12,6 +12,7 @@ import { ACTION_COLORS } from "../../config/colors";
 import { useTreeNavigation } from "../../hooks/useTreeNavigation";
 import { REGION_COLS, REGION_MASK } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
+import { getGoodIconPath } from "../../utils/goodsIconPath";
 import {
   FoldVertical,
   UnfoldVertical,
@@ -347,10 +348,8 @@ export function AppLayout({
             shortIdMap={historyProps.shortIdMap}
             refundMode={toolbarProps.refundMode}
             onToggleRefund={toolbarProps.onToggleRefund}
-            selectMode={toolbarProps.selectMode}
-            onToggleSelectMode={toolbarProps.onToggleSelectMode}
-            autoSelectNew={toolbarProps.autoSelectNew}
-            onToggleAutoSelectNew={toolbarProps.onToggleAutoSelectNew}
+            highlightMode={toolbarProps.highlightMode}
+            onToggleHighlightMode={toolbarProps.onToggleHighlightMode}
             onPrintBoard={toolbarProps.onPrintBoard}
             onExportPdf={toolbarProps.onExportPdf}
             onFindWorst={toolbarProps.onFindWorst}
@@ -511,7 +510,17 @@ function generateNodeDisplay(action, libraryMap, shortIdMap) {
     case "produceGoods":
       return {
         nodeLabel: null,
-        nodeIcon: action.goodKey ? `/goods/${action.goodKey}.webp` : null,
+        nodeIcon: action.goodKey ? getGoodIconPath(action.goodKey) : null,
+      };
+
+    case "goodsPurchase":
+    case "goodsPurchaseAdmin":
+      return {
+        nodeLabel: null,
+        nodeIcon:
+          action.goodsKey || action.key
+            ? getGoodIconPath(action.goodsKey || action.key)
+            : null,
       };
 
     // Units production - show unit icon
@@ -521,11 +530,18 @@ function generateNodeDisplay(action, libraryMap, shortIdMap) {
         nodeIcon: action.unitKey ? `/units/${action.unitKey}.webp` : null,
       };
 
+    case "unitPurchase":
+    case "unitPurchaseAdmin":
+      return {
+        nodeLabel: null,
+        nodeIcon: action.unitKey || action.key ? `/units/${action.unitKey || action.key}.webp` : null,
+      };
+
     // Region unlock - show payment icon
     case "regionUnlockGoods":
       return {
         nodeLabel: null,
-        nodeIcon: action.goodKey ? `/goods/${action.goodKey}.webp` : null,
+        nodeIcon: action.goodKey ? getGoodIconPath(action.goodKey) : null,
       };
 
     case "regionUnlockShards":
@@ -658,6 +674,38 @@ function generateActionTitle(action, libraryMap, shortIdMap) {
     case "finishProductions":
     case "finishProductionsAdmin":
       return `Boost Alle${adminSuffix}`;
+
+    case "goodsPurchase":
+    case "goodsPurchaseAdmin": {
+      const total =
+        action.q && typeof action.q === "object" && !Array.isArray(action.q)
+          ? Object.entries(action.q).reduce((sum, [amountRaw, countRaw]) => {
+              const amount = Number(amountRaw);
+              const count = Number(countRaw);
+              if (!Number.isFinite(amount) || amount <= 0) return sum;
+              if (!Number.isFinite(count) || count <= 0) return sum;
+              return sum + amount * count;
+            }, 0)
+          : Number(action.quantity ?? action.amount ?? action.count ?? 0);
+      const goodsKey = action.goodsKey || action.key || "Gueter";
+      return `+${formatNumber(total || 0)} ${goodsKey}${adminSuffix}`;
+    }
+
+    case "unitPurchase":
+    case "unitPurchaseAdmin": {
+      const total =
+        action.q && typeof action.q === "object" && !Array.isArray(action.q)
+          ? Object.entries(action.q).reduce((sum, [amountRaw, countRaw]) => {
+              const amount = Number(amountRaw);
+              const count = Number(countRaw);
+              if (!Number.isFinite(amount) || amount <= 0) return sum;
+              if (!Number.isFinite(count) || count <= 0) return sum;
+              return sum + amount * count;
+            }, 0)
+          : Number(action.quantity ?? action.amount ?? action.count ?? 0);
+      const unitKey = action.unitKey || action.key || "Units";
+      return `+${formatNumber(total || 0)} ${unitKey}${adminSuffix}`;
+    }
 
     // Admin resource adjustments
     case "adminAdjust": {

@@ -31,10 +31,8 @@ export function ActionToolbar({
   onDeleteSave,
   notes,
   onChangeNotes,
-  selectMode,
-  onToggleSelectMode,
-  autoSelectNew = false,
-  onToggleAutoSelectNew,
+  highlightMode,
+  onToggleHighlightMode,
   onPrintBoard,
   onFindWorst,
   onOpenExport,
@@ -296,20 +294,11 @@ export function ActionToolbar({
           </button>
           <div className="actions-row">
             <button
-              className={`mode-button select ${selectMode ? "active-mode" : ""}`}
-              onClick={onToggleSelectMode}
-              title="Markiere Gebäude rot, ohne sie zu ändern"
+              className={`mode-button select ${highlightMode ? "active-mode" : ""}`}
+              onClick={onToggleHighlightMode}
+              title="Hebt betroffene Gebaeude seit dem letzten Checkpoint hervor"
             >
-              <span>Select</span>
-              <label className="select-auto">
-                <input
-                  type="checkbox"
-                  checked={autoSelectNew}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={() => onToggleAutoSelectNew?.()}
-                  title="Neue Gebäude automatisch markieren"
-                />
-              </label>
+              <span>Highlight</span>
             </button>
             <button
               className="action-button print"
@@ -331,3 +320,4 @@ export function ActionToolbar({
     </div>
   );
 }
+

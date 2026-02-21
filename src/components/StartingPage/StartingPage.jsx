@@ -685,7 +685,7 @@ export function StartingPage({
                 </li>
                 <li>
                   <strong>Weitere Tools:</strong> enthält Volle Erstattung,
-                  Select (mit Auto-Select Checkbox), Screenshot, File -&gt; PDF
+                  Highlight, Screenshot, File -&gt; PDF
                   und Finde schlechtestes.
                 </li>
               </ul>
@@ -708,3 +708,4 @@ export function StartingPage({
     </>
   );
 }
+

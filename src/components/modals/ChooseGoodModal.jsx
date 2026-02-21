@@ -3,6 +3,7 @@
 import { GOODS_TYPES } from "../../config/boardConfig";
 import { canAffordSingleGood } from "../../utils/stateUtils";
 import { formatNumber } from "../../utils/formatNumber";
+import { getGoodIconPath } from "../../utils/goodsIconPath";
 
 /**
  * Modal for choosing WHICH good to spend when unlocking a region.
@@ -53,7 +54,7 @@ export function ChooseGoodModal({
                 }
               >
                 <img
-                  src={`/goods/${g === "Stein" ? "Backstein" : g}.webp`}
+                  src={getGoodIconPath(g)}
                   alt={g}
                   style={{ width: 20, height: 20, marginRight: 6 }}
                 />

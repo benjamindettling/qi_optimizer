@@ -10,6 +10,7 @@ import armyRedIcon from "/red_both_qi.webp";
 import armyBlueIcon from "/blue_both_qi.webp";
 import troopIcon from "/troop.webp";
 import { formatNumber } from "../../utils/formatNumber";
+import { getGoodIconPath } from "../../utils/goodsIconPath";
 
 const CostRow = ({ icon, label, danger }) => (
   <div className={`cost-row ${danger ? "cost" : ""}`}>
@@ -212,11 +213,7 @@ export function ShopCard({
                   <div className="goods-row header">
                     <span className="goods-amount">
                       <img
-                        src={`/goods/${
-                          item.produces === "Stein"
-                            ? "Backstein"
-                            : item.produces || "Kupfer"
-                        }.webp`}
+                        src={getGoodIconPath(item.produces || "Kupfer")}
                         alt={item.produces || "goods"}
                       />
                     </span>

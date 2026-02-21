@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getGoodIconPath } from "../../utils/goodsIconPath";
 
 const goodsIcon = "/menu/goods.png";
 
@@ -12,7 +13,7 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
   if (!modal) return null;
 
   const goodKey = modal.goodKey;
-  const goodIcon = `/goods/${goodKey === "Stein" ? "Backstein" : goodKey}.webp`;
+  const goodIcon = getGoodIconPath(goodKey);
 
   const numberProps = {
     type: "number",

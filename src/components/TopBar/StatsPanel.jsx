@@ -11,6 +11,7 @@ import blueAttackIcon from "/fight/blue_attack.webp";
 import blueDefenseIcon from "/fight/blue_defense.webp";
 import { GOODS_TYPES, UNIT_TYPES } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
+import { getGoodIconPath } from "../../utils/goodsIconPath";
 import { HappinessPanel } from "./HappinessPanel";
 import { ResourceStack } from "./ResourceStack";
 
@@ -124,7 +125,7 @@ export function StatsPanel({
   const goodsEntries = GOODS_TYPES.map((g) => ({
     key: g,
     label: g,
-    icon: `/goods/${g === "Stein" ? "Backstein" : g}.webp`,
+    icon: getGoodIconPath(g),
     value: resources.goods[g],
     valueClass: valueClassFor(resources.goods[g]),
     onEdit: () => onEditGood?.(g),

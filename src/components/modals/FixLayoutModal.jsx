@@ -65,8 +65,8 @@ export function FixLayoutModal({
     onDebugLockRegion: () => {},
     onWrapperResize: () => {},
     boardRef: null,
-    // Clear selection
-    selectedIds: new Set(),
+    // Clear highlight overlays
+    highlightedIds: new Set(),
     // No ready/boost states in preview
     readyMap: {},
     buildLocks: {},

@@ -13,8 +13,8 @@
  * - harvest: { t: "h", s: shortId, x, y }
  * - harvestAll: { t: "H" } - always partial harvest (full harvest removed)
  * - finishProductions: { t: "fp" }
- * - goodsPurchase/goodsPurchaseAdmin: { t: "gp"|"gpa", i: goodIndex(1-5), q: quantity, c: cost }
- * - unitPurchase/unitPurchaseAdmin: { t: "up"|"upa", i: unitIndex(1-3), q: quantity, c: cost }
+ * - goodsPurchase/goodsPurchaseAdmin: { t: "gp"|"gpa", i: goodIndex(1-5), q: {amount:count} }
+ * - unitPurchase/unitPurchaseAdmin: { t: "up"|"upa", i: unitIndex(1-3), q: {amount:count} }
  * - regionUnlockGoods: { t: "rug", r: regionIdx, i: goodIndex(1-5) }
  * - regionUnlockShards: { t: "rus", r: regionIdx }
  * - regionUnlockAdmin: { t: "rua", r: regionIdx }
@@ -110,6 +110,31 @@ function resourceIndexToKey(index) {
   return RESOURCE_KEYS[(index ?? 1) - 1] || RESOURCE_KEYS[0];
 }
 
+function normalizeQuantityMap(mapLike) {
+  if (!mapLike || typeof mapLike !== "object" || Array.isArray(mapLike)) {
+    return null;
+  }
+  const next = {};
+  Object.entries(mapLike).forEach(([amountRaw, countRaw]) => {
+    const amount = Number(amountRaw);
+    const count = Number(countRaw);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    if (!Number.isFinite(count) || count <= 0) return;
+    const amountKey = String(amount);
+    next[amountKey] = (next[amountKey] ?? 0) + Math.floor(count);
+  });
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+function sumQuantityMap(mapLike) {
+  const q = normalizeQuantityMap(mapLike);
+  if (!q) return 0;
+  return Object.entries(q).reduce(
+    (sum, [amountRaw, count]) => sum + Number(amountRaw) * count,
+    0
+  );
+}
+
 /**
  * Compress an action to minimal format
  */
@@ -174,18 +199,30 @@ function compressAction(action) {
       
     case "goodsPurchase":
     case "goodsPurchaseAdmin":
-      // Store goods index (1-5), quantity, and total cost
-      result.i = goodsKeyToIndex(action.key);
-      if (action.quantity != null) result.q = action.quantity;
-      if (action.totalCost != null) result.c = action.totalCost;
+      // Store goods index (1-5) and quantity map {amount:count}
+      result.i = goodsKeyToIndex(action.goodsKey ?? action.key);
+      {
+        const qMap = normalizeQuantityMap(action.q);
+        if (qMap) {
+          result.q = qMap;
+        } else if (action.quantity != null) {
+          result.q = action.quantity;
+        }
+      }
       break;
       
     case "unitPurchase":
     case "unitPurchaseAdmin":
-      // Store unit index (1-3), quantity, and total cost
-      result.i = unitsKeyToIndex(action.key);
-      if (action.quantity != null) result.q = action.quantity;
-      if (action.totalCost != null) result.c = action.totalCost;
+      // Store unit index (1-3) and quantity map {amount:count}
+      result.i = unitsKeyToIndex(action.unitKey ?? action.key);
+      {
+        const qMap = normalizeQuantityMap(action.q);
+        if (qMap) {
+          result.q = qMap;
+        } else if (action.quantity != null) {
+          result.q = action.quantity;
+        }
+      }
       break;
       
     case "regionUnlockGoods":
@@ -303,16 +340,34 @@ function expandAction(compressed) {
       
     case "goodsPurchase":
     case "goodsPurchaseAdmin":
-      result.key = goodsIndexToKey(compressed.i);
-      if (compressed.q != null) result.quantity = compressed.q;
-      if (compressed.c != null) result.totalCost = compressed.c;
+      result.goodsKey = goodsIndexToKey(compressed.i);
+      result.key = result.goodsKey;
+      if (compressed.q != null && typeof compressed.q === "object" && !Array.isArray(compressed.q)) {
+        result.q = compressed.q;
+        result.quantity = sumQuantityMap(compressed.q);
+      } else if (compressed.q != null) {
+        const qty = Number(compressed.q);
+        if (Number.isFinite(qty) && qty > 0) {
+          result.quantity = qty;
+          result.q = { [String(qty)]: 1 };
+        }
+      }
       break;
       
     case "unitPurchase":
     case "unitPurchaseAdmin":
-      result.key = unitsIndexToKey(compressed.i);
-      if (compressed.q != null) result.quantity = compressed.q;
-      if (compressed.c != null) result.totalCost = compressed.c;
+      result.unitKey = unitsIndexToKey(compressed.i);
+      result.key = result.unitKey;
+      if (compressed.q != null && typeof compressed.q === "object" && !Array.isArray(compressed.q)) {
+        result.q = compressed.q;
+        result.quantity = sumQuantityMap(compressed.q);
+      } else if (compressed.q != null) {
+        const qty = Number(compressed.q);
+        if (Number.isFinite(qty) && qty > 0) {
+          result.quantity = qty;
+          result.q = { [String(qty)]: 1 };
+        }
+      }
       break;
       
     case "regionUnlockGoods":
