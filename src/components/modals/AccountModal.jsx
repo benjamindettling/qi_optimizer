@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -20,24 +21,18 @@ import redDefenseIcon from "/fight/red_defense.webp";
 import blueAttackIcon from "/fight/blue_attack.webp";
 import blueDefenseIcon from "/fight/blue_defense.webp";
 import qaIcon from "/quantum_actions.webp";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 import "./AccountModal.css";
 
-const TABS = [
-  { key: "account", label: "Account" },
-  { key: "config", label: "Config" },
-  { key: "preferences", label: "Präferenzen" },
-  { key: "premium", label: "Premium" },
+const TAB_KEYS = [
+  "account",
+  "config",
+  "preferences",
+  "premium",
 ];
 
-const LEGAL_TABS = [
-  { key: "contact", label: "Kontakt" },
-  { key: "imprint", label: "Impressum" },
-  { key: "privacy", label: "Datenschutz" },
-];
-
-const ALL_TABS = [...TABS, ...LEGAL_TABS];
-
-const isValidTabKey = (tabKey) => ALL_TABS.some((tab) => tab.key === tabKey);
+const isValidTabKey = (tabKey) => TAB_KEYS.includes(tabKey);
 
 export function AccountModal({
   open,
@@ -53,11 +48,32 @@ export function AccountModal({
   setToolbarPosition,
   boardScale,
   setBoardScale,
+  warnDeleteSingleAction,
+  setWarnDeleteSingleAction,
+  warnDeleteSubtree,
+  setWarnDeleteSubtree,
   saveAccountToCloud,
   canCloudSave,
   cloudProfile,
   initialTab = "account",
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+  const navigate = useNavigate();
+  const location = useLocation();
+  const mainTabs = [
+    { key: "account", label: t("accountTabAccount") },
+    { key: "config", label: t("accountTabConfig") },
+    { key: "preferences", label: t("accountTabPreferences") },
+    { key: "premium", label: t("accountTabPremium") },
+  ];
+  const legalTabs = [
+    { key: "contact", label: t("accountTabContact") },
+    { key: "imprint", label: t("accountTabImprint") },
+    { key: "privacy", label: t("accountTabPrivacy") },
+  ];
+  const allTabs = [...mainTabs, ...legalTabs];
+
   const { user, authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
 
@@ -95,8 +111,18 @@ export function AccountModal({
       useShortNames: useShortNames,
       toolbarPosition: toolbarPosition,
       boardScale: Math.round((boardScale ?? 1) * 100),
+      warnDeleteSingleAction: warnDeleteSingleAction,
+      warnDeleteSubtree: warnDeleteSubtree,
     }),
-    [config, viewMode, useShortNames, toolbarPosition, boardScale],
+    [
+      config,
+      viewMode,
+      useShortNames,
+      toolbarPosition,
+      boardScale,
+      warnDeleteSingleAction,
+      warnDeleteSubtree,
+    ],
   );
 
   const [draft, setDraft] = useState(initialDraft);
@@ -110,6 +136,8 @@ export function AccountModal({
       useShortNames: useShortNames,
       toolbarPosition: toolbarPosition,
       boardScale: Math.round((boardScale ?? 1) * 100),
+      warnDeleteSingleAction: warnDeleteSingleAction,
+      warnDeleteSubtree: warnDeleteSubtree,
     });
   }
   if (open !== lastOpen) {
@@ -128,6 +156,18 @@ export function AccountModal({
     setDraft((prev) => ({ ...prev, [key]: val }));
   };
 
+  const openLegalPage = (tabKey) => {
+    const route =
+      tabKey === "contact"
+        ? "/contact"
+        : tabKey === "imprint"
+          ? "/imprint"
+          : "/privacy";
+    const from = location.pathname === "/simulator" ? "/simulator" : "/";
+    onClose?.();
+    navigate(route, { state: { from } });
+  };
+
   const handleSave = async () => {
     setSaveError("");
 
@@ -137,6 +177,10 @@ export function AccountModal({
     const finalToolbarPosition = draft.toolbarPosition ?? toolbarPosition;
     const finalBoardScale =
       Math.max(1, Math.min(500, draft.boardScale ?? 100)) / 100;
+    const finalWarnDeleteSingleAction =
+      draft.warnDeleteSingleAction ?? warnDeleteSingleAction;
+    const finalWarnDeleteSubtree =
+      draft.warnDeleteSubtree ?? warnDeleteSubtree;
 
     // Apply preference settings locally
     if (viewMode !== finalViewMode) {
@@ -150,6 +194,12 @@ export function AccountModal({
     }
     if (boardScale !== finalBoardScale) {
       setBoardScale(finalBoardScale);
+    }
+    if (warnDeleteSingleAction !== finalWarnDeleteSingleAction) {
+      setWarnDeleteSingleAction(finalWarnDeleteSingleAction);
+    }
+    if (warnDeleteSubtree !== finalWarnDeleteSubtree) {
+      setWarnDeleteSubtree(finalWarnDeleteSubtree);
     }
 
     // Save config locally
@@ -165,12 +215,14 @@ export function AccountModal({
             useShortNames: finalUseShortNames,
             toolbarPosition: finalToolbarPosition,
             boardScale: finalBoardScale,
+            warnDeleteSingleAction: finalWarnDeleteSingleAction,
+            warnDeleteSubtree: finalWarnDeleteSubtree,
           },
           { username: username.trim(), profileText: profileText.trim() },
         );
       } catch (err) {
         console.error("Failed to save account settings to cloud:", err);
-        setSaveError(err?.message || "Speichern fehlgeschlagen");
+        setSaveError(err?.message || t("accountSaveFailed"));
         return; // Don't close modal on error
       }
     }
@@ -283,7 +335,7 @@ export function AccountModal({
           onChange={(e) =>
             updateField("redAttackBoost", Number(e.target.value) || 0)
           }
-          title="Roter Angriff % Bonus"
+          title={t("accountConfigRedAttack")}
         />
         <span className="army-unit">%</span>
         <Label icon={redDefenseIcon} />
@@ -293,7 +345,7 @@ export function AccountModal({
           onChange={(e) =>
             updateField("redDefenseBoost", Number(e.target.value) || 0)
           }
-          title="Rote Verteidigung % Bonus"
+          title={t("accountConfigRedDefense")}
         />
         <span className="army-unit">%</span>
       </div>
@@ -307,7 +359,7 @@ export function AccountModal({
           onChange={(e) =>
             updateField("blueAttackBoost", Number(e.target.value) || 0)
           }
-          title="Blauer Angriff % Bonus"
+          title={t("accountConfigBlueAttack")}
         />
         <span className="army-unit">%</span>
         <Label icon={blueDefenseIcon} />
@@ -317,7 +369,7 @@ export function AccountModal({
           onChange={(e) =>
             updateField("blueDefenseBoost", Number(e.target.value) || 0)
           }
-          title="Blaue Verteidigung % Bonus"
+          title={t("accountConfigBlueDefense")}
         />
         <span className="army-unit">%</span>
       </div>
@@ -484,12 +536,46 @@ export function AccountModal({
           </button>
         </div>
       </div>
+      <div className="config-row">
+        <Label text={t("accountPrefWarnDeleteSingle")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.warnDeleteSingleAction !== false ? "active" : ""}
+            onClick={() => updateField("warnDeleteSingleAction", true)}
+          >
+            {t("accountPrefYes")}
+          </button>
+          <button
+            className={draft.warnDeleteSingleAction === false ? "active" : ""}
+            onClick={() => updateField("warnDeleteSingleAction", false)}
+          >
+            {t("accountPrefNo")}
+          </button>
+        </div>
+      </div>
+      <div className="config-row">
+        <Label text={t("accountPrefWarnDeleteSubtree")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.warnDeleteSubtree !== false ? "active" : ""}
+            onClick={() => updateField("warnDeleteSubtree", true)}
+          >
+            {t("accountPrefYes")}
+          </button>
+          <button
+            className={draft.warnDeleteSubtree === false ? "active" : ""}
+            onClick={() => updateField("warnDeleteSubtree", false)}
+          >
+            {t("accountPrefNo")}
+          </button>
+        </div>
+      </div>
     </div>
   );
 
   const renderPremiumTab = () => (
     <div className="premium-content">
-      <h2 className="premium-title">Premium demnächst erhältlich</h2>
+      <h2 className="premium-title">{t("accountPremiumTitle")}</h2>
     </div>
   );
 
@@ -553,21 +639,21 @@ export function AccountModal({
         aktiv eingibst.
       </p>
 
-      <h4>Verarbeitete Daten</h4>
+      <h4>{t("accountPrivacyDataTitle")}</h4>
       <ul>
         <li>Technische Zugriffsdaten (z. B. IP, Browser, Zeitstempel)</li>
         <li>Optional: Login-Daten bei Nutzung der Account-Funktionen</li>
         <li>Optional: Cookie-Einwilligungen und Komfort-Einstellungen</li>
       </ul>
 
-      <h4>Zwecke</h4>
+      <h4>{t("accountPrivacyPurposeTitle")}</h4>
       <ul>
         <li>Bereitstellung und Sicherheit der Webseite</li>
         <li>Speichern von Einstellungen und Spielständen</li>
         <li>Betrieb von Login- und Cloud-Funktionen</li>
       </ul>
 
-      <h4>Google AdSense (geplant)</h4>
+      <h4>{t("accountPrivacyAdsTitle")}</h4>
       <p>
         Bei aktivierter Einbindung kann Google AdSense Cookies und
         nutzungsbezogene Daten für personalisierte oder nicht-personalisierte
@@ -575,7 +661,7 @@ export function AccountModal({
         Consent-Auswahl.
       </p>
 
-      <h4>Kontakt für Datenschutzanfragen</h4>
+      <h4>{t("accountPrivacyContactTitle")}</h4>
       <div className="legal-block">
         <p>
           <strong>Name:</strong> Benjamin Dettling
@@ -849,8 +935,9 @@ export function AccountModal({
         <div className="account-layout">
           <div className="account-tabs">
             <div className="account-tabs-main">
-              {TABS.map((tab) => (
+              {mainTabs.map((tab) => (
                 <button
+                  type="button"
                   key={tab.key}
                   className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
                   onClick={() => setActiveTab(tab.key)}
@@ -860,11 +947,12 @@ export function AccountModal({
               ))}
             </div>
             <div className="account-tabs-legal">
-              {LEGAL_TABS.map((tab) => (
+              {legalTabs.map((tab) => (
                 <button
+                  type="button"
                   key={tab.key}
-                  className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
-                  onClick={() => setActiveTab(tab.key)}
+                  className="account-tab"
+                  onClick={() => openLegalPage(tab.key)}
                 >
                   {tab.label}
                 </button>
@@ -873,7 +961,7 @@ export function AccountModal({
           </div>
           <div className="account-content">
             <div className="account-header">
-              <h3>{ALL_TABS.find((t) => t.key === activeTab)?.label}</h3>
+              <h3>{allTabs.find((entry) => entry.key === activeTab)?.label}</h3>
               <button onClick={onClose}>×</button>
             </div>
             <div className="account-body">

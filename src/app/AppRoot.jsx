@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { useGameController } from "../hooks/useGameController";
 import { AppLayout } from "./layout/AppLayout";
@@ -12,6 +12,70 @@ import { useBoardExport } from "./hooks/useBoardExport";
 import { useAccountCloudSync } from "../hooks/useAccountCloudSync";
 import { applyThemeToDocument, initializeCssColors } from "../config/colors";
 import { StartingPage } from "../components/StartingPage/StartingPage";
+import { LegalPage } from "../components/LegalPage/LegalPage";
+import { useLang } from "../context/LanguageContext";
+import { useTutorial } from "../context/TutorialContext";
+import { useTutorialActionWatcher } from "../hooks/useTutorialActionWatcher";
+import { useTutorialGate } from "../hooks/useTutorialGate";
+import { TutorialOverlay } from "../components/Tutorial/TutorialOverlay";
+import {
+  TUTORIAL_STEPS,
+  TUTORIAL_EXAMPLE_SAVE_NAME,
+  MH_TARGET_SLOTS,
+} from "../tutorial/tutorialSteps";
+import { T } from "../i18n/translations";
+import tutorialExampleSave from "../config/example/example_full.json";
+import tutorialTreeSave from "../config/example/example_tree.json";
+import { deserializeTree, getMainBranchEndNodeId } from "../utils/treeSerializer";
+
+const ROOT_TREE_NEXT_NODE_ID = 1;
+
+const isMhDefId = (defId) =>
+  typeof defId === "string" &&
+  (defId === "mehrgeschossiges_haus" ||
+    defId.endsWith(":mehrgeschossiges_haus"));
+const isGutshausDefId = (defId) =>
+  typeof defId === "string" && (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+
+const getRootChildren = (historyTree) => {
+  const root = historyTree?.nodes?.get?.(0);
+  return Array.isArray(root?.childrenIds) ? root.childrenIds : [];
+};
+
+const getBranchTailId = (historyTree, startNodeId) => {
+  if (startNodeId == null) return null;
+  const nodes = historyTree?.nodes;
+  if (!nodes?.get) return null;
+  let currentId = startNodeId;
+  const seen = new Set();
+  while (currentId != null && !seen.has(currentId)) {
+    seen.add(currentId);
+    const node = nodes.get(currentId);
+    if (!node) return null;
+    const children = Array.isArray(node.childrenIds) ? node.childrenIds : [];
+    if (!children.length) return currentId;
+    currentId = children[0];
+  }
+  return currentId;
+};
+
+const isNodeInSubtree = (historyTree, rootNodeId, candidateId) => {
+  if (rootNodeId == null || candidateId == null) return false;
+  const nodes = historyTree?.nodes;
+  if (!nodes?.get) return false;
+  const queue = [rootNodeId];
+  const seen = new Set();
+  while (queue.length) {
+    const nodeId = queue.shift();
+    if (nodeId == null || seen.has(nodeId)) continue;
+    if (nodeId === candidateId) return true;
+    seen.add(nodeId);
+    const node = nodes.get(nodeId);
+    const children = Array.isArray(node?.childrenIds) ? node.childrenIds : [];
+    children.forEach((childId) => queue.push(childId));
+  }
+  return false;
+};
 
 // Entry component that wires controller state into all UI pieces.
 export function AppRoot() {
@@ -25,6 +89,30 @@ export function AppRoot() {
   const navigate = useNavigate();
   const location = useLocation();
   const isSimulator = location.pathname === "/simulator";
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+  const {
+    isTutorialActive,
+    currentStepIndex,
+    completionCount,
+    mhPlacedCount,
+    fireEvent,
+    startTutorial,
+    showWarningNotice,
+    setTutorialRuntime,
+  } = useTutorial();
+  const boardLocked = useTutorialGate("board");
+  const [showTutorialPrompt, setShowTutorialPrompt] = useState(() => {
+    try {
+      return (
+        !localStorage.getItem("qi_tutorial") &&
+        !localStorage.getItem("qi_tutorial_dismissed")
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [tutorialExampleInjected, setTutorialExampleInjected] = useState(false);
 
   // Cloud sync for account settings (config + preferences)
   const {
@@ -40,6 +128,10 @@ export function AppRoot() {
     setUseShortNames: controller.setUseShortNames,
     boardScale: controller.boardScale,
     setBoardScale: controller.setBoardScale,
+    warnDeleteSingleAction: controller.warnDeleteSingleAction,
+    setWarnDeleteSingleAction: controller.setWarnDeleteSingleAction,
+    warnDeleteSubtree: controller.warnDeleteSubtree,
+    setWarnDeleteSubtree: controller.setWarnDeleteSubtree,
   });
 
   const { tooltip } = useHoldTooltip();
@@ -50,6 +142,11 @@ export function AppRoot() {
       layout: controller.layout,
       libraryMap: controller.libraryMap,
     });
+
+  useTutorialActionWatcher({
+    historyIndex: controller.historyIndex,
+    historyNodes: controller.historyNodes,
+  });
 
   const { handleSnapshotBack, handleSnapshotForward } = useSnapshotNavigation({
     snapshots: controller.snapshots,
@@ -107,6 +204,10 @@ export function AppRoot() {
   //         the viewport-available height, whichever is smaller.  This prevents
   //         the board from extending vertically beyond its flex row.
   const boardContentRef = useRef(null);
+  const handledTutorialCompletionRef = useRef(0);
+  const previousTutorialSectionRef = useRef(null);
+  const wasTutorialActiveRef = useRef(false);
+  const tutorialTreeBackupRef = useRef(null);
 
   useEffect(() => {
     const el = boardContentRef.current;
@@ -163,20 +264,548 @@ export function AppRoot() {
 
   const boardClusterRef = useRef(null);
 
-  // Shop is now manually opened via button, no auto-open based on screen size
-
-  // Wrapper to close shop when a building is selected
-  const handleSetSelectedBuildingId = (defId) => {
-    controller.setSelectedBuildingId(defId);
-    if (defId !== null) {
-      setIsShopOpen(false);
+  const dismissTutorialPrompt = useCallback(() => {
+    setShowTutorialPrompt(false);
+    try {
+      localStorage.setItem("qi_tutorial_dismissed", "1");
+    } catch {
+      // no-op
     }
-  };
+  }, []);
 
-  // Cancel placement mode by clearing the selected building
-  const handleCancelPlacement = () => {
+  const cloneHistoryTree = useCallback((tree) => {
+    if (!tree?.nodes || !(tree.nodes instanceof Map)) return null;
+    const clonedNodes = new Map();
+    tree.nodes.forEach((node, id) => {
+      clonedNodes.set(id, {
+        ...node,
+        action: node?.action ? { ...node.action } : null,
+        childrenIds: Array.isArray(node?.childrenIds) ? [...node.childrenIds] : [],
+      });
+    });
+    return {
+      ...tree,
+      nodes: clonedNodes,
+    };
+  }, []);
+
+  const backupCurrentTreeForTutorial = useCallback(() => {
+    if (tutorialTreeBackupRef.current) return;
+    const clonedTree = cloneHistoryTree(controller.historyTree);
+    if (!clonedTree) return;
+    tutorialTreeBackupRef.current = {
+      historyTree: clonedTree,
+      historyIndex: controller.historyIndex ?? 0,
+      loadName: controller.loadName ?? "",
+    };
+  }, [cloneHistoryTree, controller.historyIndex, controller.historyTree, controller.loadName]);
+
+  const clearTreeForBoardTutorial = useCallback(() => {
+    controller.loadHistoryTree?.(
+      {
+        nodes: new Map([
+          [
+            0,
+            { id: 0, parentId: null, action: null, childrenIds: [] },
+          ],
+        ]),
+        nextNodeId: ROOT_TREE_NEXT_NODE_ID,
+      },
+      0,
+    );
+    controller.setSelectedBuildingId?.(null);
+    setIsShopOpen(false);
+  }, [controller]);
+
+  const restoreTreeAfterTutorial = useCallback(() => {
+    const backup = tutorialTreeBackupRef.current;
+    if (!backup?.historyTree) return;
+    controller.loadHistoryTree?.(backup.historyTree, backup.historyIndex ?? 0);
+    controller.setLoadName?.(backup.loadName ?? "");
+    tutorialTreeBackupRef.current = null;
+  }, [controller]);
+
+  const handleOpenShop = useCallback(() => {
+    setIsShopOpen(true);
+    fireEvent("shop-opened");
+  }, [fireEvent]);
+
+  const handleSetSelectedBuildingId = useCallback(
+    (defId) => {
+      if (defId === null) {
+        controller.setSelectedBuildingId(null);
+      } else if (controller.handleSelectBuilding) {
+        controller.handleSelectBuilding(defId);
+      } else {
+        controller.setSelectedBuildingId(defId);
+      }
+      if (defId !== null) {
+        setIsShopOpen(false);
+        fireEvent("building-selected", { defId });
+      }
+    },
+    [controller, fireEvent],
+  );
+
+  const handleCancelPlacement = useCallback(() => {
     controller.setSelectedBuildingId(null);
-  };
+  }, [controller]);
+
+  const handleChangeNotes = useCallback(
+    (value) => {
+      controller.handleChangeNotes(value);
+      fireEvent("notes-changed");
+    },
+    [controller, fireEvent],
+  );
+
+  const handleSaveWithTutorial = useCallback(
+    (name) => {
+      controller.handleSaveState(name);
+      fireEvent("save");
+    },
+    [controller, fireEvent],
+  );
+
+  const handleOpenLoadSaves = useCallback(() => {
+    controller.openLoadSavesModal?.();
+    fireEvent("loadMenuOpened");
+  }, [controller, fireEvent]);
+
+  const handleTutorialStepForward = useCallback(() => {
+    fireEvent("stepForward");
+  }, [fireEvent]);
+
+  const handleTutorialJumpHistory = useCallback(
+    (id) => {
+      fireEvent("jumpHistory", { id });
+      if (id === 0) {
+        fireEvent("jumpHistoryStart", { id });
+      }
+      const rootChildren = getRootChildren(controller.historyTree);
+      const secondRootChildId =
+        rootChildren.length > 1 ? rootChildren[1] : null;
+      if (
+        secondRootChildId != null &&
+        isNodeInSubtree(controller.historyTree, secondRootChildId, id)
+      ) {
+        fireEvent("jumpHistorySecondRootChild", { id });
+      }
+      const secondBranchTailId =
+        rootChildren.length > 1
+          ? getBranchTailId(controller.historyTree, rootChildren[1])
+          : null;
+      const thirdBranchTailId =
+        rootChildren.length > 2
+          ? getBranchTailId(controller.historyTree, rootChildren[2])
+          : null;
+      if (secondBranchTailId != null && id === secondBranchTailId) {
+        fireEvent("inspectSecondBranchTail", { id });
+      }
+      if (thirdBranchTailId != null && id === thirdBranchTailId) {
+        fireEvent("inspectThirdBranchTail", { id });
+      }
+    },
+    [controller.historyTree, fireEvent],
+  );
+
+  const handleTutorialTreeToggleFocus = useCallback(() => {
+    fireEvent("treeToggleFocus");
+  }, [fireEvent]);
+
+  const handleTutorialTreeToggleHorizontal = useCallback(() => {
+    fireEvent("treeToggleHorizontal");
+  }, [fireEvent]);
+
+  const handleTutorialMakeTopBranch = useCallback(() => {
+    fireEvent("makeTopBranch");
+  }, [fireEvent]);
+
+  const handleTutorialDeleteNode = useCallback(
+    (nodeId, deleteSubtree) => {
+      const rootChildren = getRootChildren(controller.historyTree);
+      const secondRootChildId =
+        rootChildren.length > 1 ? rootChildren[1] : null;
+      fireEvent("treeDeleteNode", {
+        nodeId,
+        deleteSubtree: !!deleteSubtree,
+        isSecondRootChild:
+          secondRootChildId != null && nodeId === secondRootChildId,
+      });
+      if (deleteSubtree === false) {
+        fireEvent("deleteNodeKeepChildren", { nodeId });
+      }
+    },
+    [controller.historyTree, fireEvent],
+  );
+
+  const handleTutorialCopyBranch = useCallback(
+    (sourceId, targetId) => {
+      const rootChildren = getRootChildren(controller.historyTree);
+      const firstRootChildId =
+        rootChildren.length > 0 ? rootChildren[0] : null;
+      const secondRootChildId =
+        rootChildren.length > 1 ? rootChildren[1] : null;
+
+      fireEvent("copyBranch", {
+        sourceId,
+        targetId,
+        isCopyFirstToSecond:
+          firstRootChildId != null &&
+          secondRootChildId != null &&
+          sourceId === firstRootChildId &&
+          targetId === secondRootChildId,
+      });
+    },
+    [controller.historyTree, fireEvent],
+  );
+
+  const handleTutorialDeleteModeChanged = useCallback(
+    (enabled) => {
+      fireEvent("treeDeleteModeChanged", { enabled: !!enabled });
+    },
+    [fireEvent],
+  );
+
+  const handleTutorialTreeZoomChanged = useCallback(
+    ({ relativeZoom }) => {
+      fireEvent("treeZoomChanged", { relativeZoom });
+      if ((relativeZoom ?? 1) <= 0.001) {
+        fireEvent("treeZoomOut", { relativeZoom });
+      }
+    },
+    [fireEvent],
+  );
+
+  const handleTutorialTreeFixOpened = useCallback(
+    ({ nodeId, type }) => {
+      fireEvent("treeFixOpened", { nodeId, type });
+    },
+    [fireEvent],
+  );
+
+  const handleTutorialTreeFixPopupClosed = useCallback(() => {
+    fireEvent("treeFixPopupClosed");
+  }, [fireEvent]);
+
+  const handleStartTutorial = useCallback(() => {
+    startTutorial(0);
+    dismissTutorialPrompt();
+    navigate("/simulator");
+  }, [dismissTutorialPrompt, navigate, startTutorial]);
+
+  const handleStartTutorialFromTopBar = useCallback(() => {
+    startTutorial(0);
+    dismissTutorialPrompt();
+  }, [dismissTutorialPrompt, startTutorial]);
+
+  const closeTutorialPopupByKey = useCallback(
+    (popupKey) => {
+      switch (popupKey) {
+        case "shop":
+          setIsShopOpen(false);
+          return true;
+        case "unlockChoice":
+          controller.setUnlockChoice(null);
+          return true;
+        case "unlockGoodSelect":
+          controller.setUnlockGoodSelect(null);
+          return true;
+        case "harvestModal":
+          controller.cancelHarvest?.();
+          return true;
+        case "smartHarvestModal":
+          controller.confirmSmartHarvest?.();
+          return true;
+        case "smartInvestModal":
+          controller.closeSmartInvestModal?.();
+          return true;
+        case "goodsModal":
+          controller.setGoodsModal(null);
+          return true;
+        case "unitModal":
+          controller.setUnitModal(null);
+          return true;
+        case "fastBuyModal":
+          controller.setFastBuyModal(null);
+          controller.setFastBuyTarget(null);
+          return true;
+        case "helpModal":
+          controller.setHelpModal(false);
+          return true;
+        case "configModal":
+          controller.setConfigModal(false);
+          return true;
+        case "accountModal":
+          setAccountModalOpen(false);
+          return true;
+        case "editResourceModal":
+          controller.cancelEditResource?.();
+          return true;
+        case "editGoodModal":
+          controller.cancelEditGood?.();
+          return true;
+        case "editUnitModal":
+          controller.cancelEditUnit?.();
+          return true;
+        case "exportModal":
+          controller.setExportModal(false);
+          return true;
+        case "importModal":
+          controller.setImportModal(false);
+          return true;
+        case "loadSavesModal":
+          controller.setLoadSavesModal(false);
+          fireEvent("loadMenuClosed");
+          return true;
+        case "worstModal":
+          controller.setWorstModal(null);
+          return true;
+        case "pastEditModal":
+          controller.closePastEditModal?.();
+          return true;
+        default:
+          return false;
+      }
+    },
+    [controller, fireEvent],
+  );
+
+  useEffect(() => {
+    const ESC_CLOSE_ORDER = [
+      "editResourceModal",
+      "editGoodModal",
+      "editUnitModal",
+      "worstModal",
+      "fastBuyModal",
+      "unlockGoodSelect",
+      "unlockChoice",
+      "loadSavesModal",
+      "helpModal",
+      "accountModal",
+      "shop",
+    ];
+
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+
+      const popupOpenMap = {
+        editResourceModal: !!controller.editResourceModal,
+        editGoodModal: !!controller.editGoodModal,
+        editUnitModal: !!controller.editUnitModal,
+        worstModal: !!controller.worstModal,
+        fastBuyModal: !!controller.fastBuyModal,
+        unlockGoodSelect: !!controller.unlockGoodSelect,
+        unlockChoice: !!controller.unlockChoice,
+        loadSavesModal: !!controller.loadSavesModal,
+        helpModal: !!controller.helpModal,
+        accountModal: !!accountModalOpen,
+        shop: !!isShopOpen,
+      };
+
+      const targetKey = ESC_CLOSE_ORDER.find((key) => popupOpenMap[key]);
+      if (!targetKey) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+      closeTutorialPopupByKey(targetKey);
+    };
+
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [
+    accountModalOpen,
+    closeTutorialPopupByKey,
+    controller.editGoodModal,
+    controller.editResourceModal,
+    controller.editUnitModal,
+    controller.fastBuyModal,
+    controller.helpModal,
+    controller.loadSavesModal,
+    controller.unlockChoice,
+    controller.unlockGoodSelect,
+    controller.worstModal,
+    isShopOpen,
+  ]);
+
+  useEffect(() => {
+    if (!isTutorialActive) return;
+    const step = TUTORIAL_STEPS[currentStepIndex];
+    if (!step) return;
+
+    const allowed = new Set(step.allowedPopups ?? []);
+    const popupOpenMap = {
+      shop: isShopOpen,
+      unlockChoice: !!controller.unlockChoice,
+      unlockGoodSelect: !!controller.unlockGoodSelect,
+      harvestModal: !!controller.harvestModal,
+      smartHarvestModal: !!controller.smartHarvestModal,
+      smartInvestModal: !!controller.smartInvestModal,
+      goodsModal: !!controller.goodsModal,
+      unitModal: !!controller.unitModal,
+      fastBuyModal: !!controller.fastBuyModal,
+      helpModal: !!controller.helpModal,
+      configModal: !!controller.configModal,
+      accountModal: accountModalOpen,
+      editResourceModal: !!controller.editResourceModal,
+      editGoodModal: !!controller.editGoodModal,
+      editUnitModal: !!controller.editUnitModal,
+      exportModal: !!controller.exportModal,
+      importModal: !!controller.importModal,
+      loadSavesModal: !!controller.loadSavesModal,
+      worstModal: !!controller.worstModal,
+      pastEditModal: !!controller.pastEditModal,
+    };
+
+    let closedAny = false;
+    Object.entries(popupOpenMap).forEach(([key, isOpen]) => {
+      if (!isOpen || allowed.has(key)) return;
+      const closed = closeTutorialPopupByKey(key);
+      if (closed) closedAny = true;
+    });
+
+    if (closedAny) {
+      showWarningNotice("unexpected-popup");
+    }
+  }, [
+    accountModalOpen,
+    closeTutorialPopupByKey,
+    controller,
+    currentStepIndex,
+    isShopOpen,
+    isTutorialActive,
+    showWarningNotice,
+  ]);
+
+  useEffect(() => {
+    if (!isTutorialActive) return;
+    setTutorialRuntime({
+      isShopOpen,
+      selectedBuildingId: controller.selectedBuildingId,
+      historyTree: controller.historyTree,
+      historyIndex: controller.historyIndex,
+    });
+  }, [
+    controller.historyIndex,
+    controller.historyTree,
+    controller.selectedBuildingId,
+    isShopOpen,
+    isTutorialActive,
+    setTutorialRuntime,
+  ]);
+
+  useEffect(() => {
+    if (!isTutorialActive) return;
+    const stepId = TUTORIAL_STEPS[currentStepIndex]?.id;
+    if (stepId !== "tree-delete-second-branch-subtree") return;
+    const rootChildren = getRootChildren(controller.historyTree);
+    if (rootChildren.length === 1) {
+      fireEvent("treeSecondBranchPruned", {
+        remainingRootChildren: rootChildren.length,
+      });
+    }
+  }, [
+    controller.historyTree,
+    currentStepIndex,
+    fireEvent,
+    isTutorialActive,
+  ]);
+
+  const ensureTutorialExampleSave = useCallback(() => {
+    if (!controller.setAllSaves || tutorialExampleInjected) return;
+    controller.setAllSaves((prev) => {
+      if (prev?.[TUTORIAL_EXAMPLE_SAVE_NAME]) return prev;
+      return {
+        ...(prev || {}),
+        [TUTORIAL_EXAMPLE_SAVE_NAME]: {
+          ...tutorialExampleSave,
+          name: TUTORIAL_EXAMPLE_SAVE_NAME,
+        },
+      };
+    });
+    setTutorialExampleInjected(true);
+  }, [controller, tutorialExampleInjected]);
+
+  useEffect(() => {
+    if (!isTutorialActive || !controller.loadSavesModal) return;
+    const step = TUTORIAL_STEPS[currentStepIndex];
+    if (!step || step.section !== "saveLoad") return;
+    ensureTutorialExampleSave();
+  }, [
+    controller.loadSavesModal,
+    currentStepIndex,
+    ensureTutorialExampleSave,
+    isTutorialActive,
+  ]);
+
+  const loadTutorialTreeSeed = useCallback(() => {
+    const treeData = tutorialTreeSave?.tree;
+    if (!treeData || !controller.loadHistoryTree) return;
+    try {
+      const { historyTree: deserializedTree } = deserializeTree(treeData);
+      const endNodeId = getMainBranchEndNodeId(deserializedTree);
+      controller.loadHistoryTree(deserializedTree, endNodeId);
+      controller.setLoadName?.("");
+      controller.setSelectedBuildingId?.(null);
+      setIsShopOpen(false);
+    } catch (err) {
+      console.error("Failed to load tutorial tree seed", err);
+    }
+  }, [controller]);
+
+  useEffect(() => {
+    if (!isTutorialActive) {
+      previousTutorialSectionRef.current = null;
+      return;
+    }
+    const section = TUTORIAL_STEPS[currentStepIndex]?.section ?? null;
+    const previousSection = previousTutorialSectionRef.current;
+    if (section === "board" && previousSection !== "board") {
+      backupCurrentTreeForTutorial();
+      clearTreeForBoardTutorial();
+    }
+    if (section === "tree" && previousSection !== "tree") {
+      loadTutorialTreeSeed();
+    }
+    previousTutorialSectionRef.current = section;
+  }, [
+    backupCurrentTreeForTutorial,
+    clearTreeForBoardTutorial,
+    currentStepIndex,
+    isTutorialActive,
+    loadTutorialTreeSeed,
+  ]);
+
+  useEffect(() => {
+    const wasActive = wasTutorialActiveRef.current;
+    if (!isTutorialActive && wasActive) {
+      restoreTreeAfterTutorial();
+      previousTutorialSectionRef.current = null;
+    }
+    if (isTutorialActive && !wasActive) {
+      tutorialTreeBackupRef.current = null;
+    }
+    wasTutorialActiveRef.current = isTutorialActive;
+  }, [isTutorialActive, restoreTreeAfterTutorial]);
+
+  useEffect(() => {
+    if (!completionCount) return;
+    if (handledTutorialCompletionRef.current === completionCount) return;
+    handledTutorialCompletionRef.current = completionCount;
+    setIsShopOpen(false);
+    setAccountModalOpen(false);
+    controller.setHelpModal?.(false);
+    controller.setLoadSavesModal?.(false);
+    controller.setExportModal?.(false);
+    controller.setImportModal?.(false);
+    controller.setUnlockChoice?.(null);
+    controller.setUnlockGoodSelect?.(null);
+    controller.setFastBuyModal?.(null);
+    controller.setFastBuyTarget?.(null);
+    controller.setGoodsModal?.(null);
+    controller.setUnitModal?.(null);
+    controller.setSelectedBuildingId?.(null);
+  }, [completionCount, controller]);
 
   // Check if we're in placement mode (a building is selected for placement)
   const isPlacementMode = controller.selectedBuildingId !== null;
@@ -246,7 +875,10 @@ export function AppRoot() {
     onToggleAdmin: controller.handleToggleInfinite,
     useShortNames: controller.useShortNames,
     setUseShortNames: controller.setUseShortNames,
-    onOpenHelp: () => controller.setHelpModal(true),
+    onOpenHelp: () => {
+      controller.setHelpModal(true);
+      fireEvent("helpOpened");
+    },
     onOpenAccount: () => openAccountModal("account"),
     onEditResource: controller.handleEditResource,
     onEditGood: controller.handleEditGood,
@@ -259,7 +891,63 @@ export function AppRoot() {
     shardUnlocks: controller.shardUnlocks,
     onSetGoodsUnlocks: controller.setGoodsUnlocks,
     onSetShardUnlocks: controller.setShardUnlocks,
+    hasUnsavedChanges: controller.hasUnsavedChanges,
+    onStartTutorial: handleStartTutorialFromTopBar,
   };
+
+  const guardedCellClick = useCallback(
+    (col, row) => {
+      if (boardLocked) return;
+      if (isTutorialActive) {
+        const step = TUTORIAL_STEPS[currentStepIndex];
+        if (step?.id === "board-place-mh-sequence") {
+          if (
+            controller.selectedBuildingId &&
+            !isMhDefId(controller.selectedBuildingId)
+          ) {
+            showWarningNotice("wrong-building");
+            return;
+          }
+          if (isMhDefId(controller.selectedBuildingId)) {
+            const expected = MH_TARGET_SLOTS[mhPlacedCount];
+            if (!expected || col !== expected.x || row !== expected.y) {
+              showWarningNotice("wrong-placement");
+              return;
+            }
+          }
+        }
+        if (step?.id === "tree-place-gutshaus") {
+          const target = MH_TARGET_SLOTS[0];
+          if (!isGutshausDefId(controller.selectedBuildingId)) {
+            showWarningNotice("wrong-building");
+            return;
+          }
+          if (!target || col !== target.x || row !== target.y) {
+            showWarningNotice("wrong-placement");
+            return;
+          }
+        }
+      }
+      controller.handleCellClick(col, row);
+    },
+    [
+      boardLocked,
+      controller,
+      currentStepIndex,
+      isTutorialActive,
+      mhPlacedCount,
+      showWarningNotice,
+    ],
+  );
+
+  const guardedRegionClick = useCallback(
+    (...args) => {
+      if (boardLocked) return;
+      controller.handleUnlockRegion(...args);
+      fireEvent("region-opened");
+    },
+    [boardLocked, controller, fireEvent],
+  );
 
   const boardProps = {
     viewRotation: controller.viewRotation,
@@ -273,7 +961,7 @@ export function AppRoot() {
     cellSizePx: controller.cellSizePx,
     previewOrigin: controller.previewOrigin,
     isCellUnlocked: controller.isCellUnlocked,
-    handleCellClick: controller.handleCellClick,
+    handleCellClick: guardedCellClick,
     setHoverCell: controller.setHoverCell,
     onDropComplete: () => controller.setSelectedBuildingId(null),
     boardRef,
@@ -289,7 +977,7 @@ export function AppRoot() {
     unlockedRegions: controller.unlockedRegions,
     neighborUnlocked: controller.neighborUnlocked,
     canAnyUnlock: controller.canAnyUnlock,
-    onRegionClick: controller.handleUnlockRegion,
+    onRegionClick: guardedRegionClick,
     adminMode,
     onDebugUnlockRegion: controller.handleDebugUnlockRegion,
     onDebugLockRegion: controller.handleDebugLockRegion,
@@ -309,7 +997,7 @@ export function AppRoot() {
     harvestPartial: controller.harvestPartialOnly,
     boostMode: controller.boostMode,
     harvestAll: controller.harvestAll,
-    onSave: controller.handleSaveState,
+    onSave: handleSaveWithTutorial,
     onLoad: (name) =>
       controller.handleLoadState(name, { createSnapshot: true }),
     saves: controller.visibleSaves,
@@ -320,7 +1008,7 @@ export function AppRoot() {
     loadName: controller.loadName,
     setLoadName: controller.setLoadName,
     notes: controller.notes,
-    onChangeNotes: controller.handleChangeNotes,
+    onChangeNotes: handleChangeNotes,
     highlightMode,
     onToggleHighlightMode: toggleHighlightMode,
     onPrintBoard: handlePrint,
@@ -340,7 +1028,7 @@ export function AppRoot() {
     editingLocked: controller.editingLocked,
     onOpenExport: controller.openExportSaves,
     onOpenImport: controller.openImportSaves,
-    onOpenLoadSaves: controller.openLoadSavesModal,
+    onOpenLoadSaves: handleOpenLoadSaves,
     onExportPdf: handleExportPdf,
     isPlacementMode,
     onCancelPlacement: handleCancelPlacement,
@@ -382,6 +1070,7 @@ export function AppRoot() {
               onStartSimulator={() => navigate("/simulator")}
               onOpenSaves={() => controller.setLoadSavesModal(true)}
               onOpenAccount={openAccountModal}
+              onStartTutorial={handleStartTutorial}
             />
           }
         />
@@ -402,18 +1091,57 @@ export function AppRoot() {
                 boardContentRef={boardContentRef}
                 isShopOpen={isShopOpen}
                 onCloseShop={() => setIsShopOpen(false)}
-                onOpenShop={() => setIsShopOpen(true)}
+                onOpenShop={handleOpenShop}
                 config={controller.config}
                 updateConfig={controller.updateConfig}
                 toolbarPosition={controller.toolbarPosition}
                 showSyncConfig={showSyncConfig}
                 onSyncConfig={handleSyncConfig}
+                onTutorialStepForward={handleTutorialStepForward}
+                onTutorialJumpHistory={handleTutorialJumpHistory}
+                onTutorialTreeToggleFocus={handleTutorialTreeToggleFocus}
+                onTutorialTreeToggleHorizontal={
+                  handleTutorialTreeToggleHorizontal
+                }
+                onTutorialMakeTop={handleTutorialMakeTopBranch}
+                onTutorialDeleteNode={handleTutorialDeleteNode}
+                onTutorialDeleteModeChanged={handleTutorialDeleteModeChanged}
+                onTutorialCopyBranch={handleTutorialCopyBranch}
+                onTutorialTreeZoomChanged={handleTutorialTreeZoomChanged}
+                onTutorialTreeFixOpened={handleTutorialTreeFixOpened}
+                onTutorialTreeFixPopupClosed={handleTutorialTreeFixPopupClosed}
+                warnDeleteSingleAction={controller.warnDeleteSingleAction}
+                setWarnDeleteSingleAction={controller.setWarnDeleteSingleAction}
+                warnDeleteSubtree={controller.warnDeleteSubtree}
+                setWarnDeleteSubtree={controller.setWarnDeleteSubtree}
               />
+              {isSimulator && showTutorialPrompt && (
+                <div className="tutorial-first-visit-banner">
+                  <span>{t("tutorialFirstVisit")}</span>
+                  <button
+                    onClick={() => {
+                      startTutorial(0);
+                      dismissTutorialPrompt();
+                    }}
+                  >
+                    {t("tutorialFirstVisitBtn")}
+                  </button>
+                  <button
+                    onClick={dismissTutorialPrompt}
+                    aria-label={t("loadSavesBtnCancel")}
+                  >
+                    x
+                  </button>
+                </div>
+              )}
               <HoldTooltip tooltip={tooltip} />
               <PdfProgressModal progress={pdfProgress} />
             </>
           }
         />
+        <Route path="/contact" element={<LegalPage type="contact" />} />
+        <Route path="/imprint" element={<LegalPage type="imprint" />} />
+        <Route path="/privacy" element={<LegalPage type="privacy" />} />
       </Routes>
       {/* Modals rendered on all routes so Account & LoadSaves work everywhere */}
       <AppModals
@@ -429,10 +1157,15 @@ export function AppRoot() {
         setToolbarPosition={controller.setToolbarPosition}
         boardScale={controller.boardScale}
         setBoardScale={controller.setBoardScale}
+        warnDeleteSingleAction={controller.warnDeleteSingleAction}
+        setWarnDeleteSingleAction={controller.setWarnDeleteSingleAction}
+        warnDeleteSubtree={controller.warnDeleteSubtree}
+        setWarnDeleteSubtree={controller.setWarnDeleteSubtree}
         saveAccountToCloud={saveAccountToCloud}
         canCloudSave={canCloudSave}
         cloudProfile={cloudProfile}
       />
+      <TutorialOverlay />
     </>
   );
 }

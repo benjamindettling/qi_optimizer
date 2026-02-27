@@ -9,6 +9,7 @@ import {
   isTierLocked,
 } from "../../config/buildingTiers";
 import { dropCarried, findTargetInstance } from "../../domain/placement/placementController";
+import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 
 // Board click handling for placement, move, sell, and boost.
 export const usePlacementHandlers = ({
@@ -132,6 +133,7 @@ export const usePlacementHandlers = ({
           return;
         }
         const def = libraryMap[target.defId];
+        const lang = getCurrentLang();
         const isHarvestable = readyMap[target.id] === true;
         const isLocked = buildLocks[target.id] === true;
         const sellHistory = {
@@ -152,7 +154,7 @@ export const usePlacementHandlers = ({
           harvestBuildings([target], "Harvest", true, true);
         }
         const label = `${refundMode ? "Rueckerstattung:" : "Verkauft:"} ${
-          libraryMap[target.defId].name
+          getBuildingName(libraryMap[target.defId], lang, "name")
         }`;
         applyRefund(delta);
         setLayout((prev) => prev.filter((p) => p.id !== target.id));
@@ -179,6 +181,7 @@ export const usePlacementHandlers = ({
 
       if (boostMode && target) {
         const def = libraryMap[target.defId];
+        const lang = getCurrentLang();
         const boostCostForDef = (value) => getBoostCostForTier(value?.tier);
         const canSpendShards = (cost) =>
           infiniteResources ||
@@ -201,10 +204,10 @@ export const usePlacementHandlers = ({
           spendShards(cost);
           if (def?.category === "culture") {
             harvestBuildings([target], "Harvest", true);
-            updateStatus(`Unlocked ${def.name}`);
+            updateStatus(`Unlocked ${getBuildingName(def, lang, "name")}`);
           } else {
             setBuildLocks((prev) => ({ ...prev, [target.id]: false }));
-            updateStatus(`Unlocked ${def.name}`);
+            updateStatus(`Unlocked ${getBuildingName(def, lang, "name")}`);
           }
           recordHistoryAction?.({
             type: infiniteResources ? "boostUnlockAdmin" : "boostUnlock",
@@ -234,7 +237,7 @@ export const usePlacementHandlers = ({
             x: target.x,
             y: target.y,
           });
-          updateStatus(`Boosted ${def.name}`);
+          updateStatus(`Boosted ${getBuildingName(def, lang, "name")}`);
         }
         requestAutoSnapshot();
         return;
@@ -294,7 +297,7 @@ export const usePlacementHandlers = ({
           x: instance.x,
           y: instance.y,
         });
-        const label = `Gekauft: ${selectedDef.name}`;
+        const label = `Gekauft: ${getBuildingName(selectedDef, getCurrentLang(), "name")}`;
         updateStatus(label);
         if (isPast) {
           setTimeout(() => {

@@ -1,8 +1,10 @@
 [
   {
     "id": "marktplatz",
-    "name": "Marktplatz",
-    "short": "Ma",
+    "name_DE": "Marktplatz",
+    "name_EN": "Marketplace",
+    "shortname_DE": "Ma",
+    "shortname_EN": "Ma",
     "size": [
       3,
       3
@@ -18,8 +20,10 @@
   },
   {
     "id": "galgen",
-    "name": "Galgen",
-    "short": "Ga",
+    "name_DE": "Galgen",
+    "name_EN": "Gallow",
+    "shortname_DE": "Ga",
+    "shortname_EN": "Ga",
     "size": [
       2,
       2
@@ -35,8 +39,10 @@
   },
   {
     "id": "pranger",
-    "name": "Pranger",
-    "short": "Pr",
+    "name_DE": "Pranger",
+    "name_EN": "Pillory",
+    "shortname_DE": "Pr",
+    "shortname_EN": "Pi",
     "size": [
       2,
       2
@@ -52,8 +58,10 @@
   },
   {
     "id": "kirche",
-    "name": "Kirche",
-    "short": "Ki",
+    "name_DE": "Kirche",
+    "name_EN": "Church",
+    "shortname_DE": "Ki",
+    "shortname_EN": "Ch",
     "size": [
       3,
       3
@@ -69,8 +77,10 @@
   },
   {
     "id": "druckerei",
-    "name": "Druckerei",
-    "short": "Dr",
+    "name_DE": "Druckerei",
+    "name_EN": "Printing",
+    "shortname_DE": "Dr",
+    "shortname_EN": "Pr",
     "size": [
       3,
       3
@@ -86,8 +96,10 @@
   },
   {
     "id": "doktor",
-    "name": "Doktor",
-    "short": "Do",
+    "name_DE": "Doktor",
+    "name_EN": "Doctor",
+    "shortname_DE": "Do",
+    "shortname_EN": "Do",
     "size": [
       3,
       3
@@ -103,8 +115,10 @@
   },
   {
     "id": "palast",
-    "name": "Palast",
-    "short": "Pa",
+    "name_DE": "Palast",
+    "name_EN": "Palace",
+    "shortname_DE": "Pa",
+    "shortname_EN": "Pa",
     "size": [
       4,
       4
@@ -120,8 +134,10 @@
   },
   {
     "id": "buecherei",
-    "name": "B\u00fccherei",
-    "short": "B\u00fc",
+    "name_DE": "Bücherei",
+    "name_EN": "Library",
+    "shortname_DE": "Bü",
+    "shortname_EN": "Li",
     "size": [
       4,
       4
@@ -137,8 +153,10 @@
   },
   {
     "id": "kartograph",
-    "name": "Kartograph",
-    "short": "Ka",
+    "name_DE": "Kartograph",
+    "name_EN": "Cartographer",
+    "shortname_DE": "Ka",
+    "shortname_EN": "Ca",
     "size": [
       3,
       2

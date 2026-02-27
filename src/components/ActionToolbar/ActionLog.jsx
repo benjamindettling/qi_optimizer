@@ -1,5 +1,7 @@
 // Auto-generated action log between checkpoints
 import { useMemo } from "react";
+import { useLang } from "../../context/LanguageContext";
+import { getBuildingName } from "../../utils/buildingName";
 import "./ActionLog.css";
 
 // Action types that should NOT appear in the log
@@ -27,19 +29,19 @@ const CHECKPOINT_TYPES = new Set(["finishProductions"]);
 const HARVEST_ALL_TYPES = new Set(["harvestAll", "harvestAllAdmin"]);
 const BOOST_HARVEST_TYPES = new Set(["boostReady", "harvest", ...HARVEST_ALL_TYPES]);
 
-function resolveActionShortName(action, libraryMap, shortIdMap) {
+function resolveActionShortName(action, libraryMap, shortIdMap, lang) {
   const defId = action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null);
   if (!defId || !libraryMap) return "?";
   const def = libraryMap[defId];
-  return def?.short || def?.name || "?";
+  return getBuildingName(def, lang, "short");
 }
 
-function getChainDescriptor(action, libraryMap, shortIdMap) {
+function getChainDescriptor(action, libraryMap, shortIdMap, lang) {
   if (!action) return null;
   const type = action.type || "";
 
   if (type === "build") {
-    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap, lang);
     return {
       chainKind: "build",
       bucketKey: shortName,
@@ -49,7 +51,7 @@ function getChainDescriptor(action, libraryMap, shortIdMap) {
   }
 
   if (type === "sell") {
-    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap, lang);
     return {
       chainKind: "sell",
       bucketKey: shortName,
@@ -59,7 +61,7 @@ function getChainDescriptor(action, libraryMap, shortIdMap) {
   }
 
   if (type === "boostUnlock") {
-    const shortName = resolveActionShortName(action, libraryMap, shortIdMap);
+    const shortName = resolveActionShortName(action, libraryMap, shortIdMap, lang);
     return {
       chainKind: "unlock",
       bucketKey: shortName,
@@ -73,7 +75,7 @@ function getChainDescriptor(action, libraryMap, shortIdMap) {
     const isHarvestAll = HARVEST_ALL_TYPES.has(type);
     const target = isHarvestAll
       ? "all"
-      : resolveActionShortName(action, libraryMap, shortIdMap);
+      : resolveActionShortName(action, libraryMap, shortIdMap, lang);
     const op = isBoost ? "boost" : "harvest";
     return {
       chainKind: "boostHarvest",
@@ -100,7 +102,9 @@ function getPurchaseTotal(action) {
       return sum + amount * count;
     }, 0);
   }
-  const quantity = Number(action?.quantity ?? action?.amount ?? action?.count ?? 0);
+  const quantity = Number(
+    action?.quantity ?? action?.amount ?? action?.count ?? 0,
+  );
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
 }
 
@@ -108,7 +112,7 @@ function getPurchaseTotal(action) {
  * Format an action for display in the log
  * @returns {{ text: string, color: string } | null}
  */
-function formatAction(action, libraryMap, shortIdMap) {
+function formatAction(action, libraryMap, shortIdMap, lang) {
   if (!action) return null;
   const type = action.type || "";
 
@@ -117,22 +121,22 @@ function formatAction(action, libraryMap, shortIdMap) {
 
   // Build actions
   if (type === "build") {
-    return { text: `+1 ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "green" };
+    return { text: `+1 ${resolveActionShortName(action, libraryMap, shortIdMap, lang)}`, color: "green" };
   }
 
   // Sell actions
   if (type === "sell") {
-    return { text: `-1 ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "red" };
+    return { text: `-1 ${resolveActionShortName(action, libraryMap, shortIdMap, lang)}`, color: "red" };
   }
 
   // Boost unlock (unlock building)
   if (type === "boostUnlock") {
-    return { text: `→ unlock ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
+    return { text: `→ unlock ${resolveActionShortName(action, libraryMap, shortIdMap, lang)}`, color: "yellow" };
   }
 
   // Boost ready (finish production)
   if (type === "boostReady") {
-    return { text: `→ boost ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
+    return { text: `→ boost ${resolveActionShortName(action, libraryMap, shortIdMap, lang)}`, color: "yellow" };
   }
 
   // Goods purchase
@@ -198,7 +202,7 @@ function formatAction(action, libraryMap, shortIdMap) {
 
   // Single harvest (not typically shown, but just in case)
   if (type === "harvest") {
-    return { text: `→ harvest ${resolveActionShortName(action, libraryMap, shortIdMap)}`, color: "yellow" };
+    return { text: `→ harvest ${resolveActionShortName(action, libraryMap, shortIdMap, lang)}`, color: "yellow" };
   }
 
   return null;
@@ -213,6 +217,7 @@ export function ActionLog({
   libraryMap,
   shortIdMap,
 }) {
+  const { lang } = useLang();
   // Compute the log entries
   const entries = useMemo(() => {
     if (!historyTree?.nodes) {
@@ -316,7 +321,12 @@ export function ActionLog({
     for (let i = 0; i < relevantNodeIds.length; i++) {
       const nodeId = relevantNodeIds[i];
       const node = nodes.get(nodeId);
-      const descriptor = getChainDescriptor(node?.action, libraryMap, shortIdMap);
+      const descriptor = getChainDescriptor(
+        node?.action,
+        libraryMap,
+        shortIdMap,
+        lang,
+      );
       if (descriptor) {
         if (!pendingChain || pendingChain.kind !== descriptor.chainKind) {
           flushPendingChain();
@@ -346,7 +356,7 @@ export function ActionLog({
       }
 
       flushPendingChain();
-      const formatted = formatAction(node.action, libraryMap, shortIdMap);
+      const formatted = formatAction(node.action, libraryMap, shortIdMap, lang);
 
       if (!formatted) continue;
 
@@ -366,7 +376,7 @@ export function ActionLog({
     flushPendingChain();
 
     return logEntries;
-  }, [historyTree, selectedNodeId, libraryMap, shortIdMap]);
+  }, [historyTree, selectedNodeId, libraryMap, shortIdMap, lang]);
 
   return (
     <div className="action-log-card">

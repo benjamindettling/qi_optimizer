@@ -1,6 +1,9 @@
 import { formatNumber } from "../../utils/formatNumber";
+import { useLang } from "../../context/LanguageContext";
+import { getBuildingName } from "../../utils/buildingName";
 
 export function WorstRemovalModal({ open, data, onClose }) {
+  const { lang } = useLang();
   if (!open) return null;
   const housing = data?.housing || [];
   const production = data?.production || [];
@@ -26,7 +29,9 @@ export function WorstRemovalModal({ open, data, onClose }) {
               row.value === maxVal ? "worst-top" : ""
             }`}
           >
-            <span className="worst-name">{row.short}</span>
+            <span className="worst-name">
+              {getBuildingName(row, lang, "short")}
+            </span>
             <span className="worst-value">{formatNumber(row.value)}</span>
           </div>
         ))

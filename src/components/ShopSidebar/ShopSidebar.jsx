@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { categories } from "../../config/categories";
 import { ShopCard } from "./ShopCard";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./ShopSidebar.css";
 
 const FAVORITES_STORAGE_KEY = "qi_shopFavorites";
@@ -17,6 +18,7 @@ export function ShopSidebar({
   onResetModes,
   adminMode,
 }) {
+  const shopLocked = useTutorialGate("shop-panel");
   const [favorites, setFavorites] = useState(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -109,7 +111,7 @@ export function ShopSidebar({
   };
 
   return (
-    <div className="sidebar">
+    <div className={`sidebar shop-sidebar${shopLocked ? " tutorial-zone-locked" : ""}`}>
       <div className="tabs">
         {visibleCategories.map((cat) => (
           <button

@@ -1,8 +1,10 @@
 [
   {
     "id": "mehrgeschossiges_haus",
-    "name": "Mehrgeschossiges Haus",
-    "short": "MH",
+    "name_DE": "Mehrgeschossiges Haus",
+    "name_EN": "Multi-Storey House",
+    "shortname_DE": "MH",
+    "shortname_EN": "MH",
     "size": [
       2,
       2
@@ -13,7 +15,7 @@
       "chronos": 0
     },
     "people": 70,
-    "coinBoost": 0.0,
+    "coinBoost": 0,
     "production": {
       "coins": 12500,
       "supplies": 0,
@@ -23,8 +25,10 @@
   },
   {
     "id": "fachwerkhaus",
-    "name": "Fachwerkhaus",
-    "short": "Fa",
+    "name_DE": "Fachwerkhaus",
+    "name_EN": "Frame House",
+    "shortname_DE": "Fa",
+    "shortname_EN": "FH",
     "size": [
       2,
       2
@@ -35,7 +39,7 @@
       "chronos": 200
     },
     "people": 110,
-    "coinBoost": 0.0,
+    "coinBoost": 0,
     "production": {
       "coins": 25000,
       "supplies": 0,
@@ -45,8 +49,10 @@
   },
   {
     "id": "schindelhaus",
-    "name": "Schindelhaus",
-    "short": "Sch",
+    "name_DE": "Schindelhaus",
+    "name_EN": "Clapboard House",
+    "shortname_DE": "Sch",
+    "shortname_EN": "CH",
     "size": [
       2,
       2
@@ -57,7 +63,7 @@
       "chronos": 1000
     },
     "people": 150,
-    "coinBoost": 0.0,
+    "coinBoost": 0,
     "production": {
       "coins": 130000,
       "supplies": 0,
@@ -67,8 +73,10 @@
   },
   {
     "id": "herrenhaus",
-    "name": "Herrenhaus",
-    "short": "He",
+    "name_DE": "Herrenhaus",
+    "name_EN": "Mansion",
+    "shortname_DE": "He",
+    "shortname_EN": "Ma",
     "size": [
       2,
       2
@@ -89,8 +97,10 @@
   },
   {
     "id": "sandsteinhaus",
-    "name": "Sandsteinhaus",
-    "short": "Sa",
+    "name_DE": "Sandsteinhaus",
+    "name_EN": "Brownstone House",
+    "shortname_DE": "Sa",
+    "shortname_EN": "BH",
     "size": [
       2,
       2
@@ -111,8 +121,10 @@
   },
   {
     "id": "stadthaus",
-    "name": "Stadthaus",
-    "short": "St",
+    "name_DE": "Stadthaus",
+    "name_EN": "Town House",
+    "shortname_DE": "St",
+    "shortname_EN": "TH",
     "size": [
       2,
       2
@@ -133,8 +145,10 @@
   },
   {
     "id": "gutshaus",
-    "name": "Gutshaus",
-    "short": "Gu",
+    "name_DE": "Gutshaus",
+    "name_EN": "Estate House",
+    "shortname_DE": "Gu",
+    "shortname_EN": "EH",
     "size": [
       2,
       2
@@ -155,8 +169,10 @@
   },
   {
     "id": "mietshaus",
-    "name": "Mietshaus",
-    "short": "Mi",
+    "name_DE": "Mietshaus",
+    "name_EN": "Apartment House",
+    "shortname_DE": "Mi",
+    "shortname_EN": "AH",
     "size": [
       2,
       2
@@ -177,8 +193,10 @@
   },
   {
     "id": "landgut",
-    "name": "Landgut",
-    "short": "La",
+    "name_DE": "Landgut",
+    "name_EN": "Manor",
+    "shortname_DE": "La",
+    "shortname_EN": "Ma",
     "size": [
       2,
       2

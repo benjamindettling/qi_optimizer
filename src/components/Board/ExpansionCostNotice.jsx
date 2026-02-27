@@ -1,10 +1,12 @@
-// Inline expansion cost notice under the board.
+﻿// Inline expansion cost notice under the board.
 import { Infinity as InfinityIcon } from "lucide-react";
 import {
   REGION_GOODS_COSTS,
   REGION_SHARD_COSTS,
 } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 import "./ExpansionCostNotice.css";
 
 const goodsIcon = "/menu/goods.png";
@@ -36,13 +38,16 @@ export function ExpansionCostNotice({
   adminMode = false,
   editingLocked = false,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const adminEnabled = adminMode && !editingLocked;
   const safeGoodsUnlocks = Number.isFinite(goodsUnlocks) ? goodsUnlocks : 0;
   const safeShardUnlocks = Number.isFinite(shardUnlocks) ? shardUnlocks : 0;
 
   return (
     <div className="expansion-cost-line">
-      <span className="expansion-cost-label">Nächste Erweiterung kostet</span>
+      <span className="expansion-cost-label">{t("expansionCostLabel")}</span>
       <span className="expansion-cost-entry">
         {adminEnabled ? (
           <select
@@ -66,7 +71,7 @@ export function ExpansionCostNotice({
             {renderCostValue(currentGoodsCost)}
           </span>
         )}
-        <img src={goodsIcon} alt="Güter" className="expansion-cost-icon" />
+        <img src={goodsIcon} alt={t("goodsAlt")} className="expansion-cost-icon" />
       </span>
       <span className="expansion-cost-sep">/</span>
       <span className="expansion-cost-entry">
@@ -92,8 +97,13 @@ export function ExpansionCostNotice({
             {renderCostValue(currentShardCost)}
           </span>
         )}
-        <img src={shardsIcon} alt="Scherben" className="expansion-cost-icon" />
+        <img
+          src={shardsIcon}
+          alt={t("shardsAlt")}
+          className="expansion-cost-icon"
+        />
       </span>
     </div>
   );
 }
+

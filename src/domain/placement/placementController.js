@@ -1,4 +1,4 @@
-import { BOARD_WIDTH, BOARD_HEIGHT } from "../../config/boardConfig";
+﻿import { BOARD_WIDTH, BOARD_HEIGHT } from "../../config/boardConfig";
 import {
   findInstanceAt,
   findOverlap,
@@ -6,6 +6,7 @@ import {
 } from "../../utils/layoutUtils";
 import { computeRefund } from "../../utils/gameMath";
 import { hasPopulationForDef } from "../../utils/stateUtils";
+import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 
 export const clampPosition = (x, y, def) => ({
   x: Math.min(x, BOARD_WIDTH - def.width),
@@ -123,7 +124,7 @@ export const dropCarried = ({
     }));
     const label = carriedSwapped
       ? "Swapped Buildings"
-      : `Moved ${def?.name ?? "Gebäude"}`;
+      : `Moved ${getBuildingName(def, getCurrentLang(), "name")}`;
     updateStatus(label);
     setCarried(null);
     return { ok: true, done: true, swapped: carriedSwapped, label };
@@ -142,7 +143,7 @@ export const handleSaleOrRefund = ({
   updateStatus,
 }) => {
   const label = `${refundMode ? "Refunded" : "Sold"} ${
-    libraryMap[target.defId]?.name ?? "Gebäude"
+    getBuildingName(libraryMap[target.defId], getCurrentLang(), "name")
   }`;
   const delta =
     refundMode && target.cost
@@ -220,3 +221,5 @@ export const buildPreviewOrigin = (hoverCell, previewDef, categoryColors, isCell
 
 export const findTargetInstance = (layout, x, y) =>
   findInstanceAt(layout, x, y);
+
+

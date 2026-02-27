@@ -7,6 +7,7 @@
   background: var(--color-bg);
   padding: 24px 16px 32px;
   width: 100%;
+  position: relative;
 }
 
 .starting-page-main {
@@ -32,11 +33,41 @@
   letter-spacing: -0.5px;
 }
 
+.starting-page-hero-subtitle {
+  font-weight: 700;
+  color: var(--color-accent);
+  margin: 0 0 10px;
+}
+
 .starting-page-hero p {
   font-size: 1.05rem;
   color: var(--color-text-muted);
   line-height: 1.6;
   margin: 0;
+}
+
+.starting-page-hero-text {
+  margin: 0;
+}
+
+.i18n-stable {
+  display: grid;
+}
+
+.i18n-stable-measure,
+.i18n-stable-visible {
+  grid-area: 1 / 1;
+}
+
+.i18n-stable-measure {
+  display: grid;
+  visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.i18n-stable-measure > span {
+  grid-area: 1 / 1;
 }
 
 /* Button group */
@@ -49,13 +80,22 @@
 }
 
 .starting-page-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
+  min-height: 54px;
   padding: 14px 20px;
   font-size: 1rem;
   font-weight: 700;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.15s ease;
+}
+
+.starting-page-btn-label {
+  width: 100%;
+  text-align: center;
 }
 
 .starting-page-actions button:hover {

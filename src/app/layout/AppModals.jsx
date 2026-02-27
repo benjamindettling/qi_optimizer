@@ -16,6 +16,8 @@ import { ImportSavesModal } from "../../components/modals/ImportSavesModal";
 import { LoadSavesModal } from "../../components/modals/LoadSavesModal";
 import { PastEditWarningModal } from "../../components/modals/PastEditWarningModal";
 import { EditResourceModal } from "../../components/modals/EditResourceModal";
+import { useTutorial } from "../../context/TutorialContext";
+import { TUTORIAL_EXAMPLE_SAVE_NAME } from "../../tutorial/tutorialSteps";
 import "../../components/modals/modals.css";
 import "../../components/modals/LoadSavesModal.css";
 
@@ -33,10 +35,16 @@ export function AppModals({
   setToolbarPosition,
   boardScale,
   setBoardScale,
+  warnDeleteSingleAction,
+  setWarnDeleteSingleAction,
+  warnDeleteSubtree,
+  setWarnDeleteSubtree,
   saveAccountToCloud,
   canCloudSave,
   cloudProfile,
 }) {
+  const { fireEvent } = useTutorial();
+
   const {
     unlockChoice,
     setUnlockChoice,
@@ -104,6 +112,18 @@ export function AppModals({
     hasUnsavedChanges,
   } = controller;
 
+  const handleHarvestModalClose = (fn) => {
+    fn?.();
+    fireEvent("harvest-popup-closed");
+  };
+
+  const handleLoadFromModal = (name) => {
+    handleLoadState?.(name);
+    if (name === TUTORIAL_EXAMPLE_SAVE_NAME) {
+      fireEvent("loadExampleSave", { name });
+    }
+  };
+
   return (
     <>
       <UnlockRegionModal
@@ -131,8 +151,8 @@ export function AppModals({
 
       <HarvestModal
         harvestModal={harvestModal}
-        onConfirm={confirmHarvest}
-        onCancel={cancelHarvest}
+        onConfirm={() => handleHarvestModalClose(confirmHarvest)}
+        onCancel={() => handleHarvestModalClose(cancelHarvest)}
       />
       <SmartHarvestModal
         smartHarvestModal={smartHarvestModal}
@@ -196,6 +216,10 @@ export function AppModals({
         setToolbarPosition={setToolbarPosition}
         boardScale={boardScale}
         setBoardScale={setBoardScale}
+        warnDeleteSingleAction={warnDeleteSingleAction}
+        setWarnDeleteSingleAction={setWarnDeleteSingleAction}
+        warnDeleteSubtree={warnDeleteSubtree}
+        setWarnDeleteSubtree={setWarnDeleteSubtree}
         saveAccountToCloud={saveAccountToCloud}
         canCloudSave={canCloudSave}
         cloudProfile={cloudProfile}
@@ -215,8 +239,11 @@ export function AppModals({
         open={!!loadSavesModal}
         saves={saves}
         loadName={loadName}
-        onClose={() => setLoadSavesModal(false)}
-        onLoad={handleLoadState}
+        onClose={() => {
+          setLoadSavesModal(false);
+          fireEvent("loadMenuClosed");
+        }}
+        onLoad={handleLoadFromModal}
         onRename={handleRenameSavefile}
         onDelete={handleDeleteSavefile}
         onExport={handleExportSavefile}

@@ -10,9 +10,15 @@ import { FixDeficitsModal } from "../../components/modals/FixDeficitsModal";
 import { FixLayoutModal } from "../../components/modals/FixLayoutModal";
 import { ACTION_COLORS } from "../../config/colors";
 import { useTreeNavigation } from "../../hooks/useTreeNavigation";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import { REGION_COLS, REGION_MASK } from "../../config/boardConfig";
 import { formatNumber } from "../../utils/formatNumber";
 import { getGoodIconPath } from "../../utils/goodsIconPath";
+import { useLang } from "../../context/LanguageContext";
+import { useTutorial } from "../../context/TutorialContext";
+import { TUTORIAL_STEPS } from "../../tutorial/tutorialSteps";
+import { T } from "../../i18n/translations";
+import { getBuildingName } from "../../utils/buildingName";
 import {
   FoldVertical,
   UnfoldVertical,
@@ -41,8 +47,29 @@ export function AppLayout({
   // Sync config props
   showSyncConfig,
   onSyncConfig,
+  onTutorialStepForward,
+  onTutorialJumpHistory,
+  onTutorialTreeToggleFocus,
+  onTutorialTreeToggleHorizontal,
+  onTutorialMakeTop,
+  onTutorialDeleteNode,
+  onTutorialDeleteModeChanged,
+  onTutorialCopyBranch,
+  onTutorialTreeZoomChanged,
+  onTutorialTreeFixOpened,
+  onTutorialTreeFixPopupClosed,
+  warnDeleteSingleAction = true,
+  setWarnDeleteSingleAction,
+  warnDeleteSubtree = true,
+  setWarnDeleteSubtree,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+  const { isTutorialActive, currentStepIndex, showWarningNotice } = useTutorial();
+  const boardLocked = useTutorialGate("board");
+  const treeToolbarLocked = useTutorialGate("tree-toolbar");
   const { libraryMap, shortIdMap } = historyProps;
+  const treeTutorialPreparedRef = useRef(false);
 
   // Tree visualizer ref and state for toolbar
   const treeRef = useRef(null);
@@ -52,9 +79,10 @@ export function AppLayout({
     currentOnMainBranch: true,
   });
 
-  // Delete confirmation modal state
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteSubtree, setDeleteSubtree] = useState(true);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [deleteConfirmState, setDeleteConfirmState] = useState(null); // { nodeId, deleteSubtree, options? }
+  const [dontShowDeleteWarningAgain, setDontShowDeleteWarningAgain] =
+    useState(false);
 
   // Fix modal state - can be config fix or order fix
   // { nodeId, type: "config"|"order", deficits?, fixedLayout? }
@@ -76,6 +104,23 @@ export function AppLayout({
     return () => clearTimeout(timeoutId);
   }, [updateTreeState, historyProps.historyIndex]);
 
+  useEffect(() => {
+    const section = TUTORIAL_STEPS[currentStepIndex]?.section;
+    if (!isTutorialActive || section !== "tree") {
+      treeTutorialPreparedRef.current = false;
+      return;
+    }
+    if (treeTutorialPreparedRef.current || !treeRef.current) return;
+    setDeleteMode(false);
+    onTutorialDeleteModeChanged?.(false);
+    treeRef.current.setFocusMode?.(false);
+    treeRef.current.setHorizontalCollapse?.(false);
+    treeRef.current.setSelectionFocusMode?.(true);
+    treeRef.current.zoomIn?.();
+    treeTutorialPreparedRef.current = true;
+    setTimeout(updateTreeState, 50);
+  }, [currentStepIndex, isTutorialActive, onTutorialDeleteModeChanged, updateTreeState]);
+
   // Get skipToEnd preference from config (default true)
   const skipToEnd = config?.skipToEnd !== false;
 
@@ -90,6 +135,7 @@ export function AppLayout({
           node.action,
           libraryMap,
           shortIdMap,
+          lang,
         );
         return {
           ...node,
@@ -99,6 +145,7 @@ export function AppLayout({
             node.action,
             libraryMap,
             shortIdMap,
+            lang,
           ),
           nodeLabel,
           nodeIcon,
@@ -115,7 +162,128 @@ export function AppLayout({
         actionTooltip: "Start",
       },
     ];
-  }, [historyProps, libraryMap, shortIdMap]);
+  }, [historyProps, libraryMap, shortIdMap, lang]);
+
+  const hasDeletableNodes = useMemo(
+    () => treeNodes.some((node) => node.id !== 0),
+    [treeNodes],
+  );
+
+  useEffect(() => {
+    if (hasDeletableNodes) return;
+    setDeleteMode(false);
+  }, [hasDeletableNodes]);
+
+  useEffect(() => {
+    if (deleteConfirmState) return;
+    setDontShowDeleteWarningAgain(false);
+  }, [deleteConfirmState]);
+
+  const executeDeleteAction = useCallback(
+    (nodeId, deleteSubtree, options = null) => {
+      const bundleNodeIds = Array.isArray(options?.bundleNodeIds)
+        ? options.bundleNodeIds.filter((id) => id != null && id !== 0)
+        : [];
+      if (!deleteSubtree && bundleNodeIds.length > 1) {
+        bundleNodeIds.forEach((id) => {
+          historyProps.onDeleteNode?.(id, false);
+          onTutorialDeleteNode?.(id, false);
+        });
+      } else {
+        historyProps.onDeleteNode?.(nodeId, deleteSubtree);
+        onTutorialDeleteNode?.(nodeId, deleteSubtree);
+      }
+      setTimeout(updateTreeState, 50);
+    },
+    [historyProps, onTutorialDeleteNode, updateTreeState],
+  );
+
+  const handleDeleteFromTree = useCallback(
+    (nodeId, deleteSubtree, options = null) => {
+      if (isTutorialActive) {
+        const stepId = TUTORIAL_STEPS[currentStepIndex]?.id;
+        if (stepId === "tree-delete-second-branch-subtree") {
+          const rootChildren =
+            historyProps.historyTree?.nodes?.get?.(0)?.childrenIds ?? [];
+          const secondRootChildId = rootChildren.length > 1 ? rootChildren[1] : null;
+          if (!deleteSubtree || secondRootChildId == null || nodeId !== secondRootChildId) {
+            showWarningNotice?.("tree-delete-wrong-node");
+            return;
+          }
+        }
+      }
+
+      const shouldWarn = deleteSubtree
+        ? warnDeleteSubtree
+        : warnDeleteSingleAction;
+      if (shouldWarn) {
+        setDeleteConfirmState({ nodeId, deleteSubtree, options });
+        setDontShowDeleteWarningAgain(false);
+        return;
+      }
+      executeDeleteAction(nodeId, deleteSubtree, options);
+    },
+    [
+      currentStepIndex,
+      executeDeleteAction,
+      historyProps.historyTree,
+      isTutorialActive,
+      showWarningNotice,
+      warnDeleteSingleAction,
+      warnDeleteSubtree,
+    ],
+  );
+
+  const applyDeleteWarningPreference = useCallback(
+    (deleteSubtree) => {
+      if (!dontShowDeleteWarningAgain) return;
+      if (deleteSubtree) {
+        setWarnDeleteSubtree?.(false);
+      } else {
+        setWarnDeleteSingleAction?.(false);
+      }
+    },
+    [
+      dontShowDeleteWarningAgain,
+      setWarnDeleteSingleAction,
+      setWarnDeleteSubtree,
+    ],
+  );
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!deleteConfirmState) return;
+    const { nodeId, deleteSubtree, options } = deleteConfirmState;
+    applyDeleteWarningPreference(deleteSubtree);
+    executeDeleteAction(nodeId, deleteSubtree, options);
+    setDeleteConfirmState(null);
+  }, [deleteConfirmState, applyDeleteWarningPreference, executeDeleteAction]);
+
+  const handleCancelDelete = useCallback(() => {
+    if (!deleteConfirmState) return;
+    applyDeleteWarningPreference(deleteConfirmState.deleteSubtree);
+    setDeleteConfirmState(null);
+  }, [deleteConfirmState, applyDeleteWarningPreference]);
+
+  const setDeleteModeWithTutorial = useCallback(
+    (nextDeleteMode) => {
+      setDeleteMode((prev) => {
+        const resolved =
+          typeof nextDeleteMode === "function"
+            ? !!nextDeleteMode(prev)
+            : !!nextDeleteMode;
+        if (resolved !== prev) {
+          onTutorialDeleteModeChanged?.(resolved);
+        }
+        return resolved;
+      });
+    },
+    [onTutorialDeleteModeChanged],
+  );
+
+  const clearExclusiveModes = useCallback(() => {
+    sidebarProps.onResetModes?.();
+    setDeleteModeWithTutorial(false);
+  }, [sidebarProps, setDeleteModeWithTutorial]);
 
   // Use tree navigation hook for TopBar
   const {
@@ -133,11 +301,259 @@ export function AppLayout({
     treeState.horizontalCollapse,
   );
 
+  const wrappedJumpPrevCheckpoint = useCallback(() => {
+    clearExclusiveModes();
+    jumpToPrevCheckpoint();
+  }, [clearExclusiveModes, jumpToPrevCheckpoint]);
+
+  const wrappedStepBack = useCallback(() => {
+    clearExclusiveModes();
+    stepBackward();
+  }, [clearExclusiveModes, stepBackward]);
+
+  const wrappedStepForward = useCallback(() => {
+    clearExclusiveModes();
+    onTutorialStepForward?.();
+    stepForward();
+  }, [clearExclusiveModes, onTutorialStepForward, stepForward]);
+
+  const wrappedJumpNextCheckpoint = useCallback(() => {
+    clearExclusiveModes();
+    jumpToNextCheckpoint();
+  }, [clearExclusiveModes, jumpToNextCheckpoint]);
+
+  const wrappedToggleMove = useCallback(() => {
+    setDeleteModeWithTutorial(false);
+    toolbarProps.onToggleMove?.();
+  }, [setDeleteModeWithTutorial, toolbarProps]);
+
+  const wrappedToggleSell = useCallback(() => {
+    setDeleteModeWithTutorial(false);
+    toolbarProps.onToggleSell?.();
+  }, [setDeleteModeWithTutorial, toolbarProps]);
+
+  const wrappedToggleBoost = useCallback(() => {
+    setDeleteModeWithTutorial(false);
+    toolbarProps.onToggleBoost?.();
+  }, [setDeleteModeWithTutorial, toolbarProps]);
+
+  const wrappedToggleRefund = useCallback(() => {
+    setDeleteModeWithTutorial(false);
+    toolbarProps.onToggleRefund?.();
+  }, [setDeleteModeWithTutorial, toolbarProps]);
+
+  const wrappedOpenShop = useCallback(() => {
+    clearExclusiveModes();
+    onOpenShop?.();
+  }, [clearExclusiveModes, onOpenShop]);
+
+  const wrappedCancelPlacement = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onCancelPlacement?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedFinishProductions = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.finishProductions?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedHarvestPartial = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.harvestPartial?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedHighlightToggle = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onToggleHighlightMode?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedPrintBoard = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onPrintBoard?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedExportPdf = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onExportPdf?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedFindWorst = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onFindWorst?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedBoardRegionClick = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      boardProps.onRegionClick?.(...args);
+    },
+    [boardProps, clearExclusiveModes],
+  );
+
+  const wrappedDebugUnlockRegion = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      boardProps.onDebugUnlockRegion?.(...args);
+    },
+    [boardProps, clearExclusiveModes],
+  );
+
+  const wrappedDebugLockRegion = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      boardProps.onDebugLockRegion?.(...args);
+    },
+    [boardProps, clearExclusiveModes],
+  );
+
+  const wrappedShopResetModes = useCallback(() => {
+    clearExclusiveModes();
+  }, [clearExclusiveModes]);
+
+  const wrappedShopSetSelectedBuildingId = useCallback(
+    (defId) => {
+      setDeleteModeWithTutorial(false);
+      sidebarProps.setSelectedBuildingId?.(defId);
+    },
+    [setDeleteModeWithTutorial, sidebarProps],
+  );
+
+  const wrappedTopBarSave = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      toolbarProps.onSave?.(...args);
+    },
+    [clearExclusiveModes, toolbarProps],
+  );
+
+  const wrappedTopBarLoad = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      toolbarProps.onLoad?.(...args);
+    },
+    [clearExclusiveModes, toolbarProps],
+  );
+
+  const wrappedTopBarOpenExport = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onOpenExport?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedTopBarOpenImport = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onOpenImport?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedTopBarOpenLoadSaves = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onOpenLoadSaves?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
+  const wrappedTopBarToggleAdmin = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      topBarProps.onToggleAdmin?.(...args);
+    },
+    [clearExclusiveModes, topBarProps],
+  );
+
+  const wrappedTopBarOpenHelp = useCallback(() => {
+    clearExclusiveModes();
+    topBarProps.onOpenHelp?.();
+  }, [clearExclusiveModes, topBarProps]);
+
+  const wrappedTopBarOpenAccount = useCallback(() => {
+    clearExclusiveModes();
+    topBarProps.onOpenAccount?.();
+  }, [clearExclusiveModes, topBarProps]);
+
+  const wrappedTopBarStartTutorial = useCallback(() => {
+    clearExclusiveModes();
+    topBarProps.onStartTutorial?.();
+  }, [clearExclusiveModes, topBarProps]);
+
+  const wrappedTopBarSyncConfig = useCallback(() => {
+    clearExclusiveModes();
+    onSyncConfig?.();
+  }, [clearExclusiveModes, onSyncConfig]);
+
+  const wrappedTopBarEditResource = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      topBarProps.onEditResource?.(...args);
+    },
+    [clearExclusiveModes, topBarProps],
+  );
+
+  const wrappedTopBarEditGood = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      topBarProps.onEditGood?.(...args);
+    },
+    [clearExclusiveModes, topBarProps],
+  );
+
+  const wrappedTopBarEditUnit = useCallback(
+    (...args) => {
+      clearExclusiveModes();
+      topBarProps.onEditUnit?.(...args);
+    },
+    [clearExclusiveModes, topBarProps],
+  );
+
+  const handleTopBarClickCapture = useCallback(
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest("button")) {
+        clearExclusiveModes();
+      }
+    },
+    [clearExclusiveModes],
+  );
+
+  const handleTreeClusterClickCapture = useCallback(
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      if (target.closest('[data-tree-delete-mode-toggle="true"]')) {
+        return;
+      }
+
+      const clickedNode = target.closest("[data-node-id]");
+      if (clickedNode) {
+        if (!deleteMode) {
+          clearExclusiveModes();
+        }
+        return;
+      }
+
+      if (
+        target.closest("button") ||
+        target.closest('input[type="range"]')
+      ) {
+        clearExclusiveModes();
+      }
+    },
+    [clearExclusiveModes, deleteMode],
+  );
+
+  const wrappedJumpHistory = useCallback(
+    (id) => {
+      clearExclusiveModes();
+      onTutorialJumpHistory?.(id);
+      historyProps.onJumpHistory(id);
+      setTimeout(updateTreeState, 50);
+    },
+    [clearExclusiveModes, historyProps, onTutorialJumpHistory, updateTreeState],
+  );
+
   return (
     <>
       <div className="page">
         {/* TopBar spans full width */}
-        <div ref={topBarRef}>
+        <div ref={topBarRef} onClickCapture={handleTopBarClickCapture}>
           <TopBarPager
             // Stats panel props
             resources={topBarProps.resources}
@@ -145,9 +561,9 @@ export function AppLayout({
             happyInfo={topBarProps.happyInfo}
             adminMode={topBarProps.adminMode}
             editingLocked={topBarProps.editingLocked}
-            onEditResource={topBarProps.onEditResource}
-            onEditGood={topBarProps.onEditGood}
-            onEditUnit={topBarProps.onEditUnit}
+            onEditResource={wrappedTopBarEditResource}
+            onEditGood={wrappedTopBarEditGood}
+            onEditUnit={wrappedTopBarEditUnit}
             config={config}
             // Step tracker props
             timeStep={toolbarProps.timeStep}
@@ -155,25 +571,26 @@ export function AppLayout({
             timePartTotal={toolbarProps.timePartTotal}
             canStepBack={hasParent}
             canStepForward={hasChildren}
-            onJumpPrevCheckpoint={jumpToPrevCheckpoint}
-            onStepBack={stepBackward}
-            onStepForward={stepForward}
-            onJumpNextCheckpoint={jumpToNextCheckpoint}
+            onJumpPrevCheckpoint={wrappedJumpPrevCheckpoint}
+            onStepBack={wrappedStepBack}
+            onStepForward={wrappedStepForward}
+            onJumpNextCheckpoint={wrappedJumpNextCheckpoint}
             // Menu panel props
-            onSave={toolbarProps.onSave}
-            onLoad={toolbarProps.onLoad}
+            onSave={wrappedTopBarSave}
+            onLoad={wrappedTopBarLoad}
             saves={toolbarProps.saves}
             loadName={toolbarProps.loadName}
             setLoadName={toolbarProps.setLoadName}
             onDeleteSave={toolbarProps.onDeleteSave}
-            onOpenExport={toolbarProps.onOpenExport}
-            onOpenImport={toolbarProps.onOpenImport}
-            onOpenLoadSaves={toolbarProps.onOpenLoadSaves}
-            onToggleAdmin={topBarProps.onToggleAdmin}
-            onOpenHelp={topBarProps.onOpenHelp}
-            onOpenAccount={topBarProps.onOpenAccount}
+            onOpenExport={wrappedTopBarOpenExport}
+            onOpenImport={wrappedTopBarOpenImport}
+            onOpenLoadSaves={wrappedTopBarOpenLoadSaves}
+            onToggleAdmin={wrappedTopBarToggleAdmin}
+            onOpenHelp={wrappedTopBarOpenHelp}
+            onOpenAccount={wrappedTopBarOpenAccount}
+            onStartTutorial={wrappedTopBarStartTutorial}
             showSyncConfig={showSyncConfig}
-            onSyncConfig={onSyncConfig}
+            onSyncConfig={wrappedTopBarSyncConfig}
             hasUnsavedChanges={topBarProps.hasUnsavedChanges}
           />
         </div>
@@ -184,6 +601,8 @@ export function AppLayout({
           <div className="shop-panel">
             <ShopSidebar
               {...sidebarProps}
+              setSelectedBuildingId={wrappedShopSetSelectedBuildingId}
+              onResetModes={wrappedShopResetModes}
               REGION_COLS={REGION_COLS}
               regionMask={REGION_MASK}
             />
@@ -201,35 +620,47 @@ export function AppLayout({
               moveMode={toolbarProps.moveMode}
               sellMode={toolbarProps.sellMode}
               boostMode={toolbarProps.boostMode}
-              onToggleMove={toolbarProps.onToggleMove}
-              onToggleSell={toolbarProps.onToggleSell}
-              onToggleBoost={toolbarProps.onToggleBoost}
-              onOpenShop={onOpenShop}
+              onToggleMove={wrappedToggleMove}
+              onToggleSell={wrappedToggleSell}
+              onToggleBoost={wrappedToggleBoost}
+              onOpenShop={wrappedOpenShop}
               isPlacementMode={toolbarProps.isPlacementMode}
-              onCancelPlacement={toolbarProps.onCancelPlacement}
-              finishProductions={toolbarProps.finishProductions}
-              harvestPartial={toolbarProps.harvestPartial}
+              onCancelPlacement={wrappedCancelPlacement}
+              finishProductions={wrappedFinishProductions}
+              harvestPartial={wrappedHarvestPartial}
               harvestIsPartial={toolbarProps.harvestIsPartial}
               isPast={toolbarProps.isPast}
               editUnlocked={toolbarProps.editUnlocked}
               onOpenPastEditWarning={toolbarProps.onOpenPastEditWarning}
               position={toolbarPosition}
             />
-            <div className="board-content" ref={boardContentRef}>
+            <div
+              className={`board-content${boardLocked ? " tutorial-zone-locked" : ""}`}
+              ref={boardContentRef}
+            >
               <Board
                 {...boardProps}
-                finishProductions={toolbarProps.finishProductions}
+                finishProductions={wrappedFinishProductions}
                 harvestPartial={toolbarProps.harvestAll}
                 harvestIsPartial={toolbarProps.harvestIsPartial}
                 isPast={toolbarProps.isPast}
+                onRegionClick={wrappedBoardRegionClick}
+                onDebugUnlockRegion={wrappedDebugUnlockRegion}
+                onDebugLockRegion={wrappedDebugLockRegion}
               />
               <ExpansionCostNotice
                 currentGoodsCost={topBarProps.currentGoodsCost}
                 currentShardCost={topBarProps.currentShardCost}
                 goodsUnlocks={topBarProps.goodsUnlocks}
                 shardUnlocks={topBarProps.shardUnlocks}
-                onSetGoodsUnlocks={topBarProps.onSetGoodsUnlocks}
-                onSetShardUnlocks={topBarProps.onSetShardUnlocks}
+                onSetGoodsUnlocks={(next) => {
+                  clearExclusiveModes();
+                  topBarProps.onSetGoodsUnlocks?.(next);
+                }}
+                onSetShardUnlocks={(next) => {
+                  clearExclusiveModes();
+                  topBarProps.onSetShardUnlocks?.(next);
+                }}
                 adminMode={topBarProps.adminMode}
                 editingLocked={topBarProps.editingLocked}
               />
@@ -237,17 +668,22 @@ export function AppLayout({
           </div>
 
           {/* Tree Cluster - Centered */}
-          <div className="tree-cluster">
+          <div
+            className="tree-cluster"
+            onPointerDownCapture={handleTreeClusterClickCapture}
+          >
             {/* Tree Toolbar */}
-            <div className="tree-toolbar">
+            <div className={`tree-toolbar${treeToolbarLocked ? " tutorial-zone-locked" : ""}`}>
               <div className="tree-toolbar-group">
                 <button
                   className={`mini-btn ${treeState.focusMode ? "active-mode" : ""}`}
                   style={{ background: ACTION_COLORS.default }}
                   onClick={() => {
+                    onTutorialTreeToggleFocus?.();
                     treeRef.current?.toggleFocusMode();
                     setTimeout(updateTreeState, 50);
                   }}
+                  data-tutorial-zone="tree-focus-btn"
                   title={
                     treeState.focusMode
                       ? "Branches sind eingeklappt"
@@ -264,9 +700,11 @@ export function AppLayout({
                   className={`mini-btn ${treeState.horizontalCollapse ? "active-mode" : ""}`}
                   style={{ background: ACTION_COLORS.default }}
                   onClick={() => {
+                    onTutorialTreeToggleHorizontal?.();
                     treeRef.current?.toggleHorizontalCollapse();
                     setTimeout(updateTreeState, 50);
                   }}
+                  data-tutorial-zone="tree-collapse-btn"
                   title={
                     treeState.horizontalCollapse
                       ? "Aktionen sind zusammengefasst"
@@ -286,10 +724,12 @@ export function AppLayout({
                   className="mini-btn"
                   style={{ background: ACTION_COLORS.regionUnlock }}
                   onClick={() => {
+                    onTutorialMakeTop?.();
                     treeRef.current?.makeTop();
                     setTimeout(updateTreeState, 50);
                   }}
                   disabled={treeState.currentOnMainBranch}
+                  data-tutorial-zone="tree-main-btn"
                   title={
                     treeState.currentOnMainBranch
                       ? "Bereits auf dem Hauptbranch"
@@ -299,14 +739,26 @@ export function AppLayout({
                   <ArrowUpFromLine size={20} />
                 </button>
                 <button
-                  className="mini-btn"
+                  className={`mini-btn ${deleteMode ? "active-mode delete-mode-active" : ""}`}
                   style={{ background: "var(--ui-error-red)" }}
-                  onClick={() => setShowDeleteConfirm(true)}
-                  disabled={historyProps.historyIndex === 0}
+                  onClick={() =>
+                    setDeleteModeWithTutorial((prev) => {
+                      const next = !prev;
+                      if (next) {
+                        sidebarProps.onResetModes?.();
+                      }
+                      return next;
+                    })
+                  }
+                  disabled={!hasDeletableNodes}
+                  data-tree-delete-mode-toggle="true"
+                  data-tutorial-zone="tree-delete-btn"
                   title={
-                    historyProps.historyIndex === 0
-                      ? "Root kann nicht gelöscht werden"
-                      : "Ausgewählte Node löschen"
+                    !hasDeletableNodes
+                      ? t("treeDeleteModeDisabledTitle")
+                      : deleteMode
+                        ? t("treeDeleteModeActiveTitle")
+                        : t("treeDeleteModeInactiveTitle")
                   }
                 >
                   <Trash2 size={20} />
@@ -320,19 +772,45 @@ export function AppLayout({
                 ref={treeRef}
                 nodes={treeNodes}
                 selectedId={historyProps.historyIndex}
-                onSelectNode={(id) => {
-                  historyProps.onJumpHistory(id);
-                  setTimeout(updateTreeState, 50);
-                }}
+                onSelectNode={wrappedJumpHistory}
                 onMakeTop={(id) => {
+                  clearExclusiveModes();
                   historyProps.onMakeTop(id);
                   setTimeout(updateTreeState, 50);
                 }}
                 onCopyBranch={(sourceId, targetId) => {
+                  clearExclusiveModes();
+                  if (isTutorialActive) {
+                    const stepId = TUTORIAL_STEPS[currentStepIndex]?.id;
+                    if (stepId === "tree-copy-first-to-second") {
+                      const rootChildren =
+                        historyProps.historyTree?.nodes?.get?.(0)?.childrenIds ?? [];
+                      const firstRootChildId =
+                        rootChildren.length > 0 ? rootChildren[0] : null;
+                      const secondRootChildId =
+                        rootChildren.length > 1 ? rootChildren[1] : null;
+                      if (
+                        firstRootChildId == null ||
+                        secondRootChildId == null ||
+                        sourceId !== firstRootChildId ||
+                        targetId !== secondRootChildId
+                      ) {
+                        showWarningNotice?.("wrong-tree-copy");
+                        return;
+                      }
+                    }
+                  }
+                  onTutorialCopyBranch?.(sourceId, targetId);
                   historyProps.onCopyBranch?.(sourceId, targetId);
                   setTimeout(updateTreeState, 50);
                 }}
+                onDeleteNode={handleDeleteFromTree}
+                deleteMode={deleteMode}
+                onDeleteModeChange={setDeleteModeWithTutorial}
+                onZoomLevelChange={onTutorialTreeZoomChanged}
                 onFixNode={(nodeId, fixData) => {
+                  clearExclusiveModes();
+                  onTutorialTreeFixOpened?.({ nodeId, type: fixData?.type });
                   setFixModal({ nodeId, ...fixData });
                 }}
                 actionColors={ACTION_COLORS}
@@ -342,31 +820,38 @@ export function AppLayout({
 
           {/* Log Cluster */}
           <NotesCluster
+            notes={toolbarProps.notes}
+            onChangeNotes={toolbarProps.onChangeNotes}
             historyTree={historyProps.historyTree}
             selectedNodeId={historyProps.historyIndex}
             libraryMap={historyProps.libraryMap}
             shortIdMap={historyProps.shortIdMap}
             refundMode={toolbarProps.refundMode}
-            onToggleRefund={toolbarProps.onToggleRefund}
+            onToggleRefund={wrappedToggleRefund}
             highlightMode={toolbarProps.highlightMode}
-            onToggleHighlightMode={toolbarProps.onToggleHighlightMode}
-            onPrintBoard={toolbarProps.onPrintBoard}
-            onExportPdf={toolbarProps.onExportPdf}
-            onFindWorst={toolbarProps.onFindWorst}
+            onToggleHighlightMode={wrappedHighlightToggle}
+            onPrintBoard={wrappedPrintBoard}
+            onExportPdf={wrappedExportPdf}
+            onFindWorst={wrappedFindWorst}
             isPast={toolbarProps.isPast}
           />
         </div>
       </div>
-
-      {/* Delete confirmation modal */}
-      {showDeleteConfirm && (
+      {deleteConfirmState && (
         <div className="modal modal-overlay">
-          <div className="modal-card modal-confirm-delete">
+          <div
+            className="modal-card modal-confirm-delete"
+            data-tutorial-zone="tree-delete-confirm-popup"
+          >
             <div className="help-header">
-              <h3>Node löschen</h3>
+              <h3>
+                {deleteConfirmState.deleteSubtree
+                  ? t("treeDeleteConfirmSubtreeTitle")
+                  : t("treeDeleteConfirmSingleTitle")}
+              </h3>
             </div>
             <div className="modal-body">
-              <p>Ausgewählte Node wirklich löschen?</p>
+              <p>{t("treeDeleteConfirmBody")}</p>
               <label
                 style={{
                   display: "flex",
@@ -374,68 +859,62 @@ export function AppLayout({
                   gap: "8px",
                   marginTop: "12px",
                   cursor: "pointer",
+                  justifyContent: "center",
                 }}
               >
                 <input
                   type="checkbox"
-                  checked={deleteSubtree}
-                  onChange={(e) => setDeleteSubtree(e.target.checked)}
+                  checked={dontShowDeleteWarningAgain}
+                  onChange={(e) =>
+                    setDontShowDeleteWarningAgain(e.target.checked)
+                  }
                 />
-                Lösche alle nachfolgenden Nodes
+                {t("treeDeleteConfirmDontShowAgain")}
               </label>
             </div>
             <div className="modal-actions">
-              <button
-                className="btn-confirm-delete"
-                onClick={() => {
-                  historyProps.onDeleteNode?.(
-                    historyProps.historyIndex,
-                    deleteSubtree,
-                  );
-                  setShowDeleteConfirm(false);
-                  setTimeout(updateTreeState, 50);
-                }}
-              >
-                Löschen
+              <button className="btn-confirm-delete" onClick={handleConfirmDelete}>
+                {t("treeDeleteConfirmProceed")}
               </button>
-              <button
-                className="btn-cancel-delete"
-                onClick={() => setShowDeleteConfirm(false)}
-              >
-                Abbrechen
+              <button className="btn-cancel-delete" onClick={handleCancelDelete}>
+                {t("loadSavesBtnCancel")}
               </button>
             </div>
           </div>
         </div>
       )}
-
       {/* Fix deficits modal (for configFixable) */}
       <FixDeficitsModal
         open={fixModal?.type === "config"}
-        onClose={() => setFixModal(null)}
+        onClose={() => {
+          onTutorialTreeFixPopupClosed?.();
+          setFixModal(null);
+        }}
         deficits={fixModal?.deficits}
         currentConfig={config}
         onApplyFix={(fixes) => {
           updateConfig?.(fixes);
-          setFixModal(null);
         }}
       />
 
       {/* Fix layout modal (for orderFixable) */}
       <FixLayoutModal
         open={fixModal?.type === "order"}
-        onClose={() => setFixModal(null)}
+        onClose={() => {
+          onTutorialTreeFixPopupClosed?.();
+          setFixModal(null);
+        }}
         fixedLayout={fixModal?.fixedLayout}
+        layoutFixPlan={fixModal?.layoutFixPlan}
         currentLayout={boardProps.layout}
         boardProps={boardProps}
-        onApplyFix={(fixedLayout, moveOperations) => {
+        onApplyFix={(fixedLayout, layoutFixPlan) => {
           // Apply the layout fix
           historyProps.onApplyLayoutFix?.(
             fixModal?.nodeId,
             fixedLayout,
-            moveOperations,
+            layoutFixPlan,
           );
-          setFixModal(null);
         }}
       />
     </>
@@ -469,7 +948,7 @@ function mapActionToType(action) {
 }
 
 // Generate node display data (label text and/or icon path)
-function generateNodeDisplay(action, libraryMap, shortIdMap) {
+function generateNodeDisplay(action, libraryMap, shortIdMap, lang) {
   if (!action) return { nodeLabel: null, nodeIcon: null };
 
   const type = action.type || "";
@@ -489,7 +968,7 @@ function generateNodeDisplay(action, libraryMap, shortIdMap) {
     if (!defId) return null;
     const def = libraryMap?.[defId];
     if (!def) return null;
-    return def.short || null;
+    return getBuildingName(def, lang, "short");
   };
 
   switch (type) {
@@ -556,7 +1035,7 @@ function generateNodeDisplay(action, libraryMap, shortIdMap) {
 }
 
 // Generate a human-readable title for history actions
-function generateActionTitle(action, libraryMap, shortIdMap) {
+function generateActionTitle(action, libraryMap, shortIdMap, lang) {
   if (!action) return "Start";
 
   const type = action.type || "";
@@ -587,7 +1066,7 @@ function generateActionTitle(action, libraryMap, shortIdMap) {
     if (!defId) return "?";
     const def = libraryMap?.[defId];
     if (!def) return defId.split(":").pop() || "?";
-    return def.short || def.name || "?";
+    return getBuildingName(def, lang, "short");
   };
 
   const formatCostValue = (value) => {
@@ -761,3 +1240,5 @@ function generateActionTitle(action, libraryMap, shortIdMap) {
       return action.title || type || "Aktion";
   }
 }
+
+

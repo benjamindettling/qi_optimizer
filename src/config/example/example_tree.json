@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "name": "example_tree",
+  "tree": {
+    "config": {
+      "goodsStartBonus": 0,
+      "extraCoins": 0,
+      "extraSupplies": 0,
+      "troopsStartBonus": 0,
+      "shardsStart": 650,
+      "coinBoost": 0,
+      "supplyBoost": 0,
+      "redAttackBoost": 0,
+      "redDefenseBoost": 0,
+      "blueAttackBoost": 0,
+      "blueDefenseBoost": 0,
+      "fightColor": "rot",
+      "qaBaseBonus": 0,
+      "qaHarvestHours": 12,
+      "allowNegativeShards": false,
+      "viewMode": "right",
+      "skipToEnd": true,
+      "colorTheme": "dark",
+      "placementMode": "single",
+      "useShortNames": true,
+      "toolbarPosition": "top",
+      "boardScale": 100,
+      "warnDeleteSingleAction": true,
+      "warnDeleteSubtree": true
+    },
+    "tree": [
+      [
+        {
+          "t": "b",
+          "s": "H1",
+          "x": 22,
+          "y": 10
+        },
+        {
+          "t": "b",
+          "s": "H1",
+          "x": 22,
+          "y": 12
+        },
+        {
+          "t": "b",
+          "s": "H1",
+          "x": 22,
+          "y": 14
+        },
+        {
+          "t": "fp"
+        },
+        {
+          "t": "h",
+          "s": "H1",
+          "x": 22,
+          "y": 10
+        },
+        {
+          "t": "H"
+        }
+      ]
+    ]
+  },
+  "saveConfig": null,
+  "checkpoints": []
+}

@@ -1,30 +1,40 @@
-// Navigation panel combining time step display with tree navigation buttons
+﻿// Navigation panel combining time step display with tree navigation buttons
 
 import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine } from "lucide-react";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 import "./NavigationPanel.css";
 
 export function NavigationPanel({
-  // Time step info
   timeStep,
   timePart,
   timePartTotal,
-  // Navigation callbacks (from tree visualizer)
   onJumpPrevCheckpoint,
   onStepBack,
   onStepForward,
   onJumpNextCheckpoint,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const stepVal = Math.max(1, Math.min(23, timeStep ?? 1));
-  const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
+  const dayNames = [
+    t("stepDayThu"),
+    t("stepDayFri"),
+    t("stepDaySat"),
+    t("stepDaySun"),
+    t("stepDayMon"),
+    t("stepDayTue"),
+    t("stepDayWed"),
+  ];
   const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
-  const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
-  const stepLabel = `Schritt ${stepVal}`;
+  const period = stepVal % 2 === 1 ? t("stepMorgen") : t("stepAbend");
+  const stepLabel = `${t("stepLabel")} ${stepVal}`;
   const dayLabel = `${dayNames[dayIndex]} ${period}`;
-  
+
   const hasParts = (timePartTotal ?? 0) > 1 && (timePart ?? 0) > 0;
-  const partColor = timePart && timePartTotal && timePart === timePartTotal
-    ? "#2ecc71"
-    : "#f1c40f";
+  const partColor =
+    timePart && timePartTotal && timePart === timePartTotal ? "#2ecc71" : "#f1c40f";
 
   return (
     <div className="navigation-panel">
@@ -43,28 +53,24 @@ export function NavigationPanel({
         <button
           className="nav-btn"
           onClick={onJumpPrevCheckpoint}
-          title="Vorheriger Checkpoint (Shift+←)"
+          title={t("treePrevCheckpoint")}
         >
           <ArrowLeftToLine size={22} />
         </button>
-        <button
-          className="nav-btn"
-          onClick={onStepBack}
-          title="Schritt zurück (←)"
-        >
+        <button className="nav-btn" onClick={onStepBack} title={t("treeStepBack")}>
           <ArrowLeft size={22} />
         </button>
         <button
           className="nav-btn"
           onClick={onStepForward}
-          title="Schritt vor (→)"
+          title={t("treeStepForward")}
         >
           <ArrowRight size={22} />
         </button>
         <button
           className="nav-btn"
           onClick={onJumpNextCheckpoint}
-          title="Nächster Checkpoint (Shift+→)"
+          title={t("treeNextCheckpoint")}
         >
           <ArrowRightToLine size={22} />
         </button>
@@ -72,3 +78,4 @@ export function NavigationPanel({
     </div>
   );
 }
+

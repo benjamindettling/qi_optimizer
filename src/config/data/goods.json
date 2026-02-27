@@ -1,8 +1,10 @@
 [
   {
     "id": "kupfergiesserei",
-    "name": "Kupfergiesserei",
-    "short": "Ku",
+    "name_DE": "Kupfergiesserei",
+    "name_EN": "Copper Foundry",
+    "shortname_DE": "Ku",
+    "shortname_EN": "CF",
     "size": [
       4,
       3
@@ -36,8 +38,10 @@
   },
   {
     "id": "imkerei",
-    "name": "Imkerei",
-    "short": "Im",
+    "name_DE": "Imkerei",
+    "name_EN": "Beekeeping",
+    "shortname_DE": "Im",
+    "shortname_EN": "Be",
     "size": [
       3,
       3
@@ -71,8 +75,10 @@
   },
   {
     "id": "ziegelei",
-    "name": "Ziegelei",
-    "short": "Zi",
+    "name_DE": "Ziegelei",
+    "name_EN": "Brickyard",
+    "shortname_DE": "Zi",
+    "shortname_EN": "Br",
     "size": [
       4,
       3
@@ -106,8 +112,10 @@
   },
   {
     "id": "seilerei",
-    "name": "Seilerei",
-    "short": "Se",
+    "name_DE": "Seilerei",
+    "name_EN": "Rope Factory",
+    "shortname_DE": "Se",
+    "shortname_EN": "RF",
     "size": [
       3,
       2
@@ -141,8 +149,10 @@
   },
   {
     "id": "schiesspulvermanufaktur",
-    "name": "Schießpulver-Manufaktur",
-    "short": "Sch",
+    "name_DE": "Schießpulver-Manufaktur",
+    "name_EN": "Gunpowder Factory",
+    "shortname_DE": "Sch",
+    "shortname_EN": "GF",
     "size": [
       3,
       3

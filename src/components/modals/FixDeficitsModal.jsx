@@ -59,7 +59,11 @@ export function FixDeficitsModal({
 
   return (
     <div className="modal">
-      <div className="modal-card help-modal" style={{ maxWidth: "400px" }}>
+      <div
+        className="modal-card help-modal"
+        data-tutorial-zone="tree-fix-popup"
+        style={{ maxWidth: "400px" }}
+      >
         <div className="help-header">
           <h3>Config-Fix für Ressourcen</h3>
           <button onClick={onClose}>Schliessen</button>

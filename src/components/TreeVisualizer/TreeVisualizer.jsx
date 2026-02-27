@@ -11,6 +11,7 @@ import React, {
 import * as d3 from "d3";
 import { Focus, ZoomIn, ZoomOut } from "lucide-react";
 import { ACTION_COLORS } from "../../config/colors";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./TreeVisualizer.css";
 
 // Checkpoint action types - these divide the tree into columns
@@ -121,6 +122,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     onSelectNode,
     onMakeTop,
     onCopyBranch, // (sourceNodeId, targetNodeId) => void - copy sourceNode as child of targetNode
+    onDeleteNode, // (nodeId, deleteSubtree, options?) => void - delete single node or full branch
+    deleteMode = false,
+    onDeleteModeChange,
+    onZoomLevelChange, // ({ relativeZoom, selectionFocusMode }) => void
     onFixNode, // (nodeId, deficits) => void - called when Fix button is clicked
     actionColors = {},
     width: propWidth,
@@ -131,6 +136,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const apiRef = useRef(null);
+  const treeLocked = useTutorialGate("tree");
 
   // Track container size dynamically
   const [containerSize, setContainerSize] = useState({
@@ -189,6 +195,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const dragScrollRef = useRef(null); // RAF id for auto-scroll
   const isDraggingRef = useRef(false); // Track if actively dragging
   const dragThreshold = 5; // Pixels of movement before considering it a drag
+  const [deleteHoverNodeId, setDeleteHoverNodeId] = useState(null);
+  const [deleteHoverBranch, setDeleteHoverBranch] = useState(null); // { parentId, childId }
 
   // Config matching treeHistory
   const cfg = useMemo(
@@ -219,6 +227,16 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   useEffect(() => {
     selectionFocusModeRef.current = selectionFocusMode;
   }, [selectionFocusMode]);
+
+  useEffect(() => {
+    if (deleteMode) {
+      setBranchPopup(null);
+      setSelectedEdge(null);
+      return;
+    }
+    setDeleteHoverNodeId(null);
+    setDeleteHoverBranch(null);
+  }, [deleteMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -298,6 +316,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         deficits: node.deficits,
         // Include fixed layout for orderFixable nodes
         fixedLayout: node.fixedLayout,
+        layoutFixPlan: node.layoutFixPlan,
       };
       nodeMap.set(node.id, internalNode);
       internalNodes.push(internalNode);
@@ -1168,7 +1187,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         if (event.type === "mousedown") {
           if (event.button === 0) {
             const target = event.target;
-            if (target.closest(".node-group, .square-group, .triangle-group")) {
+            if (
+              target.closest(
+                ".node-group, .square-group, .triangle-group, .edge-hit",
+              )
+            ) {
               return false;
             }
           }
@@ -1344,8 +1367,84 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     }
   }, []);
 
+  const clearDeleteHover = useCallback(() => {
+    setDeleteHoverNodeId(null);
+    setDeleteHoverBranch(null);
+  }, []);
+
+  const collectSubtreeNodeIds = useCallback(
+    (rootNodeId) => {
+      if (rootNodeId == null) return new Set();
+      const result = new Set();
+      const queue = [rootNodeId];
+
+      while (queue.length > 0) {
+        const nodeId = queue.shift();
+        if (result.has(nodeId)) continue;
+        result.add(nodeId);
+        const children = activeChildrenMap.get(nodeId) ?? [];
+        children.forEach((child) => queue.push(child.id));
+      }
+      return result;
+    },
+    [activeChildrenMap],
+  );
+
+  const handleDeleteAction = useCallback(
+    (nodeId, deleteSubtree) => {
+      if (!deleteMode || nodeId == null || nodeId === 0) return;
+      let targetNodeId = nodeId;
+      let bundleNodeIds = null;
+      if (deleteSubtree && horizontalCollapse) {
+        const bundle = bundleInfo.get(nodeId);
+        if (bundle?.bundleCount > 1) {
+          let cur = nodeId;
+          const seen = new Set();
+          while (cur != null && !seen.has(cur)) {
+            seen.add(cur);
+            const parentId = nodeMap.get(cur)?.data?.parentId;
+            if (parentId == null || !bundleInfo.get(parentId)?.isHidden) break;
+            cur = parentId;
+          }
+          targetNodeId = cur ?? nodeId;
+        }
+      }
+      if (!deleteSubtree && horizontalCollapse) {
+        const bundle = bundleInfo.get(nodeId);
+        if (bundle?.bundleCount > 1) {
+          const chain = [nodeId];
+          let cur = nodeId;
+          const seen = new Set([nodeId]);
+          while (cur != null) {
+            const parentId = nodeMap.get(cur)?.data?.parentId;
+            if (parentId == null || seen.has(parentId)) break;
+            if (!bundleInfo.get(parentId)?.isHidden) break;
+            chain.push(parentId);
+            seen.add(parentId);
+            cur = parentId;
+          }
+          bundleNodeIds = chain;
+        }
+      }
+      if (targetNodeId === 0) return;
+      onDeleteNode?.(targetNodeId, deleteSubtree, { bundleNodeIds });
+      clearDeleteHover();
+      setBranchPopup(null);
+      setSelectedEdge(null);
+    },
+    [
+      deleteMode,
+      onDeleteNode,
+      clearDeleteHover,
+      horizontalCollapse,
+      bundleInfo,
+      nodeMap,
+    ],
+  );
+
   // Handle drag start on a node
   const handleDragStart = useCallback((nodeId, event) => {
+    if (deleteMode) return;
     // Don't allow dragging the root node (id 0)
     if (nodeId === 0) return;
 
@@ -1365,8 +1464,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       currentY: clientY - (rect?.top ?? 0),
       hasMoved: false, // Track if mouse actually moved beyond threshold
     });
-    setSelectionFocusMode(false);
-  }, []);
+  }, [deleteMode]);
 
   // Handle drag move
   const handleDragMove = useCallback(
@@ -1384,6 +1482,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const dy = y - dragState.startY;
       const distance = Math.sqrt(dx * dx + dy * dy);
       const hasMoved = dragState.hasMoved || distance > dragThreshold;
+      if (hasMoved && !dragState.hasMoved && selectionFocusModeRef.current) {
+        setSelectionFocusMode(false);
+      }
 
       setDragState((prev) =>
         prev ? { ...prev, currentX: x, currentY: y, hasMoved } : null,
@@ -1393,12 +1494,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       if (hasMoved) {
         // Find potential drop target
         const targetId = findNodeAtPosition(x, y);
-        // Can't drop on self or root
-        if (
-          targetId !== null &&
-          targetId !== dragState.nodeId &&
-          targetId !== 0
-        ) {
+        // Can't drop on self
+        if (targetId !== null && targetId !== dragState.nodeId) {
           setDropTarget(targetId);
         } else {
           setDropTarget(null);
@@ -1568,6 +1665,26 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       return 0;
     });
 
+    const linkKey = (parentId, childId) => `${parentId}|${childId}`;
+    const highlightedDeleteNodes =
+      deleteMode && deleteHoverBranch?.childId != null
+        ? collectSubtreeNodeIds(deleteHoverBranch.childId)
+        : new Set();
+    const highlightedDeleteEdges = new Set();
+    if (deleteMode && deleteHoverBranch?.childId != null) {
+      if (deleteHoverBranch.parentId != null) {
+        highlightedDeleteEdges.add(
+          linkKey(deleteHoverBranch.parentId, deleteHoverBranch.childId),
+        );
+      }
+      highlightedDeleteNodes.forEach((nodeId) => {
+        const children = activeChildrenMap.get(nodeId) ?? [];
+        children.forEach((child) =>
+          highlightedDeleteEdges.add(linkKey(nodeId, child.id)),
+        );
+      });
+    }
+
     // Draw edges
     gLinks
       .selectAll("path.edge")
@@ -1579,6 +1696,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       .attr("stroke-width", (d) => {
         const sId = sourceId(d);
         const tId = targetId(d);
+        if (deleteMode && highlightedDeleteEdges.has(linkKey(sId, tId))) {
+          return 3.5;
+        }
         if (highlightedEdge?.parentId === sId) {
           const kids = activeChildrenMap.get(sId) ?? [];
           if (kids[highlightedEdge.childIndex]?.id === tId) return 3;
@@ -1589,6 +1709,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         const sId = sourceId(d);
         const tId = targetId(d);
         const idx = getChildIndex(d);
+
+        if (deleteMode && highlightedDeleteEdges.has(linkKey(sId, tId))) {
+          return "#ef4444";
+        }
 
         // Check if target node is greyed out
         const targetNode = nodeMap.get(tId);
@@ -1601,6 +1725,56 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           if (kids[highlightedEdge.childIndex]?.id === tId) return "#000000";
         }
         return idx === 0 ? "#ffffff" : "#9aa4b2";
+      });
+
+    gLinks
+      .selectAll("path.edge-hit")
+      .data(deleteMode ? sortedLinks : [], (d) => `hit_${d.id}`)
+      .join("path")
+      .attr("class", "edge-hit")
+      .attr("fill", "none")
+      .attr("d", linkPath)
+      .attr("stroke", "transparent")
+      .attr("stroke-width", 14)
+      .style("cursor", "pointer")
+      .on("mouseenter", (event, d) => {
+        event.stopPropagation();
+        const childId = targetId(d);
+        if (childId === 0) return;
+        setDeleteHoverNodeId(null);
+        setDeleteHoverBranch({
+          parentId: sourceId(d),
+          childId,
+        });
+      })
+      .on("mouseleave", (event, d) => {
+        event.stopPropagation();
+        const edgeParentId = sourceId(d);
+        const edgeChildId = targetId(d);
+        setDeleteHoverBranch((prev) =>
+          prev &&
+          prev.parentId === edgeParentId &&
+          prev.childId === edgeChildId
+            ? null
+            : prev,
+        );
+      })
+      .on("mousedown", (event, d) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        handleDeleteAction(targetId(d), true);
+      })
+      .on("touchstart", (event, d) => {
+        event.preventDefault();
+        event.stopPropagation();
+        handleDeleteAction(targetId(d), true);
+      })
+      .on("click", (event, d) => {
+        // Fallback for assistive/device cases where click is still dispatched.
+        event.preventDefault();
+        event.stopPropagation();
+        handleDeleteAction(targetId(d), true);
       });
 
     // Hint lines for hidden branches
@@ -1719,6 +1893,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     // Helper for node stroke based on selection, drop target, and validity flags
     const getNodeStroke = (d) => {
+      if (deleteMode && deleteHoverNodeId === d.id) return "#ef4444";
+      if (deleteMode && highlightedDeleteNodes.has(d.id)) return "#ef4444";
       if (dropTarget === d.id) return "#fbbf24"; // Yellow for drop target
       if (d.id === internalSelected) return "#000000";
       // Validity flag colors (priority order: unfixable > orderUnfixable > orderTBD/orderFixable > configFixable)
@@ -1728,6 +1904,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       return "#ffffff";
     };
     const getNodeStrokeWidth = (d) => {
+      if (deleteMode && deleteHoverNodeId === d.id) return 4;
+      if (deleteMode && highlightedDeleteNodes.has(d.id)) return 3.5;
       if (dropTarget === d.id) return 4;
       if (d.id === internalSelected) return 3;
       // Validity flags get thicker stroke
@@ -1741,8 +1919,23 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         return 3;
       return 2;
     };
+    const getNodeFill = (d) => {
+      if (!deleteMode || !highlightedDeleteNodes.has(d.id)) return d.color;
+      const mixed = d3.interpolateRgb(d.color || "#1f2937", "#ef4444")(0.32);
+      return mixed;
+    };
+    const getDisplayNodeLabel = (d) => {
+      const bundle = bundleInfo.get(d.id);
+      if (bundle && bundle.bundleCount > 1) return String(bundle.bundleCount);
+      return d.data?.nodeLabel || "";
+    };
+    const isBundleCountNode = (d) => {
+      const bundle = bundleInfo.get(d.id);
+      return !!bundle && bundle.bundleCount > 1;
+    };
     // Helper for text fill color based on validity flags
     const getTextFill = (d) => {
+      if (isBundleCountNode(d)) return "#ffffff";
       if (d.unfixable || d.orderUnfixable) return "#ef4444"; // Red for unfixable
       if (d.orderTBD || d.orderFixable) return "#f97316"; // Orange for order issues
       if (d.configFixable) return "#ec4899"; // Pink for configFixable
@@ -1752,6 +1945,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       if (dropTarget === d.id) return 1.3; // Enlarge drop target
       if (dragState?.nodeId === d.id) return 0.9; // Slightly shrink dragged node
       return 1;
+    };
+    const getNodeCursor = (d) => {
+      if (!deleteMode) return "pointer";
+      return d.id === 0 ? "not-allowed" : "pointer";
     };
     // Helper for tooltip text (includes bundle count when collapsed)
     const getTooltip = (d) => {
@@ -1778,25 +1975,28 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           const g = enter.append("g").attr("class", "node-group");
           g.append("circle")
             .attr("r", cfg.nodeRadius)
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
             .attr("stroke-width", getNodeStrokeWidth)
-            .style("cursor", "pointer");
+            .style("cursor", getNodeCursor);
 
           // Add text label if present
-          g.filter((d) => d.data?.nodeLabel)
+          g.filter((d) => !!getDisplayNodeLabel(d))
             .append("text")
             .attr("class", "node-label")
             .attr("text-anchor", "middle")
             .attr("dominant-baseline", "central")
             .attr("fill", getTextFill)
-            .attr("font-size", "9px")
-            .attr("font-weight", "bold")
+            .attr("font-size", (d) => (isBundleCountNode(d) ? "12px" : "9px"))
+            .attr("font-weight", (d) => (isBundleCountNode(d) ? "900" : "bold"))
+            .attr("paint-order", (d) => (isBundleCountNode(d) ? "stroke" : null))
+            .attr("stroke", (d) => (isBundleCountNode(d) ? "#111827" : "none"))
+            .attr("stroke-width", (d) => (isBundleCountNode(d) ? 0.9 : 0))
             .attr("pointer-events", "none")
-            .text((d) => d.data?.nodeLabel || "");
+            .text((d) => getDisplayNodeLabel(d));
 
           // Add icon if present (and no label)
-          g.filter((d) => d.data?.nodeIcon && !d.data?.nodeLabel)
+          g.filter((d) => d.data?.nodeIcon && !getDisplayNodeLabel(d))
             .append("image")
             .attr("class", "node-icon")
             .attr("href", (d) => d.data?.nodeIcon || "")
@@ -1812,13 +2012,19 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         (update) => {
           update
             .select("circle")
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
-            .attr("stroke-width", getNodeStrokeWidth);
+            .attr("stroke-width", getNodeStrokeWidth)
+            .style("cursor", getNodeCursor);
           update
             .select("text.node-label")
-            .text((d) => d.data?.nodeLabel || "")
-            .attr("fill", getTextFill);
+            .text((d) => getDisplayNodeLabel(d))
+            .attr("fill", getTextFill)
+            .attr("font-size", (d) => (isBundleCountNode(d) ? "12px" : "9px"))
+            .attr("font-weight", (d) => (isBundleCountNode(d) ? "900" : "bold"))
+            .attr("paint-order", (d) => (isBundleCountNode(d) ? "stroke" : null))
+            .attr("stroke", (d) => (isBundleCountNode(d) ? "#111827" : "none"))
+            .attr("stroke-width", (d) => (isBundleCountNode(d) ? 0.9 : 0));
           update
             .select("image.node-icon")
             .attr("href", (d) => d.data?.nodeIcon || "");
@@ -1826,6 +2032,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           return update;
         },
       )
+      .attr("data-node-id", (d) => d.id)
       .attr("transform", (d) => {
         const pos = positions.get(d.id);
         const scale = getNodeScale(d);
@@ -1834,12 +2041,28 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       .on("click", (event, d) => {
         // Don't handle click if we just finished dragging
         if (isDraggingRef.current) return;
+        if (deleteMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleDeleteAction(d.id, false);
+          return;
+        }
         setInternalSelected(d.id);
         setSelectedEdge(null);
         setBranchPopup(null);
         onSelectNode?.(d.id);
       })
+      .on("mouseenter", (_event, d) => {
+        if (!deleteMode || d.id === 0) return;
+        setDeleteHoverBranch(null);
+        setDeleteHoverNodeId(d.id);
+      })
+      .on("mouseleave", (_event, d) => {
+        if (!deleteMode) return;
+        setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
+      })
       .on("mousedown", (event, d) => {
+        if (deleteMode) return;
         // Start drag on mousedown (not click)
         if (event.button === 0 && d.id !== 0) {
           // Left click only, not root
@@ -1847,6 +2070,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         }
       })
       .on("touchstart", (event, d) => {
+        if (deleteMode) return;
         if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
@@ -1866,13 +2090,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             .attr("x", -sqSize / 2)
             .attr("y", -sqSize / 2)
             .attr("rx", 2)
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
             .attr("stroke-width", getNodeStrokeWidth)
-            .style("cursor", "pointer");
+            .style("cursor", getNodeCursor);
 
           // Add icon if present (for region unlocks)
-          g.filter((d) => d.data?.nodeIcon)
+          g.filter((d) => d.data?.nodeIcon && !isBundleCountNode(d))
             .append("image")
             .attr("class", "node-icon")
             .attr("href", (d) => d.data?.nodeIcon || "")
@@ -1882,22 +2106,39 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             .attr("y", -sqSize * 0.35)
             .attr("pointer-events", "none");
 
+          g.filter(isBundleCountNode)
+            .append("text")
+            .attr("class", "node-label node-label-bundle-count")
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "central")
+            .attr("fill", "#ffffff")
+            .attr("font-size", "12px")
+            .attr("font-weight", "900")
+            .attr("paint-order", "stroke")
+            .attr("stroke", "#111827")
+            .attr("stroke-width", 0.9)
+            .attr("pointer-events", "none")
+            .text((d) => getDisplayNodeLabel(d));
+
           g.append("title").text(getTooltip);
           return g;
         },
         (update) => {
           update
             .select("rect")
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
-            .attr("stroke-width", getNodeStrokeWidth);
+            .attr("stroke-width", getNodeStrokeWidth)
+            .style("cursor", getNodeCursor);
           update
             .select("image.node-icon")
             .attr("href", (d) => d.data?.nodeIcon || "");
+          update.select("text.node-label").text((d) => getDisplayNodeLabel(d));
           update.select("title").text(getTooltip);
           return update;
         },
       )
+      .attr("data-node-id", (d) => d.id)
       .attr("transform", (d) => {
         const pos = positions.get(d.id);
         const scale = getNodeScale(d);
@@ -1905,17 +2146,34 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       })
       .on("click", (event, d) => {
         if (isDraggingRef.current) return;
+        if (deleteMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleDeleteAction(d.id, false);
+          return;
+        }
         setInternalSelected(d.id);
         setSelectedEdge(null);
         setBranchPopup(null);
         onSelectNode?.(d.id);
       })
+      .on("mouseenter", (_event, d) => {
+        if (!deleteMode || d.id === 0) return;
+        setDeleteHoverBranch(null);
+        setDeleteHoverNodeId(d.id);
+      })
+      .on("mouseleave", (_event, d) => {
+        if (!deleteMode) return;
+        setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
+      })
       .on("mousedown", (event, d) => {
+        if (deleteMode) return;
         if (event.button === 0 && d.id !== 0) {
           handleDragStart(d.id, event);
         }
       })
       .on("touchstart", (event, d) => {
+        if (deleteMode) return;
         if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
@@ -1931,23 +2189,39 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           g.append("path")
             .attr("class", "triangle")
             .attr("d", trianglePath(0, 0, cfg.nodeRadius * 1.2))
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
             .attr("stroke-width", getNodeStrokeWidth)
-            .style("cursor", "pointer");
+            .style("cursor", getNodeCursor);
+          g.filter(isBundleCountNode)
+            .append("text")
+            .attr("class", "node-label node-label-bundle-count")
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "central")
+            .attr("fill", "#ffffff")
+            .attr("font-size", "12px")
+            .attr("font-weight", "900")
+            .attr("paint-order", "stroke")
+            .attr("stroke", "#111827")
+            .attr("stroke-width", 0.9)
+            .attr("pointer-events", "none")
+            .text((d) => getDisplayNodeLabel(d));
           g.append("title").text(getTooltip);
           return g;
         },
         (update) => {
           update
             .select("path")
-            .attr("fill", (d) => d.color)
+            .attr("fill", getNodeFill)
             .attr("stroke", getNodeStroke)
-            .attr("stroke-width", getNodeStrokeWidth);
+            .attr("stroke-width", getNodeStrokeWidth)
+            .style("cursor", getNodeCursor);
+          update.select("text.node-label").text((d) => getDisplayNodeLabel(d));
           update.select("title").text(getTooltip);
           return update;
         },
       )
+      .attr("data-node-id", (d) => d.id)
       .attr("transform", (d) => {
         const pos = positions.get(d.id);
         const scale = getNodeScale(d);
@@ -1955,17 +2229,34 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       })
       .on("click", (event, d) => {
         if (isDraggingRef.current) return;
+        if (deleteMode) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleDeleteAction(d.id, false);
+          return;
+        }
         setInternalSelected(d.id);
         setSelectedEdge(null);
         setBranchPopup(null);
         onSelectNode?.(d.id);
       })
+      .on("mouseenter", (_event, d) => {
+        if (!deleteMode || d.id === 0) return;
+        setDeleteHoverBranch(null);
+        setDeleteHoverNodeId(d.id);
+      })
+      .on("mouseleave", (_event, d) => {
+        if (!deleteMode) return;
+        setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
+      })
       .on("mousedown", (event, d) => {
+        if (deleteMode) return;
         if (event.button === 0 && d.id !== 0) {
           handleDragStart(d.id, event);
         }
       })
       .on("touchstart", (event, d) => {
+        if (deleteMode) return;
         if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
@@ -1991,6 +2282,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     actionColors,
     dropTarget,
     dragState,
+    deleteMode,
+    deleteHoverNodeId,
+    deleteHoverBranch,
+    collectSubtreeNodeIds,
+    handleDeleteAction,
     handleDragStart,
   ]);
 
@@ -2077,6 +2373,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
         return;
 
+      if (deleteMode && e.key === "Escape") {
+        e.preventDefault();
+        clearDeleteHover();
+        onDeleteModeChange?.(false);
+        return;
+      }
+
       const isShift = e.shiftKey;
 
       // If popup is open, handle popup navigation
@@ -2134,6 +2437,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     handleJumpPrevCheckpoint,
     handleJumpNextCheckpoint,
     handleSelectBranch,
+    deleteMode,
+    clearDeleteHover,
+    onDeleteModeChange,
   ]);
 
   // Compute if current node is on main branch for Top button
@@ -2153,6 +2459,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     scaleToRelative,
     currentTransform.k,
   ]);
+
+  useEffect(() => {
+    onZoomLevelChange?.({
+      relativeZoom: displayedRelativeZoom,
+      selectionFocusMode,
+    });
+  }, [displayedRelativeZoom, onZoomLevelChange, selectionFocusMode]);
 
   const handleZoomSliderChange = useCallback(
     (event) => {
@@ -2221,6 +2534,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     () => ({
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
+      setFocusMode: (next) => setBranchFocusMode(!!next),
+      setHorizontalCollapse: (next) => setHorizontalCollapse(!!next),
+      setSelectionFocusMode: (next) => setSelectionFocusMode(!!next),
       toggleFocusMode: () => setBranchFocusMode((f) => !f),
       toggleHorizontalCollapse: () => setHorizontalCollapse((h) => !h),
       makeTop: () => onMakeTop?.(internalSelected),
@@ -2250,6 +2566,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       horizontalCollapse,
       currentOnMainBranch,
       onMakeTop,
+      setBranchFocusMode,
+      setHorizontalCollapse,
+      setSelectionFocusMode,
       internalSelected,
     ],
   );
@@ -2290,6 +2609,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           y: screenY,
           type: "order",
           fixedLayout: node.fixedLayout,
+          layoutFixPlan: node.layoutFixPlan,
           color: "#f97316", // Orange
         });
       }
@@ -2298,7 +2618,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   }, [internalNodes, nodePositions, currentTransform]);
 
   return (
-    <div className="tree-visualizer">
+    <div
+      className={`tree-visualizer${treeLocked ? " tutorial-zone-locked" : ""}${deleteMode ? " delete-mode" : ""}`}
+    >
       {/* Tree canvas */}
       <div className="tree-canvas-wrapper" ref={containerRef}>
         <svg ref={svgRef} />
@@ -2326,6 +2648,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           <button
             key={`fix-${btn.id}`}
             className="fix-node-btn"
+            data-tutorial-zone="tree-fix-btn"
             style={{
               position: "absolute",
               left: btn.x,
@@ -2342,6 +2665,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
                 onFixNode?.(btn.id, {
                   type: "order",
                   fixedLayout: btn.fixedLayout,
+                  layoutFixPlan: btn.layoutFixPlan,
                 });
               }
             }}
@@ -2372,10 +2696,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         )}
       </div>
 
-      <div className="tree-zoom-controls">
+      <div className="tree-zoom-controls" data-tutorial-zone="tree-zoom-controls">
         <div className="tree-zoom-slider-row">
           <ZoomOut size={16} aria-hidden="true" />
           <input
+            data-tutorial-zone="tree-zoom-slider"
             type="range"
             min="0"
             max="100"

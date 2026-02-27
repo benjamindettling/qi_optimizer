@@ -1,5 +1,7 @@
-// View mode buttons and admin toggles.
+﻿// View mode buttons and admin toggles.
 import { Sparkle, CircleQuestionMark, User } from "lucide-react";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 
 export function ViewControls({
   adminMode,
@@ -8,6 +10,8 @@ export function ViewControls({
   onOpenHelp,
   onOpenAccount,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
   const adminActive = adminMode && !editingLocked;
 
   return (
@@ -16,27 +20,28 @@ export function ViewControls({
         className={`view-control-btn admin-btn ${adminActive ? "active" : ""}`}
         onClick={() => !editingLocked && onToggleAdmin?.(!adminMode)}
         disabled={editingLocked}
-        title="Admin-Modus: freies Bauen, Region-Tools, Ressourcenbearbeitung"
-        aria-label="Admin"
+        title={t("btnAdminTitle")}
+        aria-label={t("btnAdminLabel")}
       >
         <Sparkle size={18} />
       </button>
       <button
         className="view-control-btn help-btn"
         onClick={onOpenHelp}
-        title="Hilfe"
-        aria-label="Hilfe"
+        title={t("btnHelpTitle")}
+        aria-label={t("btnHelpLabel")}
       >
         <CircleQuestionMark size={18} />
       </button>
       <button
         className="view-control-btn profile-btn"
         onClick={onOpenAccount}
-        title="Profil"
-        aria-label="Profil"
+        title={t("btnProfileTitle")}
+        aria-label={t("btnProfileLabel")}
       >
         <User size={18} />
       </button>
     </div>
   );
 }
+

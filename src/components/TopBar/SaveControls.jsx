@@ -1,6 +1,7 @@
-// Save controls with icon buttons for TopBar
-import { Save, FolderOpen, Download, Upload } from "lucide-react";
+﻿import { Save, FolderOpen, Download, Upload } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 import "./SaveControls.css";
 
 export function SaveControls({
@@ -14,12 +15,14 @@ export function SaveControls({
   onOpenImport,
   onOpenLoadSaves,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
   const saveNames = Object.keys(saves).sort();
 
-  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -37,29 +40,23 @@ export function SaveControls({
     onSave?.(name);
   };
 
-  const handleSelectAndLoad = (name) => {
-    setLoadName(name);
-    onLoad?.(name);
-    setDropdownOpen(false);
-  };
-
   const handleDelete = (name, e) => {
     e.stopPropagation();
-    if (confirm(`"${name}" wirklich löschen?`)) {
+    if (confirm(`"${name}" ${t("confirmDeleteSave")}`)) {
       onDeleteSave?.(name);
     }
   };
 
   return (
     <div className="save-controls">
-      <button className="save-btn" onClick={handleSave} title="Speichern">
+      <button className="save-btn" onClick={handleSave} title={t("btnSaveTitle")}>
         <Save size={18} />
       </button>
 
       <button
         className="save-btn"
         onClick={() => onOpenLoadSaves?.()}
-        title="Laden"
+        title={t("btnLoadTitle")}
       >
         <FolderOpen size={18} />
       </button>
@@ -68,14 +65,41 @@ export function SaveControls({
         <button
           className="save-btn"
           onClick={() => setDropdownOpen(!dropdownOpen)}
-          title="Schnellmenü"
+          title={t("btnQuickMenuTitle")}
         >
           <Download size={18} />
         </button>
 
         {dropdownOpen && (
           <div className="save-dropdown">
-            <div className="save-dropdown-header">Schnellzugriff</div>
+            <div className="save-dropdown-header">{t("quickMenuHeader")}</div>
+
+            {saveNames.length > 0 && (
+              <>
+                <div className="save-dropdown-divider" />
+                {saveNames.map((name) => (
+                  <div
+                    key={name}
+                    className={`save-dropdown-item ${name === loadName ? "active" : ""}`}
+                    onClick={() => {
+                      setLoadName(name);
+                      onLoad?.(name);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    <span className="save-name">{name}</span>
+                    <button
+                      className="save-delete-btn"
+                      type="button"
+                      title={t("loadSavesBtnDelete")}
+                      onClick={(e) => handleDelete(name, e)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </>
+            )}
 
             <div className="save-dropdown-divider" />
 
@@ -87,7 +111,7 @@ export function SaveControls({
               }}
             >
               <Download size={16} />
-              <span>Export</span>
+              <span>{t("quickMenuExport")}</span>
             </div>
             <div
               className="save-dropdown-item action-item"
@@ -97,7 +121,7 @@ export function SaveControls({
               }}
             >
               <Upload size={16} />
-              <span>Import</span>
+              <span>{t("quickMenuImport")}</span>
             </div>
           </div>
         )}
@@ -105,3 +129,4 @@ export function SaveControls({
     </div>
   );
 }
+

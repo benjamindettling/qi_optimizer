@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import { QA_BASE_PER_HOUR } from "../../config/gameDefaults";
 import { happinessTier } from "../../utils/gameMath";
 import { computeStats } from "../../utils/stateUtils";
+import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 
 // Derives stats, boosts, and helper computations from the current layout.
 export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstModal }) => {
@@ -88,6 +89,7 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
   );
 
   const openWorstModal = useCallback(() => {
+    const lang = getCurrentLang();
     const activeLayout = layout.filter((b) => !buildLocks[b.id]);
     const housingDefs = Array.from(
       new Set(
@@ -114,9 +116,10 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
           const value = h[harvestKey] ?? 0;
           const def = libraryMap[defId];
           return {
+            ...(def || {}),
             defId,
-            short: def?.short || def?.name || defId,
-            name: def?.name || defId,
+            short: getBuildingName(def, lang, "short") || defId,
+            name: getBuildingName(def, lang, "name") || defId,
             value,
           };
         })

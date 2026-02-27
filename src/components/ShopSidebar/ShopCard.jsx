@@ -11,6 +11,8 @@ import armyBlueIcon from "/blue_both_qi.webp";
 import troopIcon from "/troop.webp";
 import { formatNumber } from "../../utils/formatNumber";
 import { getGoodIconPath } from "../../utils/goodsIconPath";
+import { useLang } from "../../context/LanguageContext";
+import { getBuildingName } from "../../utils/buildingName";
 
 const CostRow = ({ icon, label, danger }) => (
   <div className={`cost-row ${danger ? "cost" : ""}`}>
@@ -37,6 +39,14 @@ const TRANSPARENT_IMG = (() => {
 let dragMoved = false;
 let touchMoved = false;
 
+const isMhDefId = (defId) =>
+  typeof defId === "string" &&
+  (defId === "mehrgeschossiges_haus" ||
+    defId.endsWith(":mehrgeschossiges_haus"));
+const isGutshausDefId = (defId) =>
+  typeof defId === "string" &&
+  (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+
 export function ShopCard({
   item,
   defId,
@@ -47,6 +57,8 @@ export function ShopCard({
   isFavorite,
   onToggleFavorite,
 }) {
+  const { lang } = useLang();
+  const itemName = getBuildingName(item, lang, "name");
   const [showCosts, setShowCosts] = useState(false);
   const hasCostTable = !!item.goodsCost || !!item.unitCosts;
   const titleRef = useRef(null);
@@ -69,7 +81,7 @@ export function ShopCard({
       el.style.fontSize = `${size}px`;
       if (size === minSize) break;
     }
-  }, [item.name]);
+  }, [itemName]);
   const renderCostColumn = () => (
     <div className="card-cost-col cost">
       <CostRow
@@ -289,6 +301,13 @@ export function ShopCard({
     <div
       className={`card card-grid ${!buildable ? "disabled" : ""}`}
       style={{ touchAction: "none" }}
+      data-tutorial-zone={
+        isMhDefId(defId)
+          ? "mh-card"
+          : isGutshausDefId(defId)
+            ? "gutshaus-card"
+            : undefined
+      }
       role="button"
       tabIndex={0}
       onClick={handleSelect}
@@ -343,8 +362,8 @@ export function ShopCard({
       }}
     >
       <div className="card-header">
-        <div className="card-title" title={item.name} ref={titleRef}>
-          {item.name}
+        <div className="card-title" title={itemName} ref={titleRef}>
+          {itemName}
         </div>
         <div className="card-meta">
           {item.size[0]}x{item.size[1]}

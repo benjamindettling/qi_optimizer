@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   REGION_GOODS_COSTS,
   REGION_SHARD_COSTS,
+  REGION_SIZE,
+  REGION_COLS,
   BOARD_WIDTH,
   BOARD_HEIGHT,
 } from "../../config/boardConfig";
@@ -48,6 +50,19 @@ const ACTION_GOODS_PURCHASE = "goodsPurchase";
 const ACTION_GOODS_PURCHASE_ADMIN = "goodsPurchaseAdmin";
 const ACTION_UNIT_PURCHASE = "unitPurchase";
 const ACTION_UNIT_PURCHASE_ADMIN = "unitPurchaseAdmin";
+
+const isBuildActionType = (type) =>
+  type === ACTION_BUILD || type === ACTION_BUILD_ADMIN;
+
+const rectanglesOverlap = (a, b) => {
+  if (!a || !b) return false;
+  const separated =
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y;
+  return !separated;
+};
 
 const clampIndex = (value, max) =>
   Math.max(0, Math.min(max, Number(value) || 0));
@@ -323,6 +338,7 @@ export const useActionHistory = ({
         deficits: flags.deficits || null,
         // Include fixed layout for orderFixable nodes
         fixedLayout: flags.fixedLayout || null,
+        layoutFixPlan: flags.layoutFixPlan || null,
       });
       
       for (const childId of node.childrenIds) {
@@ -2142,141 +2158,464 @@ export const useActionHistory = ({
     ],
   );
 
-  // Verify a node's state for validity issues
-  // Returns: { unfixable?: bool, configFixable?: bool, orderTBD?: bool, orderFixable?: bool, orderUnfixable?: bool, fixedLayout?: array }
-  // action: the action that led to this state (needed to determine if build action caused the issue)
-  const verifyNodeState = useCallback((state, action = null) => {
-    const { resources, layout, unlockedRegions, stats } = state;
-    const flags = {};
-    
-    // Track resource deficits for configFixable (needed for fix suggestions)
-    const deficits = {};
-    
-    // Check for unfixable issues - negative free population
-    // Free population = total population - required population
-    if (stats) {
-      const freePopulation = (stats.people ?? 0) - (stats.peopleReq ?? 0);
-      if (freePopulation < 0) {
-        flags.unfixable = true;
-      }
+  const isPlacementInsideUnlocked = useCallback((inst, unlockedRegions) => {
+    if (!inst) return false;
+    const x = Number(inst.x);
+    const y = Number(inst.y);
+    const width = Number(inst.width);
+    const height = Number(inst.height);
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height)
+    ) {
+      return false;
     }
-    
-    // Check for order issues (buildings overlap or out of bounds)
-    let hasOrderIssue = false;
-    
-    // First check for overlaps between buildings
-    for (let i = 0; i < layout.length; i++) {
-      const a = layout[i];
-      for (let j = i + 1; j < layout.length; j++) {
-        const b = layout[j];
-        // Check if they overlap
-        const separated =
-          a.x + a.width <= b.x ||
-          b.x + b.width <= a.x ||
-          a.y + a.height <= b.y ||
-          b.y + b.height <= a.y;
-        if (!separated) {
-          hasOrderIssue = true;
-          break;
+    if (x < 0 || y < 0 || x + width > BOARD_WIDTH || y + height > BOARD_HEIGHT) {
+      return false;
+    }
+    for (let cy = y; cy < y + height; cy += 1) {
+      for (let cx = x; cx < x + width; cx += 1) {
+        const regionIdx =
+          Math.floor(cx / REGION_SIZE) + REGION_COLS * Math.floor(cy / REGION_SIZE);
+        if (!unlockedRegions?.[regionIdx]) {
+          return false;
         }
       }
-      if (hasOrderIssue) break;
     }
-    
-    // Check if any building is in a locked region (out of bounds)
-    if (!hasOrderIssue) {
-      const REGION_SIZE = 4; // From boardConfig
-      const REGION_COLS = 7; // From boardConfig
-      for (const inst of layout) {
-        for (let cy = inst.y; cy < inst.y + inst.height; cy++) {
-          for (let cx = inst.x; cx < inst.x + inst.width; cx++) {
-            // Use inline region check (same as regionController.isCellUnlocked)
-            const regionIdx = Math.floor(cx / REGION_SIZE) + REGION_COLS * Math.floor(cy / REGION_SIZE);
-            if (!unlockedRegions[regionIdx]) {
-              hasOrderIssue = true;
+    return true;
+  }, []);
+
+  const solveLayoutWithMovableSet = useCallback((layoutSnapshot, movableIds, unlockedRegions) => {
+    if (!Array.isArray(layoutSnapshot) || !layoutSnapshot.length) return [];
+
+    const movableIdSet =
+      movableIds instanceof Set ? movableIds : new Set(movableIds || []);
+    const fixedInstances = [];
+    const movableInstances = [];
+    layoutSnapshot.forEach((inst) => {
+      if (!inst) return;
+      if (movableIdSet.has(inst.id)) {
+        movableInstances.push(inst);
+      } else {
+        fixedInstances.push(inst);
+      }
+    });
+
+    if (!movableInstances.length) return null;
+
+    const isCellUnlocked = (x, y) => {
+      const regionIdx =
+        Math.floor(x / REGION_SIZE) + REGION_COLS * Math.floor(y / REGION_SIZE);
+      return !!unlockedRegions?.[regionIdx];
+    };
+    const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
+    const workingMask = mask.map((row) => [...row]);
+
+    for (const inst of fixedInstances) {
+      const width = Number(inst.width);
+      const height = Number(inst.height);
+      const x = Number(inst.x);
+      const y = Number(inst.y);
+      if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      if (x < 0 || y < 0 || x + width > BOARD_WIDTH || y + height > BOARD_HEIGHT) {
+        return null;
+      }
+      for (let cy = y; cy < y + height; cy += 1) {
+        for (let cx = x; cx < x + width; cx += 1) {
+          if (!workingMask[cy]?.[cx]) return null;
+          workingMask[cy][cx] = false;
+        }
+      }
+    }
+
+    const { groups, blocks } = buildTilingGroups(movableInstances);
+    if (!blocks.length) return null;
+    const solution = solveTilingMask(workingMask, blocks, { allowGaps: true });
+    if (!solution) return null;
+
+    const maxId = Math.max(0, ...layoutSnapshot.map((inst) => Number(inst?.id ?? 0)));
+    const result = applyTilingSolution(solution, groups, maxId + 1);
+    if (!result?.layout) return null;
+
+    return [...fixedInstances, ...result.layout];
+  }, []);
+
+  const solveLayoutWithAllMovable = useCallback((layoutSnapshot, unlockedRegions) => {
+    if (!Array.isArray(layoutSnapshot) || !layoutSnapshot.length) return [];
+    const isCellUnlocked = (x, y) => {
+      const regionIdx =
+        Math.floor(x / REGION_SIZE) + REGION_COLS * Math.floor(y / REGION_SIZE);
+      return !!unlockedRegions?.[regionIdx];
+    };
+    const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
+    const { groups, blocks } = buildTilingGroups(layoutSnapshot);
+    if (!blocks.length) return [];
+    const solution = solveTilingMask(mask, blocks, { allowGaps: true });
+    if (!solution) return null;
+    const maxId = Math.max(0, ...layoutSnapshot.map((inst) => Number(inst?.id ?? 0)));
+    const result = applyTilingSolution(solution, groups, maxId + 1);
+    return result?.layout || null;
+  }, []);
+
+  const getConsecutiveBuildChain = useCallback((startNodeId, nodes) => {
+    const chain = [];
+    let currentId = startNodeId;
+    while (currentId !== null && currentId !== undefined) {
+      const node = nodes.get(currentId);
+      if (!node || !isBuildActionType(node.action?.type)) break;
+      chain.push(currentId);
+      if ((node.childrenIds?.length ?? 0) !== 1) break;
+      const childId = node.childrenIds[0];
+      const child = nodes.get(childId);
+      if (!child || !isBuildActionType(child.action?.type)) break;
+      currentId = childId;
+    }
+    return chain;
+  }, []);
+
+  const buildOrderFixPlan = useCallback(
+    (startNodeId, unlockedRegions) => {
+      const nodes = historyTree.nodes;
+      const startNode = nodes.get(startNodeId);
+      if (!startNode || !isBuildActionType(startNode.action?.type)) return null;
+
+      const chainNodeIds = getConsecutiveBuildChain(startNodeId, nodes);
+      if (!chainNodeIds.length) return null;
+
+      const chainStartNode = nodes.get(chainNodeIds[0]);
+      const chainParentId = chainStartNode?.parentId ?? 0;
+      const preChainState = computeStateAtNode(chainParentId);
+      if (!preChainState?.layout) return null;
+
+      let previousLayout = preChainState.layout;
+      let chainEndState = preChainState;
+      const chainEntries = [];
+
+      for (const nodeId of chainNodeIds) {
+        const node = nodes.get(nodeId);
+        if (!node?.action) continue;
+        const nodeState = computeStateAtNode(nodeId);
+        if (!nodeState?.layout) continue;
+        const previousIds = new Set(previousLayout.map((inst) => inst.id));
+        let added = nodeState.layout.find((inst) => !previousIds.has(inst.id)) || null;
+
+        if (!added) {
+          const action = node.action;
+          const actionDefId =
+            action.defId || (action.shortId ? shortIdMap?.[action.shortId] : null);
+          added =
+            nodeState.layout.find((inst) => {
+              if (previousIds.has(inst.id)) return false;
+              if (actionDefId && inst.defId !== actionDefId) return false;
+              return inst.x === action.x && inst.y === action.y;
+            }) || null;
+        }
+
+        if (added) {
+          const originalXRaw = Number(node.action.x);
+          const originalYRaw = Number(node.action.y);
+          chainEntries.push({
+            nodeId,
+            instanceId: added.id,
+            defId: added.defId,
+            width: added.width,
+            height: added.height,
+            originalX: Number.isFinite(originalXRaw) ? originalXRaw : added.x,
+            originalY: Number.isFinite(originalYRaw) ? originalYRaw : added.y,
+          });
+        }
+
+        previousLayout = nodeState.layout;
+        chainEndState = nodeState;
+      }
+
+      if (!chainEntries.length) return null;
+
+      const finalLayout = chainEndState.layout || [];
+      const finalById = new Map(finalLayout.map((inst) => [inst.id, inst]));
+      const preChainLayout = preChainState.layout || [];
+
+      const fixedForDetection = [...preChainLayout];
+      const sortableNodeIds = [];
+      const sortableInstanceIds = new Set();
+
+      for (const entry of chainEntries) {
+        const placed = finalById.get(entry.instanceId);
+        if (!placed) continue;
+
+        const candidate = {
+          ...placed,
+          x: entry.originalX,
+          y: entry.originalY,
+          width: entry.width,
+          height: entry.height,
+        };
+
+        let problematic = !isPlacementInsideUnlocked(candidate, unlockedRegions);
+        if (!problematic) {
+          for (const fixedInst of fixedForDetection) {
+            if (rectanglesOverlap(candidate, fixedInst)) {
+              problematic = true;
               break;
             }
           }
-          if (hasOrderIssue) break;
+        }
+
+        if (problematic) {
+          sortableNodeIds.push(entry.nodeId);
+          sortableInstanceIds.add(entry.instanceId);
+        } else {
+          fixedForDetection.push(candidate);
+        }
+      }
+
+      const buildPlanFromLayout = (solvedLayout, mode) => {
+        if (!Array.isArray(solvedLayout) || !solvedLayout.length) return null;
+        const solvedById = new Map(solvedLayout.map((inst) => [inst.id, inst]));
+        const solvedList = [...solvedLayout];
+        const updateNodeIds =
+          mode === "partial"
+            ? new Set(sortableNodeIds)
+            : new Set(chainEntries.map((entry) => entry.nodeId));
+
+        const usedSolvedIds = new Set();
+        const reserveSolvedById = (id) => {
+          const solvedInst = solvedById.get(id);
+          if (!solvedInst || usedSolvedIds.has(solvedInst.id)) return false;
+          usedSolvedIds.add(solvedInst.id);
+          return true;
+        };
+        const findUnusedSolvedForEntry = (entry, { samePosition = false } = {}) => {
+          // Prefer identity match first.
+          const byId = solvedById.get(entry.instanceId);
+          if (byId && !usedSolvedIds.has(byId.id)) {
+            if (
+              (!entry.defId || byId.defId === entry.defId) &&
+              byId.width === entry.width &&
+              byId.height === entry.height
+            ) {
+              if (!samePosition || (byId.x === entry.originalX && byId.y === entry.originalY)) {
+                return byId;
+              }
+            }
+          }
+          return (
+            solvedList.find((inst) => {
+              if (!inst || usedSolvedIds.has(inst.id)) return false;
+              if (entry.defId && inst.defId !== entry.defId) return false;
+              if (inst.width !== entry.width || inst.height !== entry.height) return false;
+              if (samePosition && (inst.x !== entry.originalX || inst.y !== entry.originalY)) {
+                return false;
+              }
+              return true;
+            }) || null
+          );
+        };
+
+        // Reserve pre-chain buildings first so slot assignment for chain builds
+        // can never accidentally consume those positions.
+        if (mode === "full" || mode === "partial") {
+          for (const preInst of preChainLayout) {
+            reserveSolvedById(preInst.id);
+          }
+        }
+
+        // Reserve all chain buildings that are intentionally fixed in partial mode.
+        if (mode === "partial") {
+          for (const entry of chainEntries) {
+            if (updateNodeIds.has(entry.nodeId)) continue;
+            const fixedMatch = findUnusedSolvedForEntry(entry, { samePosition: true });
+            if (!fixedMatch) return null;
+            usedSolvedIds.add(fixedMatch.id);
+          }
+        }
+
+        const buildUpdates = [];
+        for (const entry of chainEntries) {
+          if (!updateNodeIds.has(entry.nodeId)) continue;
+          let solvedInst = solvedById.get(entry.instanceId);
+          if (solvedInst && usedSolvedIds.has(solvedInst.id)) {
+            solvedInst = null;
+          }
+          if (!solvedInst) {
+            solvedInst = findUnusedSolvedForEntry(entry);
+          }
+          if (!solvedInst) return null;
+          usedSolvedIds.add(solvedInst.id);
+          buildUpdates.push({
+            nodeId: entry.nodeId,
+            instanceId: entry.instanceId,
+            defId: entry.defId,
+            fromX: entry.originalX,
+            fromY: entry.originalY,
+            x: solvedInst.x,
+            y: solvedInst.y,
+          });
+        }
+
+        const moveOperations = [];
+        if (mode === "full") {
+          for (const preInst of preChainLayout) {
+            const solvedInst = solvedById.get(preInst.id);
+            if (!solvedInst) continue;
+            if (preInst.x === solvedInst.x && preInst.y === solvedInst.y) continue;
+            moveOperations.push({
+              id: preInst.id,
+              defId: preInst.defId,
+              fromX: preInst.x,
+              fromY: preInst.y,
+              toX: solvedInst.x,
+              toY: solvedInst.y,
+              width: solvedInst.width,
+              height: solvedInst.height,
+            });
+          }
+        }
+
+        return {
+          mode,
+          chainStartNodeId: chainNodeIds[0],
+          chainEndNodeId: chainNodeIds[chainNodeIds.length - 1],
+          chainBuildNodeIds: chainEntries.map((entry) => entry.nodeId),
+          sortableBuildNodeIds: sortableNodeIds,
+          buildUpdates,
+          moveOperations,
+          fixedLayout: solvedLayout,
+        };
+      };
+
+      if (sortableInstanceIds.size > 0) {
+        const partialLayout = solveLayoutWithMovableSet(
+          finalLayout,
+          sortableInstanceIds,
+          unlockedRegions,
+        );
+        if (partialLayout) {
+          const plan = buildPlanFromLayout(partialLayout, "partial");
+          if (plan) return plan;
+        }
+      }
+
+      const fullLayout = solveLayoutWithAllMovable(finalLayout, unlockedRegions);
+      if (fullLayout) {
+        return buildPlanFromLayout(fullLayout, "full");
+      }
+
+      return null;
+    },
+    [
+      historyTree,
+      computeStateAtNode,
+      shortIdMap,
+      getConsecutiveBuildChain,
+      isPlacementInsideUnlocked,
+      solveLayoutWithMovableSet,
+      solveLayoutWithAllMovable,
+    ],
+  );
+
+  // Verify a node's state for validity issues
+  // Returns: { unfixable?: bool, configFixable?: bool, orderTBD?: bool, orderFixable?: bool, orderUnfixable?: bool, fixedLayout?: array, layoutFixPlan?: object }
+  // action: the action that led to this state (needed to determine if build action caused the issue)
+  const verifyNodeState = useCallback(
+    (nodeId, state, action = null) => {
+      const { resources, layout, unlockedRegions, stats } = state;
+      const flags = {};
+
+      // Track resource deficits for configFixable (needed for fix suggestions)
+      const deficits = {};
+
+      // Check for unfixable issues - negative free population
+      // Free population = total population - required population
+      if (stats) {
+        const freePopulation = (stats.people ?? 0) - (stats.peopleReq ?? 0);
+        if (freePopulation < 0) {
+          flags.unfixable = true;
+        }
+      }
+
+      // Check for order issues (buildings overlap or out of bounds)
+      let hasOrderIssue = false;
+
+      // First check for overlaps between buildings
+      for (let i = 0; i < layout.length; i += 1) {
+        const a = layout[i];
+        for (let j = i + 1; j < layout.length; j += 1) {
+          const b = layout[j];
+          if (rectanglesOverlap(a, b)) {
+            hasOrderIssue = true;
+            break;
+          }
         }
         if (hasOrderIssue) break;
       }
-    }
-    
-    // If there's an order issue, determine if it's fixable
-    if (hasOrderIssue) {
-      const actionType = action?.type;
-      const isBuildAction = actionType === ACTION_BUILD || actionType === ACTION_BUILD_ADMIN;
-      
-      if (isBuildAction) {
-        // Try to find a solution using the tiling solver
-        const REGION_SIZE = 4;
-        const REGION_COLS = 7;
-        
-        // Build the mask based on unlocked regions
-        const isCellUnlocked = (x, y) => {
-          const regionIdx = Math.floor(x / REGION_SIZE) + REGION_COLS * Math.floor(y / REGION_SIZE);
-          return !!unlockedRegions[regionIdx];
-        };
-        const mask = buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlocked);
-        
-        // Build blocks from current layout
-        const { groups, blocks } = buildTilingGroups(layout);
-        
-        // Try to solve
-        const solution = solveTilingMask(mask, blocks, { allowGaps: true });
-        
-        if (solution) {
-          // Apply solution to get new layout
-          const maxId = Math.max(0, ...layout.map(inst => inst.id ?? 0));
-          const result = applyTilingSolution(solution, groups, maxId + 1);
-          
-          if (result && result.layout) {
+
+      // Check if any building is in a locked region / outside board
+      if (!hasOrderIssue) {
+        for (const inst of layout) {
+          if (!isPlacementInsideUnlocked(inst, unlockedRegions)) {
+            hasOrderIssue = true;
+            break;
+          }
+        }
+      }
+
+      // If there's an order issue, determine if it's fixable
+      if (hasOrderIssue) {
+        const actionType = action?.type;
+        if (isBuildActionType(actionType)) {
+          const fixPlan = buildOrderFixPlan(nodeId, unlockedRegions);
+          if (fixPlan?.fixedLayout) {
             flags.orderFixable = true;
-            flags.fixedLayout = result.layout;
+            flags.fixedLayout = fixPlan.fixedLayout;
+            flags.layoutFixPlan = fixPlan;
           } else {
             flags.orderUnfixable = true;
           }
         } else {
-          flags.orderUnfixable = true;
-        }
-      } else {
-        // Non-build action (move, etc.) - just mark as orderTBD for now
-        flags.orderTBD = true;
-      }
-    }
-    
-    // Check for configFixable issues (money, supplies, goods, shards negative)
-    // Only mark as configFixable if not already unfixable or has order issues (priority order)
-    if ((resources.coins ?? 0) < 0) {
-      deficits.coins = Math.abs(resources.coins);
-    }
-    if ((resources.supplies ?? 0) < 0) {
-      deficits.supplies = Math.abs(resources.supplies);
-    }
-    if ((resources.shards ?? 0) < 0) {
-      deficits.shards = Math.abs(resources.shards);
-    }
-    // Check all goods
-    if (resources.goods) {
-      for (const [key, value] of Object.entries(resources.goods)) {
-        if ((value ?? 0) < 0) {
-          if (!deficits.goods) deficits.goods = {};
-          deficits.goods[key] = Math.abs(value);
+          // Non-build action (move, etc.) - just mark as orderTBD for now
+          flags.orderTBD = true;
         }
       }
-    }
-    
-    // Only set configFixable if there are deficits and no higher priority issues
-    const hasDeficits = Object.keys(deficits).length > 0 || (deficits.goods && Object.keys(deficits.goods).length > 0);
-    const hasOrderFlags = flags.orderTBD || flags.orderFixable || flags.orderUnfixable;
-    if (hasDeficits && !flags.unfixable && !hasOrderFlags) {
-      flags.configFixable = true;
-      flags.deficits = deficits;
-    }
-    
-    return flags;
-  }, []);
+
+      // Check for configFixable issues (money, supplies, goods, shards negative)
+      // Only mark as configFixable if not already unfixable or has order issues (priority order)
+      if ((resources.coins ?? 0) < 0) {
+        deficits.coins = Math.abs(resources.coins);
+      }
+      if ((resources.supplies ?? 0) < 0) {
+        deficits.supplies = Math.abs(resources.supplies);
+      }
+      if ((resources.shards ?? 0) < 0) {
+        deficits.shards = Math.abs(resources.shards);
+      }
+      // Check all goods
+      if (resources.goods) {
+        for (const [key, value] of Object.entries(resources.goods)) {
+          if ((value ?? 0) < 0) {
+            if (!deficits.goods) deficits.goods = {};
+            deficits.goods[key] = Math.abs(value);
+          }
+        }
+      }
+
+      // Only set configFixable if there are deficits and no higher priority issues
+      const hasDeficits =
+        Object.keys(deficits).length > 0 ||
+        (deficits.goods && Object.keys(deficits.goods).length > 0);
+      const hasOrderFlags = flags.orderTBD || flags.orderFixable || flags.orderUnfixable;
+      if (hasDeficits && !flags.unfixable && !hasOrderFlags) {
+        flags.configFixable = true;
+        flags.deficits = deficits;
+      }
+
+      return flags;
+    },
+    [buildOrderFixPlan, isPlacementInsideUnlocked],
+  );
 
   // Verify a subtree starting from a given node
   // Sets nodeFlags for all nodes in the subtree
@@ -2304,7 +2643,7 @@ export const useActionHistory = ({
           // Compute state at this node and verify it
           const state = computeStateAtNode(nodeId);
           // Pass the node's action to verifyNodeState so it can determine fix strategy
-          const verifyResult = verifyNodeState(state, node.action);
+          const verifyResult = verifyNodeState(nodeId, state, node.action);
           currentFlags = { ...verifyResult };
           
           // If unfixable or configFixable or has order issues, all children will be greyed out
@@ -2755,106 +3094,123 @@ export const useActionHistory = ({
     setPendingVerification(parentIdForVerify);
   }, [historyTree]);
 
-  // Apply a layout fix for an orderFixable node
-  // This modifies the build action to use the new position, and inserts a bundled move operation before it
-  const applyLayoutFix = useCallback((nodeId, fixedLayout, moveOperations) => {
+  // Apply a layout fix for an order-fixable node.
+  // Supports:
+  // - new fix plans with explicit per-node build updates
+  // - legacy single-node fixedLayout fallback
+  const applyLayoutFix = useCallback((nodeId, fixedLayout, fixPlan = null) => {
     if (nodeId == null || nodeId === 0) return;
-    
+
     setHistoryTree((prev) => {
       const nodes = new Map(prev.nodes);
       const nodeToFix = nodes.get(nodeId);
-      if (!nodeToFix) return prev;
-      
-      const originalAction = nodeToFix.action;
-      if (!originalAction) return prev;
-      
-      // Only handle build actions for now
-      const isBuildAction = originalAction.type === ACTION_BUILD || originalAction.type === ACTION_BUILD_ADMIN;
-      if (!isBuildAction) return prev;
-      
-      // Find the new position for this building from fixedLayout
-      // The building being added should be the one not in the parent's layout
-      // We find it by looking at the build action's intended position and defId
-      const buildDefId = originalAction.defId || originalAction.shortId;
-      
-      // Find the corresponding placement in fixedLayout
-      // Since this is a new building, look for one that matches the defId
-      // and prefer one at a different position than the original
-      const originalX = originalAction.x;
-      const originalY = originalAction.y;
-      
-      let newPlacement = null;
-      for (const inst of fixedLayout) {
-        // Check if this could be the new building (same defId, different position preferred)
-        const instDefId = inst.defId;
-        if (instDefId === buildDefId || (originalAction.shortId && shortIdMap?.[originalAction.shortId] === instDefId)) {
-          // Check if it's at a new position
-          if (inst.x !== originalX || inst.y !== originalY) {
-            newPlacement = inst;
-            break;
+      if (!nodeToFix?.action) return prev;
+
+      const normalizedPlan =
+        fixPlan && typeof fixPlan === "object" ? fixPlan : null;
+
+      if (Array.isArray(normalizedPlan?.buildUpdates)) {
+        normalizedPlan.buildUpdates.forEach((update) => {
+          const targetNode = nodes.get(update.nodeId);
+          if (!targetNode?.action) return;
+          if (!isBuildActionType(targetNode.action.type)) return;
+          const nextAction = {
+            ...targetNode.action,
+            x: update.x,
+            y: update.y,
+          };
+          nodes.set(update.nodeId, { ...targetNode, action: nextAction });
+        });
+
+        const moveOperations = Array.isArray(normalizedPlan.moveOperations)
+          ? normalizedPlan.moveOperations
+          : [];
+
+        if (moveOperations.length > 0) {
+          const chainStartNodeId = normalizedPlan.chainStartNodeId ?? nodeId;
+          const chainStartNode = nodes.get(chainStartNodeId);
+          const parentId = chainStartNode?.parentId;
+          const parentNode = nodes.get(parentId);
+          if (!chainStartNode || parentId == null || !parentNode) {
+            return { ...prev, nodes };
           }
+
+          const chainIndex = parentNode.childrenIds.indexOf(chainStartNodeId);
+          if (chainIndex < 0) return { ...prev, nodes };
+
+          const nextId = prev.nextNodeId;
+          const bundledMoveAction = {
+            type: ACTION_MOVE,
+            positions: moveOperations.map((m) => [m.fromX, m.fromY, m.toX, m.toY]),
+          };
+
+          const moveNode = {
+            id: nextId,
+            parentId,
+            action: bundledMoveAction,
+            childrenIds: [chainStartNodeId],
+          };
+          nodes.set(nextId, moveNode);
+
+          const updatedParentChildren = [...parentNode.childrenIds];
+          updatedParentChildren.splice(chainIndex, 1, nextId);
+          nodes.set(parentId, { ...parentNode, childrenIds: updatedParentChildren });
+
+          nodes.set(chainStartNodeId, { ...chainStartNode, parentId: nextId });
+
+          return { nodes, nextNodeId: nextId + 1 };
         }
+
+        return { ...prev, nodes };
       }
-      
-      // If we found a new placement, update the build action
-      if (newPlacement) {
-        const updatedAction = {
+
+      // Legacy fallback: update only this node from fixedLayout.
+      const originalAction = nodeToFix.action;
+      if (!isBuildActionType(originalAction.type)) return prev;
+      if (!Array.isArray(fixedLayout) || !fixedLayout.length) return prev;
+
+      const buildDefId =
+        originalAction.defId || (originalAction.shortId ? shortIdMap?.[originalAction.shortId] : null);
+      const originalX = Number(originalAction.x);
+      const originalY = Number(originalAction.y);
+
+      const candidates = fixedLayout.filter((inst) => {
+        if (!inst) return false;
+        if (buildDefId && inst.defId !== buildDefId) return false;
+        return true;
+      });
+      if (!candidates.length) return prev;
+
+      const exact = candidates.find((inst) => inst.x === originalX && inst.y === originalY);
+      const fallback = exact
+        ? exact
+        : candidates.reduce((best, inst) => {
+            const dx = Number(inst.x) - originalX;
+            const dy = Number(inst.y) - originalY;
+            const dist = Math.abs(dx) + Math.abs(dy);
+            if (!best) return { inst, dist };
+            return dist < best.dist ? { inst, dist } : best;
+          }, null)?.inst;
+
+      if (!fallback) return prev;
+
+      nodes.set(nodeId, {
+        ...nodeToFix,
+        action: {
           ...originalAction,
-          x: newPlacement.x,
-          y: newPlacement.y,
-        };
-        nodes.set(nodeId, { ...nodeToFix, action: updatedAction });
-      }
-      
-      // If there are move operations to insert, create a single bundled move node.
-      if (moveOperations && moveOperations.length > 0) {
-        const parentId = nodeToFix.parentId;
-        const parentNode = nodes.get(parentId);
-        if (!parentNode) return { ...prev, nodes };
-        
-        const nextId = prev.nextNodeId;
-        
-        // Remove this node from its current parent
-        const nodeIndex = parentNode.childrenIds.indexOf(nodeId);
-        const newParentChildren = [
-          ...parentNode.childrenIds.slice(0, nodeIndex),
-          ...parentNode.childrenIds.slice(nodeIndex + 1),
-        ];
-        
-        // Create a single bundled move action (position tuples)
-        const bundledMoveAction = {
-          type: ACTION_MOVE,
-          positions: moveOperations.map((m) => [
-            m.fromX,
-            m.fromY,
-            m.toX,
-            m.toY,
-          ]),
-        };
-        
-        const moveNode = {
-          id: nextId,
-          parentId: parentId,
-          action: bundledMoveAction,
-          childrenIds: [nodeId], // The build node is the child
-        };
-        nodes.set(nextId, moveNode);
-        
-        // Update parent's children to include the move node
-        newParentChildren.splice(nodeIndex, 0, nextId);
-        nodes.set(parentId, { ...parentNode, childrenIds: newParentChildren });
-        
-        // Reattach the original node (with updated action) to the move node
-        nodes.set(nodeId, { ...nodes.get(nodeId), parentId: nextId });
-        
-        return { nodes, nextNodeId: nextId + 1 };
-      }
-      
+          x: fallback.x,
+          y: fallback.y,
+        },
+      });
+
       return { ...prev, nodes };
     });
-    
-    // Trigger verification from the affected node
-    setPendingVerification(nodeId);
+
+    const verifyFrom =
+      fixPlan && typeof fixPlan === "object" && fixPlan.chainStartNodeId != null
+        ? fixPlan.chainStartNodeId
+        : nodeId;
+    setPendingVerification(verifyFrom);
   }, [shortIdMap]);
 
   return {

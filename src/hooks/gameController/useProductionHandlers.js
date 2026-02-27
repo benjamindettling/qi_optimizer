@@ -224,7 +224,7 @@ export const useProductionHandlers = ({
     const baseQa = qaBasePerHour * qaHoursPerHarvest;
     const extraQa = isFullHarvest ? baseQa : 0;
     const targets = isFullHarvest ? layout : readyOnes;
-    harvestBuildings(targets, label, false, true, {
+    harvestBuildings(targets, label, true, true, {
       statsOverride: effectiveStats,
       buildLocksOverride: locksBefore,
       extraQa,
@@ -292,7 +292,7 @@ export const useProductionHandlers = ({
     const locksBefore = { ...buildLocks };
     const effectiveStats = applyConfigBoosts(computeStats(layout, libraryMap));
     
-    harvestBuildings(readyOnes, label, false, true, {
+    harvestBuildings(readyOnes, label, true, true, {
       statsOverride: effectiveStats,
       buildLocksOverride: locksBefore,
       extraQa: 0,

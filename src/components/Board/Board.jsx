@@ -13,6 +13,8 @@ import {
   REGION_ROWS,
   REGION_MASK,
 } from "../../config/boardConfig";
+import { useLang } from "../../context/LanguageContext";
+import { getBuildingName } from "../../utils/buildingName";
 import "./Board.css";
 
 const TIER_HUE_SHIFT = {
@@ -182,6 +184,7 @@ export function Board({
   onDebugLockRegion,
   infiniteResources = false,
 }) {
+  const { lang } = useLang();
   const svgIdSeed = useId();
   const wrapperRef = useRef(null);
   const svgRef = useRef(null);
@@ -792,6 +795,12 @@ export function Board({
             className="board-svg"
             width={svgWidthPx}
             height={svgHeightPx}
+            data-view-cols={safeCols}
+            data-view-rows={safeRows}
+            data-view-col-start={viewColStart}
+            data-view-row-start={viewRowStart}
+            data-cell-size={safeCellSize}
+            data-edge-buffer={edgeBufferPx}
             viewBox={`0 0 ${svgWidthPx} ${svgHeightPx}`}
             xmlns="http://www.w3.org/2000/svg"
             role="img"
@@ -951,15 +960,16 @@ export function Board({
                     {(layout || []).map((b) => {
                       const def = libraryMap?.[b.defId] || {};
                       const label =
-                        useShortNames && def.short ? def.short : def.name || "";
+                        useShortNames
+                          ? getBuildingName(def, lang, "short")
+                          : getBuildingName(def, lang, "name");
 
                       const baseColor =
                         categoryColors?.[def.category] || "#ffffff";
                       const hueShift =
                         (def.category === "production"
                           ? HUE_SHIFT_PRODUCTION[def.tier]
-                          : undefined) ??
-                        TIER_HUE_SHIFT[def.tier] ??
+                          : TIER_HUE_SHIFT[def.tier]) ??
                         TIER_HUE_SHIFT[1] ??
                         0;
 
@@ -997,7 +1007,7 @@ export function Board({
                             strokeWidth={buildingStrokeWidth}
                             vectorEffect="non-scaling-stroke"
                           >
-                            <title>{def.name || ""}</title>
+                            <title>{getBuildingName(def, lang, "name")}</title>
                           </rect>
                           {Array.from({ length: Math.max(0, b.width - 1) }).map(
                             (_, idx) => {

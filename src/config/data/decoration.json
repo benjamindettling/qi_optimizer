@@ -1,8 +1,10 @@
 [
   {
     "id": "heckemitblumen",
-    "name": "Hecke mit Blumen",
-    "short": "HmB",
+    "name_DE": "Hecke mit Blumen",
+    "name_EN": "Hedge with Flowers",
+    "shortname_DE": "HmB",
+    "shortname_EN": "HwF",
     "size": [
       1,
       1
@@ -14,15 +16,17 @@
     },
     "happinessCost": 25,
     "armyBoost": {
-      "red": 0.0,
+      "red": 0,
       "blue": 0.1
     },
     "tier": 2
   },
   {
     "id": "zypresse",
-    "name": "Zypresse",
-    "short": "Zy",
+    "name_DE": "Zypresse",
+    "name_EN": "Cypress",
+    "shortname_DE": "Zy",
+    "shortname_EN": "Cy",
     "size": [
       1,
       1
@@ -35,14 +39,16 @@
     "happinessCost": 25,
     "armyBoost": {
       "red": 0.1,
-      "blue": 0.0
+      "blue": 0
     },
     "tier": 2
   },
   {
     "id": "teich",
-    "name": "Teich",
-    "short": "Te",
+    "name_DE": "Teich",
+    "name_EN": "Pond",
+    "shortname_DE": "Te",
+    "shortname_EN": "Po",
     "size": [
       2,
       2
@@ -61,8 +67,10 @@
   },
   {
     "id": "wasserspeier",
-    "name": "Wasserspeier",
-    "short": "Wa",
+    "name_DE": "Wasserspeier",
+    "name_EN": "Gargoyle",
+    "shortname_DE": "Wa",
+    "shortname_EN": "Ga",
     "size": [
       1,
       1
@@ -74,15 +82,17 @@
     },
     "happinessCost": 25,
     "armyBoost": {
-      "red": 0.0,
+      "red": 0,
       "blue": 0.15
     },
     "tier": 2
   },
   {
     "id": "wegweiser",
-    "name": "Wegweiser",
-    "short": "We",
+    "name_DE": "Wegweiser",
+    "name_EN": "Signpost",
+    "shortname_DE": "We",
+    "shortname_EN": "Si",
     "size": [
       1,
       1
@@ -95,14 +105,16 @@
     "happinessCost": 25,
     "armyBoost": {
       "red": 0.15,
-      "blue": 0.0
+      "blue": 0
     },
     "tier": 2
   },
   {
     "id": "fahne",
-    "name": "Fahne",
-    "short": "Fa",
+    "name_DE": "Fahne",
+    "name_EN": "Flag",
+    "shortname_DE": "Fa",
+    "shortname_EN": "Fl",
     "size": [
       1,
       1
@@ -121,8 +133,10 @@
   },
   {
     "id": "baumgruppe",
-    "name": "Baumgruppe",
-    "short": "Ba",
+    "name_DE": "Baumgruppe",
+    "name_EN": "Group of Trees",
+    "shortname_DE": "Ba",
+    "shortname_EN": "GoT",
     "size": [
       2,
       2
@@ -134,15 +148,17 @@
     },
     "happinessCost": 25,
     "armyBoost": {
-      "red": 0.0,
+      "red": 0,
       "blue": 0.45
     },
     "tier": 2
   },
   {
     "id": "turmruine",
-    "name": "Turmruine",
-    "short": "Tu",
+    "name_DE": "Turmruine",
+    "name_EN": "Tower Ruin",
+    "shortname_DE": "Tu",
+    "shortname_EN": "TR",
     "size": [
       2,
       2
@@ -155,14 +171,16 @@
     "happinessCost": 25,
     "armyBoost": {
       "red": 0.45,
-      "blue": 0.0
+      "blue": 0
     },
     "tier": 2
   },
   {
     "id": "seefahrerstatue",
-    "name": "Seefahrer-Statue",
-    "short": "See",
+    "name_DE": "Seefahrer-Statue",
+    "name_EN": "Nautical Statue",
+    "shortname_DE": "See",
+    "shortname_EN": "NS",
     "size": [
       1,
       1

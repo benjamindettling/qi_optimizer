@@ -12,6 +12,10 @@ export function useAccountCloudSync({
   setUseShortNames,
   boardScale,
   setBoardScale,
+  warnDeleteSingleAction,
+  setWarnDeleteSingleAction,
+  warnDeleteSubtree,
+  setWarnDeleteSubtree,
 }) {
   const { user, authLoading } = useAuth();
   const [cloudLoading, setCloudLoading] = useState(false);
@@ -44,7 +48,13 @@ export function useAccountCloudSync({
           });
           await saveAccountSettings(user.uid, {
             config,
-            prefs: { viewMode, useShortNames, boardScale },
+            prefs: {
+              viewMode,
+              useShortNames,
+              boardScale,
+              warnDeleteSingleAction,
+              warnDeleteSubtree,
+            },
             profile: { profileText: "" },
           });
           didLoadForUser.current = true;
@@ -60,6 +70,10 @@ export function useAccountCloudSync({
             setUseShortNames(remote.prefs.useShortNames);
           if (typeof remote.prefs.boardScale === "number")
             setBoardScale(remote.prefs.boardScale);
+          if (typeof remote.prefs.warnDeleteSingleAction === "boolean")
+            setWarnDeleteSingleAction(remote.prefs.warnDeleteSingleAction);
+          if (typeof remote.prefs.warnDeleteSubtree === "boolean")
+            setWarnDeleteSubtree(remote.prefs.warnDeleteSubtree);
         }
 
         // Load profile data - username comes from users/{uid}.username (canonical source)

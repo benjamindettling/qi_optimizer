@@ -21,6 +21,8 @@ const INFINITE_STORAGE_KEY = "qi_infiniteResources";
 const SHORTNAME_STORAGE_KEY = "qi_useShortNames";
 const SHOP_TAB_STORAGE_KEY = "qi_shopTab";
 const TOOLBAR_POSITION_STORAGE_KEY = "qi_toolbarPosition";
+const WARN_DELETE_SINGLE_STORAGE_KEY = "qi_warnDeleteSingleAction";
+const WARN_DELETE_SUBTREE_STORAGE_KEY = "qi_warnDeleteSubtree";
 
 // Builds the core state tree and persists UI preferences.
 export const useGameState = () => {
@@ -285,6 +287,26 @@ export const useGameState = () => {
       return "left";
     }
   });
+  const [warnDeleteSingleAction, setWarnDeleteSingleAction] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = localStorage.getItem(WARN_DELETE_SINGLE_STORAGE_KEY);
+      if (raw === "false") return false;
+    } catch {
+      // ignore localStorage errors
+    }
+    return true;
+  });
+  const [warnDeleteSubtree, setWarnDeleteSubtree] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = localStorage.getItem(WARN_DELETE_SUBTREE_STORAGE_KEY);
+      if (raw === "false") return false;
+    } catch {
+      // ignore localStorage errors
+    }
+    return true;
+  });
   
   const [debugRegions, setDebugRegions] = useState(false);
 
@@ -357,6 +379,28 @@ export const useGameState = () => {
       console.error("Failed to persist toolbar position", e);
     }
   }, [toolbarPosition]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        WARN_DELETE_SINGLE_STORAGE_KEY,
+        warnDeleteSingleAction ? "true" : "false",
+      );
+    } catch (e) {
+      console.error("Failed to persist single delete warning setting", e);
+    }
+  }, [warnDeleteSingleAction]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        WARN_DELETE_SUBTREE_STORAGE_KEY,
+        warnDeleteSubtree ? "true" : "false",
+      );
+    } catch (e) {
+      console.error("Failed to persist subtree delete warning setting", e);
+    }
+  }, [warnDeleteSubtree]);
 
   useEffect(() => {
     if (!townhallDef) return;
@@ -560,6 +604,10 @@ export const useGameState = () => {
     setUseShortNames,
     toolbarPosition,
     setToolbarPosition,
+    warnDeleteSingleAction,
+    setWarnDeleteSingleAction,
+    warnDeleteSubtree,
+    setWarnDeleteSubtree,
     replaceConfig,
     debugRegions,
     setDebugRegions,

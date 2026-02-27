@@ -1,4 +1,4 @@
-// Main top bar showing resources, boosts, and view controls.
+﻿// Main top bar showing resources, boosts, and view controls.
 import { RefreshCw } from "lucide-react";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
@@ -16,6 +16,9 @@ import { HappinessPanel } from "./HappinessPanel";
 import { ResourceStack } from "./ResourceStack";
 import { ViewControls } from "./ViewControls";
 import { SaveControls } from "./SaveControls";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./TopBar.css";
 
 export function TopBar({
@@ -38,7 +41,6 @@ export function TopBar({
   userConfig,
   activeSaveConfig,
   onSyncConfig,
-  // Save controls props
   onSave,
   onLoad,
   saves,
@@ -49,61 +51,70 @@ export function TopBar({
   onOpenImport,
   onOpenLoadSaves,
 }) {
+  void viewMode;
+  void setViewMode;
+  void useShortNames;
+  void setUseShortNames;
+
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+  const topbarLocked = useTutorialGate("topbar");
+
   const adminEnabled = adminMode && !editingLocked;
   const valueClassFor = (value) => ((value ?? 0) < 0 ? "text-negative" : "");
 
   const resourceEntries = [
     {
       key: "coins",
-      label: "Münzen",
+      label: t("resourceCoins"),
       icon: moneyIcon,
       value: resources.coins,
       valueClass: valueClassFor(resources.coins),
       onEdit: () =>
-        onEditResource?.({ key: "coins", label: "Münzen", icon: moneyIcon }),
+        onEditResource?.({ key: "coins", label: t("resourceCoins"), icon: moneyIcon }),
     },
     {
       key: "supplies",
-      label: "Vorräte",
+      label: t("resourceSupplies"),
       icon: suppliesIcon,
       value: resources.supplies,
       valueClass: valueClassFor(resources.supplies),
       onEdit: () =>
         onEditResource?.({
           key: "supplies",
-          label: "Vorräte",
+          label: t("resourceSupplies"),
           icon: suppliesIcon,
         }),
     },
     {
       key: "chronos",
-      label: "Chronos",
+      label: t("resourceChronos"),
       icon: chronosIcon,
       value: resources.chronos,
       valueClass: valueClassFor(resources.chronos),
       onEdit: () =>
         onEditResource?.({
           key: "chronos",
-          label: "Chronos",
+          label: t("resourceChronos"),
           icon: chronosIcon,
         }),
     },
     {
       key: "shards",
-      label: "Scherben",
+      label: t("resourceShards"),
       icon: shardsIcon,
       value: resources.shards,
       valueClass: valueClassFor(resources.shards),
       onEdit: () =>
         onEditResource?.({
           key: "shards",
-          label: "Scherben",
+          label: t("resourceShards"),
           icon: shardsIcon,
         }),
     },
     {
       key: "quantumActions",
-      label: "QA",
+      label: t("resourceQA"),
       icon: qaIcon,
       value: resources.quantumActions,
       valueClass: valueClassFor(resources.quantumActions),
@@ -111,7 +122,7 @@ export function TopBar({
       onEdit: () =>
         onEditResource?.({
           key: "quantumActions",
-          label: "QA",
+          label: t("resourceQA"),
           icon: qaIcon,
         }),
     },
@@ -135,30 +146,23 @@ export function TopBar({
     onEdit: () => onEditUnit?.(u),
   }));
 
-  // Determine which color's attack/defense to show based on config
   const fightColor = config?.fightColor ?? "rot";
   const isBlue = fightColor === "blau";
 
-  // Get decoration boosts from stats (decorations add to both attack and defense equally)
   const decorationBoostRed = stats.armyBoostRed ?? 0;
   const decorationBoostBlue = stats.armyBoostBlue ?? 0;
 
-  // Get config boosts for attack/defense
   const redAttackCfg = Number(config?.redAttackBoost ?? 0) / 100;
   const redDefenseCfg = Number(config?.redDefenseBoost ?? 0) / 100;
   const blueAttackCfg = Number(config?.blueAttackBoost ?? 0) / 100;
   const blueDefenseCfg = Number(config?.blueDefenseBoost ?? 0) / 100;
 
-  // Calculate total attack/defense for each color
   const redAttackTotal = decorationBoostRed + redAttackCfg;
   const redDefenseTotal = decorationBoostRed + redDefenseCfg;
   const blueAttackTotal = decorationBoostBlue + blueAttackCfg;
   const blueDefenseTotal = decorationBoostBlue + blueDefenseCfg;
 
-  // Select values based on chosen fight color
-  const attackPct = Math.round(
-    (isBlue ? blueAttackTotal : redAttackTotal) * 100,
-  );
+  const attackPct = Math.round((isBlue ? blueAttackTotal : redAttackTotal) * 100);
   const defensePct = Math.round(
     (isBlue ? blueDefenseTotal : redDefenseTotal) * 100,
   );
@@ -166,15 +170,15 @@ export function TopBar({
   const defenseIcon = isBlue ? blueDefenseIcon : redDefenseIcon;
 
   return (
-    <header className="topbar">
+    <header className={`topbar${topbarLocked ? " tutorial-zone-locked" : ""}`}>
       <ResourceStack items={resourceEntries} adminEnabled={adminEnabled} />
       <ResourceStack items={goodsEntries} adminEnabled={adminEnabled} />
       <ResourceStack items={unitEntries} adminEnabled={adminEnabled}>
-        <div className="resource-line" title="Angriff Boost">
+        <div className="resource-line" title={t("attackBoostLabel")}>
           <img src={attackIcon} alt="attack boost" />
           <span>{formatNumber(attackPct)}%</span>
         </div>
-        <div className="resource-line" title="Verteidigung Boost">
+        <div className="resource-line" title={t("defenseBoostLabel")}>
           <img src={defenseIcon} alt="defense boost" />
           <span>{formatNumber(defensePct)}%</span>
         </div>
@@ -182,7 +186,6 @@ export function TopBar({
 
       <HappinessPanel stats={stats} happyInfo={happyInfo} />
 
-      {/* Sync Config button - show when savefile config differs from user config */}
       {activeSaveConfig &&
         loadName &&
         (() => {
@@ -198,11 +201,7 @@ export function TopBar({
             (f) => (activeSaveConfig[f] ?? 0) !== (userConfig?.[f] ?? 0),
           );
           return differs ? (
-            <button
-              className="sync-config-btn"
-              onClick={onSyncConfig}
-              title="Savefile-Config mit deiner Config synchronisieren"
-            >
+            <button className="sync-config-btn" onClick={onSyncConfig} title={t("syncConfigTitle")}>
               <RefreshCw size={16} />
               <span>Sync Config</span>
             </button>
@@ -231,3 +230,4 @@ export function TopBar({
     </header>
   );
 }
+

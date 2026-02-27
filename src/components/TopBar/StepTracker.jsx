@@ -1,10 +1,12 @@
-// Step Tracker panel for TopBar - step navigation controls
+﻿// Step Tracker panel for TopBar - step navigation controls
 import {
   ArrowLeft,
   ArrowLeftToLine,
   ArrowRight,
   ArrowRightToLine,
 } from "lucide-react";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 
 export function StepTracker({
   timeStep,
@@ -16,16 +18,29 @@ export function StepTracker({
   onStepForward,
   onJumpNextCheckpoint,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const stepVal = Math.max(1, Math.min(23, timeStep ?? 1));
-  const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
+  const dayNames = [
+    t("stepDayThu"),
+    t("stepDayFri"),
+    t("stepDaySat"),
+    t("stepDaySun"),
+    t("stepDayMon"),
+    t("stepDayTue"),
+    t("stepDayWed"),
+  ];
   const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
-  const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
+  const period = stepVal % 2 === 1 ? t("stepMorgen") : t("stepAbend");
   const dayDisplay = `${dayNames[dayIndex]} ${period}`;
 
   return (
-    <div className="step-tracker-panel">
+    <div className="step-tracker-panel" data-tutorial-zone="topbar-steps">
       <div className="step-display">
-        <span className="step-main">Schritt {timeStep ?? 1}</span>
+        <span className="step-main">
+          {t("stepLabel")} {stepVal}
+        </span>
         <span className="step-day">{dayDisplay}</span>
         <span className="step-savename">{loadName || "-"}</span>
       </div>
@@ -34,8 +49,8 @@ export function StepTracker({
           className="step-btn"
           onClick={onJumpPrevCheckpoint}
           disabled={!canStepBack}
-          title="Zum ersten Schritt springen"
-          aria-label="Zum ersten Schritt springen"
+          title={t("stepJumpFirst")}
+          aria-label={t("stepJumpFirst")}
         >
           <ArrowLeftToLine size={20} />
         </button>
@@ -43,8 +58,8 @@ export function StepTracker({
           className="step-btn"
           onClick={onStepBack}
           disabled={!canStepBack}
-          title="Einen Schritt zurück"
-          aria-label="Einen Schritt zurück"
+          title={t("stepBack")}
+          aria-label={t("stepBack")}
         >
           <ArrowLeft size={20} />
         </button>
@@ -52,8 +67,8 @@ export function StepTracker({
           className="step-btn"
           onClick={onStepForward}
           disabled={!canStepForward}
-          title="Einen Schritt vorwärts"
-          aria-label="Einen Schritt vorwärts"
+          title={t("stepForward")}
+          aria-label={t("stepForward")}
         >
           <ArrowRight size={20} />
         </button>
@@ -61,8 +76,8 @@ export function StepTracker({
           className="step-btn"
           onClick={onJumpNextCheckpoint}
           disabled={!canStepForward}
-          title="Zum letzten Schritt springen"
-          aria-label="Zum letzten Schritt springen"
+          title={t("stepJumpLast")}
+          aria-label={t("stepJumpLast")}
         >
           <ArrowRightToLine size={20} />
         </button>
@@ -70,3 +85,4 @@ export function StepTracker({
     </div>
   );
 }
+

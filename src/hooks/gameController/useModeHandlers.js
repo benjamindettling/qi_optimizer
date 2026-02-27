@@ -17,53 +17,6 @@ export const useModeHandlers = ({
   setMoveSnapshot,
   clearMoveChain,
 }) => {
-  const resetModes = useCallback(() => {
-    setMoveMode(false);
-    setSellMode(false);
-    setRefundMode(false);
-    setBoostMode(false);
-    setSelectedBuildingId(null);
-  }, [
-    setMoveMode,
-    setSellMode,
-    setRefundMode,
-    setBoostMode,
-    setSelectedBuildingId,
-  ]);
-
-  const toggleMove = useCallback(() => {
-    setMoveMode((prev) => {
-      const next = !prev;
-      if (next) {
-        setSellMode(false);
-        setRefundMode(false);
-        setBoostMode(false);
-        setSelectedBuildingId(null);
-      }
-      if (!next) {
-        if (carried && moveSnapshot) {
-          applySnapshot(moveSnapshot);
-          clearMoveChain?.();
-        }
-        setCarried(null);
-        setMoveSnapshot(null);
-      }
-      return next;
-    });
-  }, [
-    setMoveMode,
-    setSellMode,
-    setRefundMode,
-    setBoostMode,
-    setSelectedBuildingId,
-    carried,
-    moveSnapshot,
-    applySnapshot,
-    setCarried,
-    setMoveSnapshot,
-    clearMoveChain,
-  ]);
-
   const resetMoveIfActive = useCallback(() => {
     if (moveMode && carried && moveSnapshot) {
       applySnapshot(moveSnapshot);
@@ -79,6 +32,44 @@ export const useModeHandlers = ({
     setCarried,
     setMoveSnapshot,
     clearMoveChain,
+  ]);
+
+  const resetModes = useCallback(() => {
+    resetMoveIfActive();
+    setMoveMode(false);
+    setSellMode(false);
+    setRefundMode(false);
+    setBoostMode(false);
+    setSelectedBuildingId(null);
+  }, [
+    resetMoveIfActive,
+    setMoveMode,
+    setSellMode,
+    setRefundMode,
+    setBoostMode,
+    setSelectedBuildingId,
+  ]);
+
+  const toggleMove = useCallback(() => {
+    setMoveMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setSellMode(false);
+        setRefundMode(false);
+        setBoostMode(false);
+        setSelectedBuildingId(null);
+      } else {
+        resetMoveIfActive();
+      }
+      return next;
+    });
+  }, [
+    setMoveMode,
+    setSellMode,
+    setRefundMode,
+    setBoostMode,
+    setSelectedBuildingId,
+    resetMoveIfActive,
   ]);
 
   const toggleSell = useCallback(() => {
@@ -165,13 +156,21 @@ export const useModeHandlers = ({
   const handleSelectBuilding = useCallback(
     (defId) => {
       if (!defId) return;
+      resetMoveIfActive();
       setMoveMode(false);
       setSellMode(false);
       setRefundMode(false);
       setBoostMode(false);
       setSelectedBuildingId(defId);
     },
-    [setMoveMode, setSellMode, setRefundMode, setBoostMode, setSelectedBuildingId],
+    [
+      resetMoveIfActive,
+      setMoveMode,
+      setSellMode,
+      setRefundMode,
+      setBoostMode,
+      setSelectedBuildingId,
+    ],
   );
 
   return {

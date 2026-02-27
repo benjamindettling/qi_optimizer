@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+﻿import { useCallback } from "react";
 import { BOARD_HEIGHT, BOARD_WIDTH, GOODS_TYPES } from "../../config/boardConfig";
 import { happinessTier } from "../../utils/gameMath";
 import { canAffordResources, computeStats } from "../../utils/stateUtils";
@@ -8,6 +8,7 @@ import { isTierLocked } from "../../config/buildingTiers";
 import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
 import { aggregateHarvest, finishProductionsReadyMap } from "../../domain/production/productionController";
 import { formatNumber } from "../../utils/formatNumber";
+import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 
 // Smart harvest simulation and apply flow.
 export const useSmartHarvest = ({
@@ -258,7 +259,13 @@ export const useSmartHarvest = ({
         delete simReadyMap[target.id];
         delete simBuildLocks[target.id];
 
-        addLog(`Zerstöre ${libraryMap[target.defId]?.name ?? "Wohngebäude"}`);
+        addLog(
+          `Zerstöre ${getBuildingName(
+            libraryMap[target.defId],
+            getCurrentLang(),
+            "name",
+          ) ?? "Wohngebäude"}`,
+        );
 
         if (!ensureFreePopulation()) {
           failureReason = "Freie Bevölkerung unter 0.";

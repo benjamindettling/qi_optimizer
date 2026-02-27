@@ -1,5 +1,7 @@
 import { useMemo } from "react";
 import { Board } from "../Board/Board";
+import { useLang } from "../../context/LanguageContext";
+import { getBuildingName } from "../../utils/buildingName";
 
 /**
  * Modal to show layout fix preview and allow applying the fix
@@ -9,10 +11,12 @@ export function FixLayoutModal({
   open,
   onClose,
   fixedLayout,
+  layoutFixPlan,
   currentLayout,
   boardProps,
   onApplyFix,
 }) {
+  const { lang } = useLang();
   // Compute move operations needed - must be before any early returns
   const moveOperations = useMemo(() => {
     if (!currentLayout || !fixedLayout) return [];
@@ -45,10 +49,10 @@ export function FixLayoutModal({
   const { libraryMap } = boardProps || {};
 
   // Get building name
-  const getBuildingName = (defId) => {
+  const getDefLabel = (defId) => {
     if (!defId || !libraryMap) return "?";
     const def = libraryMap[defId];
-    return def?.short || def?.name || defId.split(":").pop() || "?";
+    return getBuildingName(def, lang, "short") || defId.split(":").pop() || "?";
   };
 
   // Create preview board props with the fixed layout
@@ -74,7 +78,11 @@ export function FixLayoutModal({
 
   return (
     <div className="modal">
-      <div className="modal-card help-modal" style={{ maxWidth: "500px" }}>
+      <div
+        className="modal-card help-modal"
+        data-tutorial-zone="tree-fix-popup"
+        style={{ maxWidth: "500px" }}
+      >
         <div className="help-header">
           <h3>Layout-Fix gefunden</h3>
           <button onClick={onClose}>Schliessen</button>
@@ -127,7 +135,7 @@ export function FixLayoutModal({
                     <span
                       style={{ fontWeight: "600", color: "var(--ui-white)" }}
                     >
-                      {getBuildingName(move.defId)}
+                      {getDefLabel(move.defId)}
                     </span>
                     <span>
                       ({move.fromX},{move.fromY})
@@ -194,7 +202,7 @@ export function FixLayoutModal({
           </button>
           <button
             onClick={() => {
-              onApplyFix(fixedLayout, moveOperations);
+              onApplyFix(fixedLayout, layoutFixPlan || null);
               onClose();
             }}
             style={{

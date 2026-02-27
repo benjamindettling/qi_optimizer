@@ -1,4 +1,4 @@
-// Menu panel for TopBar - Save, Load, Admin, Help, Profile
+﻿// Menu panel for TopBar - Save, Load, Admin, Help, Profile
 import {
   Save,
   FolderOpen,
@@ -6,8 +6,11 @@ import {
   CircleHelp,
   User,
   RefreshCw,
+  GraduationCap,
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { LanguageToggle } from "../LanguageToggle/LanguageToggle";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 
 export function MenuPanel({
   onSave,
@@ -24,27 +27,14 @@ export function MenuPanel({
   onToggleAdmin,
   onOpenHelp,
   onOpenAccount,
-  // Sync config props
+  onStartTutorial,
   showSyncConfig,
   onSyncConfig,
-  // Unsaved changes
   hasUnsavedChanges,
 }) {
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
-  const saveNames = Object.keys(saves).sort();
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
   const adminActive = adminMode && !editingLocked;
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const handleSave = () => {
     const name = prompt("Save name?", loadName || "");
@@ -53,87 +43,104 @@ export function MenuPanel({
     onSave?.(name);
   };
 
-  const handleSelectAndLoad = (name) => {
-    setLoadName(name);
-    onLoad?.(name);
-    setDropdownOpen(false);
-  };
-
   const handleDelete = (name, e) => {
     e.stopPropagation();
-    if (confirm(`"${name}" wirklich löschen?`)) {
+    if (confirm(`"${name}" ${t("confirmDeleteSave")}`)) {
       onDeleteSave?.(name);
     }
   };
 
+  // Keep these props used for backward compatibility with previous menu variants.
+  void saves;
+  void onLoad;
+  void onDeleteSave;
+  void onOpenExport;
+  void onOpenImport;
+  void handleDelete;
+
   return (
-    <div className="menu-panel">
-      {/* Column 1: Save/Load/Sync */}
-      <div className="menu-column">
-        <button
-          className={`menu-btn menu-btn--icon-only${hasUnsavedChanges ? " menu-btn--unsaved" : ""}`}
-          onClick={handleSave}
-          title={
-            hasUnsavedChanges
-              ? "Speichern (ungespeicherte Änderungen)"
-              : "Speichern"
-          }
-          aria-label="Speichern"
-        >
-          <Save size={18} />
-        </button>
-        <button
-          className="menu-btn menu-btn--icon-only"
-          onClick={() => onOpenLoadSaves?.()}
-          title="Laden"
-          aria-label="Laden"
-        >
-          <FolderOpen size={18} />
-        </button>
-        {showSyncConfig && (
+    <div className="menu-panel" data-tutorial-zone="topbar-buttons">
+      <div className="menu-button-grid">
+        <div className="menu-column">
           <button
-            className="menu-btn menu-btn--sync"
-            onClick={onSyncConfig}
-            title="Config mit Account synchronisieren"
-            aria-label="Sync Config"
+            className={`menu-btn menu-btn--icon-only${hasUnsavedChanges ? " menu-btn--unsaved" : ""}`}
+            onClick={handleSave}
+            title={hasUnsavedChanges ? t("menuSaveUnsavedTitle") : t("btnSaveTitle")}
+            aria-label={t("btnSaveTitle")}
+            data-tutorial-zone="save-controls"
           >
-            <RefreshCw size={18} />
-            <span className="menu-btn-label">Sync</span>
+            <Save size={18} />
           </button>
-        )}
+          <button
+            className="menu-btn menu-btn--icon-only"
+            onClick={() => onOpenLoadSaves?.()}
+            title={t("btnLoadTitle")}
+            aria-label={t("btnLoadTitle")}
+            data-tutorial-zone="load-open-btn"
+          >
+            <FolderOpen size={18} />
+          </button>
+        </div>
+
+        <div className="menu-column">
+          <button
+            className={`menu-btn ${adminActive ? "active" : ""}`}
+            onClick={() => !editingLocked && onToggleAdmin?.(!adminMode)}
+            disabled={editingLocked}
+            title={t("btnAdminTitle")}
+            aria-label={t("btnAdminLabel")}
+          >
+            <Sparkle size={18} />
+            <span className="menu-btn-label">{t("btnAdminLabel")}</span>
+          </button>
+          <button
+            className="menu-btn"
+            onClick={onOpenAccount}
+            title={t("btnProfileTitle")}
+            aria-label={t("btnProfileLabel")}
+          >
+            <User size={18} />
+            <span className="menu-btn-label">{t("btnProfileLabel")}</span>
+          </button>
+        </div>
+
+        <div className="menu-column">
+          <button
+            className="menu-btn"
+            onClick={onOpenHelp}
+            title={t("btnHelpTitle")}
+            aria-label={t("btnHelpLabel")}
+            data-tutorial-zone="help-btn"
+          >
+            <CircleHelp size={18} />
+            <span className="menu-btn-label">{t("btnHelpLabel")}</span>
+          </button>
+          <div className="menu-icon-row">
+            <LanguageToggle className="menu-btn menu-btn--icon-only menu-lang-btn" />
+            <button
+              className="menu-btn menu-btn--icon-only"
+              onClick={onStartTutorial}
+              title={t("tutorialStart")}
+              aria-label={t("tutorialStart")}
+            >
+              <GraduationCap size={18} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Column 2: Admin, Help, Profile with labels */}
-      <div className="menu-column">
+      {showSyncConfig && (
         <button
-          className={`menu-btn ${adminActive ? "active" : ""}`}
-          onClick={() => !editingLocked && onToggleAdmin?.(!adminMode)}
-          disabled={editingLocked}
-          title="Admin-Modus: freies Bauen, Region-Tools, Ressourcenbearbeitung"
-          aria-label="Admin"
+          className="menu-btn menu-btn--sync"
+          onClick={onSyncConfig}
+          title={t("menuSyncTitle")}
+          aria-label={t("menuSyncLabel")}
         >
-          <Sparkle size={18} />
-          <span className="menu-btn-label">Admin</span>
+          <RefreshCw size={18} />
+          <span className="menu-btn-label">{t("menuSyncLabel")}</span>
         </button>
-        <button
-          className="menu-btn"
-          onClick={onOpenHelp}
-          title="Hilfe"
-          aria-label="Hilfe"
-        >
-          <CircleHelp size={18} />
-          <span className="menu-btn-label">Hilfe</span>
-        </button>
-        <button
-          className="menu-btn"
-          onClick={onOpenAccount}
-          title="Profil"
-          aria-label="Profil"
-        >
-          <User size={18} />
-          <span className="menu-btn-label">Profil</span>
-        </button>
-      </div>
+      )}
     </div>
   );
 }
+

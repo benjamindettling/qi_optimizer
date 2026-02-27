@@ -2,13 +2,18 @@
 // Replaces RightSidebar as a grid cluster component
 import { useEffect, useState } from "react";
 import { ActionLog } from "../ActionToolbar/ActionLog";
+import { NotesEditor } from "../ActionToolbar/NotesEditor";
 import { ACTION_COLORS } from "../../config/colors";
 import { GoogleAd } from "../GoogleAd/GoogleAd";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./NotesCluster.css";
 
 const EXTRA_TOOLS_STORAGE_KEY = "qi_extraToolsCollapsed";
 
 export function NotesCluster({
+  // Notes props
+  notes,
+  onChangeNotes,
   // Log props
   historyTree,
   selectedNodeId,
@@ -26,6 +31,7 @@ export function NotesCluster({
   // eslint-disable-next-line no-unused-vars
   isPast = false,
 }) {
+  const notesLocked = useTutorialGate("notes");
   const [extraToolsCollapsed, setExtraToolsCollapsed] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
@@ -51,9 +57,14 @@ export function NotesCluster({
   }, [extraToolsCollapsed]);
 
   return (
-    <div className="notes-cluster">
-      {/* Log Section */}
+    <div className={`notes-cluster${notesLocked ? " tutorial-zone-locked" : ""}`}>
+      {/* Notes Section */}
       <div className="nc-section notes-section">
+        <NotesEditor notes={notes} onChangeNotes={onChangeNotes} />
+      </div>
+
+      {/* Log Section */}
+      <div className="nc-section">
         <ActionLog
           historyTree={historyTree}
           selectedNodeId={selectedNodeId}

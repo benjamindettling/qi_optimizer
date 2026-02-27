@@ -33,7 +33,7 @@ const applyRuleToLineHtml = (lineHtml, rule) => {
   return processed.join("");
 };
 
-export const formatNotesHtml = (text) => {
+export const formatNotesHtml = (text, placeholder = "Fuege Notizen hinzu") => {
   const raw = text || "";
   let htmlLines = raw.split(/\n/);
 
@@ -42,5 +42,5 @@ export const formatNotesHtml = (text) => {
   }
 
   const merged = htmlLines.join("<br />");
-  return merged || '<span class="notes-placeholder">Fuege Notizen hinzu</span>';
+  return merged || `<span class="notes-placeholder">${placeholder}</span>`;
 };

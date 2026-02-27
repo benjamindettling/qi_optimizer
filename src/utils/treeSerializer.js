@@ -28,7 +28,8 @@
  */
 
 // Goods key to index mapping (1-5)
-const GOODS_KEYS = ["Kupfer", "Marmor", "Holz", "Gold", "Platin"];
+// Must match current in-game goods keys from boardConfig/data.
+const GOODS_KEYS = ["Kupfer", "Honig", "Stein", "Seil", "Schießpulver"];
 const UNITS_KEYS = ["Soldat", "Reiter", "Schütze"]; // Actual unit keys in German
 const RESOURCE_KEYS = ["coins", "supplies", "chronos", "shards", "quantumActions"]; // 1-5
 
@@ -200,7 +201,7 @@ function compressAction(action) {
     case "goodsPurchase":
     case "goodsPurchaseAdmin":
       // Store goods index (1-5) and quantity map {amount:count}
-      result.i = goodsKeyToIndex(action.goodsKey ?? action.key);
+      result.i = goodsKeyToIndex(action.goodsKey ?? action.goodKey ?? action.key);
       {
         const qMap = normalizeQuantityMap(action.q);
         if (qMap) {
@@ -228,7 +229,7 @@ function compressAction(action) {
     case "regionUnlockGoods":
       // Store region index and goods index (1-5)
       if (action.regionIdx != null) result.r = action.regionIdx;
-      result.i = goodsKeyToIndex(action.goodKey);
+      result.i = goodsKeyToIndex(action.goodKey ?? action.goodsKey ?? action.key);
       break;
       
     case "regionUnlockShards":

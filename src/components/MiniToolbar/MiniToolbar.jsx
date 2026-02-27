@@ -1,4 +1,4 @@
-// Mini toolbar beside/above the board with mode buttons
+﻿// Mini toolbar beside/above the board with mode buttons
 import {
   Move,
   Trash2,
@@ -8,6 +8,7 @@ import {
   PackageCheck,
 } from "lucide-react";
 import { ACTION_COLORS } from "../../config/colors";
+import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./MiniToolbar.css";
 
 export function MiniToolbar({
@@ -31,16 +32,18 @@ export function MiniToolbar({
   position = "left",
 }) {
   const isHorizontal = position === "top";
+  const toolbarLocked = useTutorialGate("mini-toolbar");
   const toolbarClass = `mini-toolbar ${isHorizontal ? "mini-toolbar--horizontal" : "mini-toolbar--vertical"}`;
 
   if (isPast && !editUnlocked) {
     return (
-      <div className={toolbarClass}>
+      <div className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}>
         <button
           onClick={onToggleMove}
           className={`mini-btn ${moveMode ? "active-mode" : ""}`}
           style={{ background: ACTION_COLORS.move }}
           title="Bewege oder tausche Gebäude"
+          data-tutorial-zone="move-btn"
         >
           <Move size={20} />
         </button>
@@ -56,12 +59,13 @@ export function MiniToolbar({
   }
 
   return (
-    <div className={toolbarClass}>
+    <div className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}>
       <button
         onClick={onToggleMove}
         className={`mini-btn ${moveMode ? "active-mode" : ""}`}
         style={{ background: ACTION_COLORS.move }}
         title="Bewege oder tausche Gebäude"
+        data-tutorial-zone="move-btn"
       >
         <Move size={20} />
       </button>
@@ -70,6 +74,7 @@ export function MiniToolbar({
         className={`mini-btn ${sellMode ? "active-mode" : ""}`}
         style={{ background: ACTION_COLORS.sell }}
         title="Verkaufe Gebäude (1/4 Erstattung)"
+        data-tutorial-zone="sell-btn"
       >
         <Trash2 size={20} />
       </button>
@@ -78,6 +83,7 @@ export function MiniToolbar({
         className={`mini-btn ${boostMode ? "active-mode" : ""}`}
         style={{ background: ACTION_COLORS.boostSingle }}
         title="Boost einzelne Gebäude"
+        data-tutorial-zone="boost-btn"
       >
         <ClockArrowUp size={20} />
       </button>
@@ -86,6 +92,7 @@ export function MiniToolbar({
         className={`mini-btn shop-btn ${isPlacementMode ? "active-mode" : ""}`}
         style={{ background: ACTION_COLORS.build }}
         title={isPlacementMode ? "Platziermodus beenden" : "Shop öffnen"}
+        data-tutorial-zone="shop-btn"
       >
         <Store size={20} />
       </button>
@@ -98,6 +105,7 @@ export function MiniToolbar({
         className="mini-btn glow"
         style={{ background: ACTION_COLORS.boostAll }}
         title="Beendet alle Produktionen"
+        data-tutorial-zone="finish-btn"
       >
         <FastForward size={25} />
       </button>
@@ -111,9 +119,13 @@ export function MiniToolbar({
             ? "Sammelt fertige Produktionen ein"
             : "Keine fertigen Produktionen"
         }
+        data-tutorial-zone="harvest-btn"
       >
         <PackageCheck size={20} />
       </button>
     </div>
   );
 }
+
+
+

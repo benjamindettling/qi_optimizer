@@ -1,10 +1,12 @@
-// Main action toolbar with mode toggles, saves, and notes.
+﻿// Main action toolbar with mode toggles, saves, and notes.
 import { useEffect, useState } from "react";
 import { ClockArrowUp, Move, Redo, Trash2, Undo } from "lucide-react";
 import { NotesEditor } from "./NotesEditor";
 import { SaveMenu } from "./SaveMenu";
 import { TimeControls } from "./TimeControls";
 import { ACTION_COLORS } from "../../config/colors";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 import "./ActionToolbar.css";
 
 const EXTRA_TOOLS_STORAGE_KEY = "qi_extraToolsCollapsed";
@@ -53,20 +55,29 @@ export function ActionToolbar({
   editUnlocked = false,
   onOpenPastEditWarning,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const stepVal = Math.max(1, Math.min(23, timeStep ?? 1));
-  const dayNames = ["Do", "Fr", "Sa", "So", "Mo", "Di", "Mi"];
+  const dayNames = [
+    t("stepDayThu"),
+    t("stepDayFri"),
+    t("stepDaySat"),
+    t("stepDaySun"),
+    t("stepDayMon"),
+    t("stepDayTue"),
+    t("stepDayWed"),
+  ];
   const dayIndex = Math.floor((stepVal - 1) / 2) % dayNames.length;
-  const period = stepVal % 2 === 1 ? "Morgen" : "Abend";
-  const stepLabel = `Schritt ${stepVal}, ${dayNames[dayIndex]} ${period}`;
+  const period = stepVal % 2 === 1 ? t("stepMorgen") : t("stepAbend");
+  const stepLabel = `${t("stepLabel")} ${stepVal}, ${dayNames[dayIndex]} ${period}`;
 
   const harvestTitle = harvestIsPartial
-    ? "Sammelt nur fertige Produktionen ein"
-    : "Volle Ernte: erntet die gesamte Stadt";
+    ? t("toolHarvestPartialTitle")
+    : t("toolHarvestFullTitle");
   const hasParts = (timePartTotal ?? 0) > 1 && (timePart ?? 0) > 0;
   const partColor =
-    timePart && timePartTotal && timePart === timePartTotal
-      ? "#2ecc71"
-      : "#f1c40f";
+    timePart && timePartTotal && timePart === timePartTotal ? "#2ecc71" : "#f1c40f";
 
   const selectedSnapshotIdx = snapshots.findIndex(
     (s) => s.name === selectedSnapshotName,
@@ -134,7 +145,8 @@ export function ActionToolbar({
             onClick={onToggleMove}
             className={`mode-button ${moveMode ? "active-mode" : ""}`}
             style={{ background: ACTION_COLORS.move }}
-            title="Bewege oder tausche Gebaeude nach Belieben"
+            title={t("toolMoveTitle")}
+            aria-label={t("toolMoveTitle")}
           >
             <Move />
           </button>
@@ -142,9 +154,10 @@ export function ActionToolbar({
             <button
               className="action-button warn"
               onClick={onOpenPastEditWarning}
-              title="Bearbeitung im Vergangenheitszustand aktivieren"
+              title={t("toolPastEditTitle")}
+              aria-label={t("toolPastEditTitle")}
             >
-              Bearbeitung aktivieren
+              {lang === "EN" ? "Enable editing" : "Bearbeitung aktivieren"}
             </button>
           )}
         </div>
@@ -155,7 +168,8 @@ export function ActionToolbar({
               onClick={onToggleMove}
               className={`mode-button ${moveMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.move }}
-              title="Bewege oder tausche Gebäude nach Belieben"
+              title={t("toolMoveTitle")}
+              aria-label={t("toolMoveTitle")}
             >
               <Move />
             </button>
@@ -163,7 +177,8 @@ export function ActionToolbar({
               onClick={onToggleSell}
               className={`mode-button ${sellMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.sell }}
-              title="Verkauf Gebäude. Erhalte 1/4 des gezahlten Werts zurück"
+              title={t("toolSellTitle")}
+              aria-label={t("toolSellTitle")}
             >
               <Trash2 />
             </button>
@@ -171,7 +186,8 @@ export function ActionToolbar({
               onClick={onToggleBoost}
               className={`mode-button ${boostMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.boostSingle }}
-              title="Boost einzelne Gebäude: entsperre oder beende Produktionen"
+              title={t("toolBoostTitle")}
+              aria-label={t("toolBoostTitle")}
             >
               <ClockArrowUp />
             </button>
@@ -187,17 +203,25 @@ export function ActionToolbar({
                   : ACTION_COLORS.harvestFull,
               }}
               title={harvestTitle}
+              aria-label={harvestTitle}
             >
-              {harvestIsPartial ? "Rest einsammeln" : "Ernte"}
+              {harvestIsPartial
+                ? lang === "EN"
+                  ? "Collect Rest"
+                  : "Rest einsammeln"
+                : lang === "EN"
+                  ? "Harvest"
+                  : "Ernte"}
             </button>
             <button
               onClick={finishProductions}
               className="action-button"
               style={{ background: ACTION_COLORS.boostAll }}
-              title="Beendet alle Produktionen. Danach kannst du ernten"
+              title={t("toolFinishProductionsTitle")}
+              aria-label={t("toolFinishProductionsTitle")}
             >
               <ClockArrowUp />
-              <span style={{ marginLeft: 6 }}>alle</span>
+              <span style={{ marginLeft: 6 }}>{lang === "EN" ? "all" : "alle"}</span>
             </button>
           </div>
         </>
@@ -208,7 +232,8 @@ export function ActionToolbar({
           className="action-button"
           onClick={onSnapshotBack}
           disabled={!canSnapshotBack}
-          title="Vorherigen Snapshot laden"
+          title={t("toolSnapshotBackTitle")}
+          aria-label={t("toolSnapshotBackTitle")}
         >
           <Undo />
         </button>
@@ -216,7 +241,8 @@ export function ActionToolbar({
           className="action-button"
           onClick={onSnapshotForward}
           disabled={!canSnapshotForward}
-          title="Naechsten Snapshot laden"
+          title={t("toolSnapshotForwardTitle")}
+          aria-label={t("toolSnapshotForwardTitle")}
         >
           <Redo />
         </button>
@@ -226,9 +252,10 @@ export function ActionToolbar({
         <button
           onClick={handleSaveClick}
           className="action-button"
-          title="Speicher aktuellen Stand (inkl. Undo/Redo) in deinem Browser."
+          title={t("toolSaveBrowserTitle")}
+          aria-label={t("toolSaveBrowserTitle")}
         >
-          Speichern als
+          {lang === "EN" ? "Save as" : "Speichern als"}
         </button>
         <button
           onClick={() => {
@@ -237,7 +264,7 @@ export function ActionToolbar({
           className="action-button"
           disabled={!loadName}
         >
-          Laden
+          {t("btnLoadTitle")}
         </button>
       </div>
 
@@ -250,15 +277,16 @@ export function ActionToolbar({
 
       <div className="actions-row">
         <button className="action-button" onClick={onOpenExport}>
-          Export
+          {t("quickMenuExport")}
         </button>
         <button className="action-button" onClick={onOpenImport}>
-          Import
+          {t("quickMenuImport")}
         </button>
         <button
           className="action-button"
           onClick={onExportPdf}
-          title="Aktuelle Datei als PDF exportieren"
+          title={t("toolExportPdfTitle")}
+          aria-label={t("toolExportPdfTitle")}
         >
           File -&gt; PDF
         </button>
@@ -268,18 +296,28 @@ export function ActionToolbar({
 
       <div className="actions-row">
         <span>
-          <b>Weitere Tools:</b>
+          <b>{lang === "EN" ? "Extra Tools:" : "Weitere Tools:"}</b>
         </span>
         <button
           className="action-button"
           onClick={() => setExtraToolsCollapsed((prev) => !prev)}
           title={
             extraToolsCollapsed
-              ? "Weitere Tools einblenden"
-              : "Weitere Tools ausblenden"
+              ? lang === "EN"
+                ? "Show extra tools"
+                : "Weitere Tools einblenden"
+              : lang === "EN"
+                ? "Hide extra tools"
+                : "Weitere Tools ausblenden"
           }
         >
-          {extraToolsCollapsed ? "Einblenden" : "Ausblenden"}
+          {extraToolsCollapsed
+            ? lang === "EN"
+              ? "Show"
+              : "Einblenden"
+            : lang === "EN"
+              ? "Hide"
+              : "Ausblenden"}
         </button>
       </div>
 
@@ -288,32 +326,45 @@ export function ActionToolbar({
           <button
             onClick={onToggleRefund}
             className={`mode-button refund ${refundMode ? "active-mode" : ""}`}
-            title="DEBUG: Erhalte den VOLLEN Wert des Gebäudes zurück"
+            title={t("toolRefundTitle")}
+            aria-label={t("toolRefundTitle")}
           >
-            Volle Erstattung
+            {lang === "EN" ? "Full Refund" : "Volle Erstattung"}
           </button>
           <div className="actions-row">
             <button
               className={`mode-button select ${highlightMode ? "active-mode" : ""}`}
               onClick={onToggleHighlightMode}
-              title="Hebt betroffene Gebaeude seit dem letzten Checkpoint hervor"
+              title={
+                lang === "EN"
+                  ? "Highlight affected buildings since the last checkpoint"
+                  : "Hebt betroffene Gebäude seit dem letzten Checkpoint hervor"
+              }
             >
               <span>Highlight</span>
             </button>
             <button
               className="action-button print"
               onClick={onPrintBoard}
-              title="Screenshot des aktuellen Aufbaus herunterladen"
+              title={
+                lang === "EN"
+                  ? "Download a screenshot of the current layout"
+                  : "Screenshot des aktuellen Aufbaus herunterladen"
+              }
             >
-              Print
+              {lang === "EN" ? "Print" : "Print"}
             </button>
           </div>
           <button
             className="action-button worst"
             onClick={onFindWorst}
-            title="Berechne, welche Wohn-/Produktionsgebäude beim Entfernen den höchsten Ertrag übrig lassen"
+            title={
+              lang === "EN"
+                ? "Compute which housing/production buildings can be removed with best remaining yield"
+                : "Berechne, welche Wohn-/Produktionsgebäude beim Entfernen den höchsten Ertrag übrig lassen"
+            }
           >
-            Finde schlechtestes
+            {lang === "EN" ? "Find worst" : "Finde schlechtestes"}
           </button>
         </>
       )}

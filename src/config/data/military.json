@@ -1,8 +1,10 @@
 [
   {
     "id": "katapultcamp",
-    "name": "Katapult-Camp",
-    "short": "Kat",
+    "name_DE": "Katapult-Camp",
+    "name_EN": "Catapult Camp",
+    "shortname_DE": "Kat",
+    "shortname_EN": "CC",
     "size": [
       3,
       3
@@ -36,8 +38,10 @@
   },
   {
     "id": "blidencamp",
-    "name": "Bliden-Camp",
-    "short": "Bli",
+    "name_DE": "Bliden-Camp",
+    "name_EN": "Trebuchet Camp",
+    "shortname_DE": "Bli",
+    "shortname_EN": "TC",
     "size": [
       3,
       3
@@ -71,8 +75,10 @@
   },
   {
     "id": "kanonencamp",
-    "name": "Kanonen-Camp",
-    "short": "Kan",
+    "name_DE": "Kanonen-Camp",
+    "name_EN": "Cannon Camp",
+    "shortname_DE": "Kan",
+    "shortname_EN": "CC",
     "size": [
       3,
       4

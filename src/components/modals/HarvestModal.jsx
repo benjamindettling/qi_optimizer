@@ -24,7 +24,7 @@ export function HarvestModal({ harvestModal, onConfirm, onCancel }) {
 
   return (
     <div className="modal">
-      <div className="modal-card">
+      <div className="modal-card" data-tutorial-zone="harvest-modal">
         <h3>{title || "Harvest Result"}</h3>
         <div className="modal-body harvest-body">
           <div className="harvest-col">

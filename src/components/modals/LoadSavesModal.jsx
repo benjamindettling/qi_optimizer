@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import {
   Edit2,
   Share2,
@@ -9,6 +9,8 @@ import {
   Settings,
 } from "lucide-react";
 import { SaveConfigModal } from "./SaveConfigModal";
+import { useLang } from "../../context/LanguageContext";
+import { T } from "../../i18n/translations";
 
 export function LoadSavesModal({
   open,
@@ -23,6 +25,9 @@ export function LoadSavesModal({
   loadName = "",
   hasUnsavedChanges = false,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [deletingId, setDeletingId] = useState(null);
@@ -31,15 +36,12 @@ export function LoadSavesModal({
   const dropzoneRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Get sorted savefile names
   const sortedNames = Object.keys(saves)
     .filter((name) => !saves[name]?.meta?.isSnapshot)
     .sort();
 
-  // Reset state when modal opens/closes
   useEffect(() => {
     if (!open) {
-      // Use a microtask to avoid state update in effect body warning
       setTimeout(() => {
         setEditingId(null);
         setEditingName("");
@@ -50,14 +52,11 @@ export function LoadSavesModal({
     }
   }, [open]);
 
-  // Handle load with unsaved changes check
   const handleLoad = (name) => {
-    // Skip confirmation if loading the same savefile or if no unsaved changes
     if (name === loadName || !hasUnsavedChanges) {
       onLoad?.(name);
       return;
     }
-    // Show confirmation dialog
     setPendingLoadName(name);
   };
 
@@ -72,7 +71,6 @@ export function LoadSavesModal({
     setPendingLoadName(null);
   };
 
-  // Handle drag and drop
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -113,7 +111,7 @@ export function LoadSavesModal({
       }
     } catch (e) {
       console.error("Failed to import file", e);
-      alert("Datei konnte nicht importiert werden");
+      alert(t("loadSavesImportError"));
     }
   };
 
@@ -151,14 +149,15 @@ export function LoadSavesModal({
     <div className="modal">
       <div className="modal-card load-saves-modal">
         <div className="help-header">
-          <h3>Spielstand laden</h3>
-          <button onClick={onClose}>Schliessen</button>
+          <h3>{t("loadSavesTitle")}</h3>
+          <button onClick={onClose} data-tutorial-zone="load-modal-close-btn">
+            {t("loadSavesClose")}
+          </button>
         </div>
 
-        {/* Savefiles list */}
         <div className="load-saves-list">
           {sortedNames.length === 0 ? (
-            <div className="load-saves-empty">Keine Spielstände gefunden</div>
+            <div className="load-saves-empty">{t("loadSavesEmpty")}</div>
           ) : (
             sortedNames.map((name) => (
               <div key={name} className="load-saves-row">
@@ -167,6 +166,7 @@ export function LoadSavesModal({
                     name === loadName ? "active" : ""
                   }`}
                   onClick={() => handleLoad(name)}
+                  data-tutorial-zone={name === loadName ? "load-main-btn" : undefined}
                 >
                   {editingId === name ? (
                     <div
@@ -190,14 +190,14 @@ export function LoadSavesModal({
                       <button
                         className="load-saves-edit-confirm"
                         onClick={() => handleConfirmRename(name)}
-                        title="Bestätigen"
+                        title={t("loadSavesBtnConfirm")}
                       >
                         <Check size={16} />
                       </button>
                       <button
                         className="load-saves-edit-cancel"
                         onClick={handleCancelEdit}
-                        title="Abbrechen"
+                        title={t("loadSavesBtnCancel")}
                       >
                         <X size={16} />
                       </button>
@@ -212,28 +212,32 @@ export function LoadSavesModal({
                     <button
                       className="load-saves-action-btn settings-btn"
                       onClick={() => setConfigEditingName(name)}
-                      title="Savefile-Config"
+                      title={t("loadSavesBtnSaveConfig")}
+                      data-tutorial-zone={name === loadName ? "load-config-btn" : undefined}
                     >
                       <Settings size={16} />
                     </button>
                     <button
                       className="load-saves-action-btn edit-btn"
                       onClick={() => handleStartEdit(name)}
-                      title="Umbenennen"
+                      title={t("loadSavesBtnRename")}
+                      data-tutorial-zone={name === loadName ? "load-rename-btn" : undefined}
                     >
                       <Edit2 size={16} />
                     </button>
                     <button
                       className="load-saves-action-btn export-btn"
                       onClick={() => handleExport(name)}
-                      title="Exportieren"
+                      title={t("loadSavesBtnExport")}
+                      data-tutorial-zone={name === loadName ? "load-export-btn" : undefined}
                     >
                       <Share2 size={16} />
                     </button>
                     <button
                       className="load-saves-action-btn delete-btn"
                       onClick={() => setDeletingId(name)}
-                      title="Löschen"
+                      title={t("loadSavesBtnDelete")}
+                      data-tutorial-zone={name === loadName ? "load-delete-btn" : undefined}
                     >
                       <Trash2 size={16} />
                     </button>
@@ -244,7 +248,6 @@ export function LoadSavesModal({
           )}
         </div>
 
-        {/* Combined dropzone and import button */}
         <div
           ref={dropzoneRef}
           className="load-saves-dropzone"
@@ -254,9 +257,7 @@ export function LoadSavesModal({
           onClick={() => fileInputRef.current?.click()}
         >
           <Download size={20} />
-          <div className="dropzone-content">
-            Klicken oder Datei hierher ziehen zum Importieren
-          </div>
+          <div className="dropzone-content">{t("loadSavesImportHint")}</div>
           <input
             ref={fileInputRef}
             type="file"
@@ -267,60 +268,54 @@ export function LoadSavesModal({
         </div>
       </div>
 
-      {/* Delete confirmation modal */}
       {deletingId && (
         <div className="modal modal-overlay">
           <div className="modal-card modal-confirm-delete">
             <div className="help-header">
-              <h3>Spielstand löschen</h3>
+              <h3>{t("loadSavesDeleteTitle")}</h3>
             </div>
             <div className="modal-body">
-              <p>Wirklich "{deletingId}" löschen?</p>
+              <p>{t("loadSavesDeletePrompt").replace("{name}", deletingId)}</p>
             </div>
             <div className="modal-actions">
               <button
                 className="btn-confirm-delete"
                 onClick={() => handleConfirmDelete(deletingId)}
               >
-                Löschen
+                {t("loadSavesBtnDelete")}
               </button>
               <button
                 className="btn-cancel-delete"
                 onClick={() => setDeletingId(null)}
               >
-                Abbrechen
+                {t("loadSavesBtnCancel")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Unsaved changes confirmation modal */}
       {pendingLoadName && (
         <div className="modal modal-overlay">
           <div className="modal-card modal-confirm-delete">
             <div className="help-header">
-              <h3>Ungespeicherte Änderungen</h3>
+              <h3>{t("loadSavesUnsavedTitle")}</h3>
             </div>
             <div className="modal-body">
-              <p>
-                Es gibt ungespeicherte Änderungen. Wirklich zu "
-                {pendingLoadName}" wechseln?
-              </p>
+              <p>{t("loadSavesUnsavedPrompt").replace("{name}", pendingLoadName)}</p>
             </div>
             <div className="modal-actions">
               <button className="btn-confirm-delete" onClick={confirmLoad}>
-                Wechseln
+                {t("loadSavesSwitch")}
               </button>
               <button className="btn-cancel-delete" onClick={cancelLoad}>
-                Abbrechen
+                {t("loadSavesBtnCancel")}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Savefile config modal */}
       <SaveConfigModal
         open={!!configEditingName}
         saveName={configEditingName}
@@ -337,3 +332,4 @@ export function LoadSavesModal({
     </div>
   );
 }
+
