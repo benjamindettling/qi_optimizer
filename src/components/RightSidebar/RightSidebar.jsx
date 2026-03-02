@@ -1,6 +1,7 @@
 // Right sidebar: Notes, Tools
 import { useEffect, useState } from "react";
 import { NotesEditor } from "../ActionToolbar/NotesEditor";
+import AdsterraBanner from "../Adsterra/AdsterraBanner";
 import { ACTION_COLORS } from "../../config/colors";
 import "./RightSidebar.css";
 
@@ -108,7 +109,14 @@ export function RightSidebar({
           </div>
         )}
       </div>
+      {/* Sidebar Bottom Banner */}
+      <div className="sidebar-ad-wrapper">
+        <AdsterraBanner
+          formatKey="d68f07f8b34919f00710f305079b7f46"
+          width={300}
+          height={250}
+        />
+      </div>
     </aside>
   );
 }
-

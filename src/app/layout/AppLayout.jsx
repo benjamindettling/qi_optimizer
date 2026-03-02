@@ -5,6 +5,7 @@ import { ShopSidebar } from "../../components/ShopSidebar/ShopSidebar";
 import { NotesCluster } from "../../components/RightSidebar/NotesCluster";
 import { MiniToolbar } from "../../components/MiniToolbar/MiniToolbar";
 import { TreeVisualizer } from "../../components/TreeVisualizer/TreeVisualizer";
+import AdsterraBanner from "../../components/Adsterra/AdsterraBanner";
 import { FixDeficitsModal } from "../../components/modals/FixDeficitsModal";
 import { FixLayoutModal } from "../../components/modals/FixLayoutModal";
 import { ACTION_COLORS } from "../../config/colors";
@@ -64,7 +65,8 @@ export function AppLayout({
 }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
-  const { isTutorialActive, currentStepIndex, showWarningNotice } = useTutorial();
+  const { isTutorialActive, currentStepIndex, showWarningNotice } =
+    useTutorial();
   const boardLocked = useTutorialGate("board");
   const treeToolbarLocked = useTutorialGate("tree-toolbar");
   const { libraryMap, shortIdMap } = historyProps;
@@ -118,7 +120,12 @@ export function AppLayout({
     treeRef.current.zoomIn?.();
     treeTutorialPreparedRef.current = true;
     setTimeout(updateTreeState, 50);
-  }, [currentStepIndex, isTutorialActive, onTutorialDeleteModeChanged, updateTreeState]);
+  }, [
+    currentStepIndex,
+    isTutorialActive,
+    onTutorialDeleteModeChanged,
+    updateTreeState,
+  ]);
 
   // Get skipToEnd preference from config (default true)
   const skipToEnd = config?.skipToEnd !== false;
@@ -204,8 +211,13 @@ export function AppLayout({
         if (stepId === "tree-delete-second-branch-subtree") {
           const rootChildren =
             historyProps.historyTree?.nodes?.get?.(0)?.childrenIds ?? [];
-          const secondRootChildId = rootChildren.length > 1 ? rootChildren[1] : null;
-          if (!deleteSubtree || secondRootChildId == null || nodeId !== secondRootChildId) {
+          const secondRootChildId =
+            rootChildren.length > 1 ? rootChildren[1] : null;
+          if (
+            !deleteSubtree ||
+            secondRootChildId == null ||
+            nodeId !== secondRootChildId
+          ) {
             showWarningNotice?.("tree-delete-wrong-node");
             return;
           }
@@ -528,10 +540,7 @@ export function AppLayout({
         return;
       }
 
-      if (
-        target.closest("button") ||
-        target.closest('input[type="range"]')
-      ) {
+      if (target.closest("button") || target.closest('input[type="range"]')) {
         clearExclusiveModes();
       }
     },
@@ -591,6 +600,15 @@ export function AppLayout({
             showSyncConfig={showSyncConfig}
             onSyncConfig={wrappedTopBarSyncConfig}
             hasUnsavedChanges={topBarProps.hasUnsavedChanges}
+          />
+        </div>
+
+        {/* DESKTOP ONLY: 728x90 Top Banner */}
+        <div className="desktop-ad-wrapper">
+          <AdsterraBanner
+            formatKey="79768e549ee8a365af5fb42ff0c3f653"
+            width={728}
+            height={90}
           />
         </div>
 
@@ -656,7 +674,9 @@ export function AppLayout({
             onPointerDownCapture={handleTreeClusterClickCapture}
           >
             {/* Tree Toolbar */}
-            <div className={`tree-toolbar${treeToolbarLocked ? " tutorial-zone-locked" : ""}`}>
+            <div
+              className={`tree-toolbar${treeToolbarLocked ? " tutorial-zone-locked" : ""}`}
+            >
               <div className="tree-toolbar-group">
                 <button
                   className={`mini-btn ${treeState.focusMode ? "active-mode" : ""}`}
@@ -767,7 +787,8 @@ export function AppLayout({
                     const stepId = TUTORIAL_STEPS[currentStepIndex]?.id;
                     if (stepId === "tree-copy-first-to-second") {
                       const rootChildren =
-                        historyProps.historyTree?.nodes?.get?.(0)?.childrenIds ?? [];
+                        historyProps.historyTree?.nodes?.get?.(0)
+                          ?.childrenIds ?? [];
                       const firstRootChildId =
                         rootChildren.length > 0 ? rootChildren[0] : null;
                       const secondRootChildId =
@@ -819,6 +840,15 @@ export function AppLayout({
             isPast={toolbarProps.isPast}
           />
         </div>
+
+        {/* MOBILE ONLY: Sticky Footer Ad */}
+        <div className="mobile-sticky-footer-ad">
+          <AdsterraBanner
+            formatKey="01ae31fbc3b8a7427d60976f3ce8e088"
+            width={320}
+            height={50}
+          />
+        </div>
       </div>
       {deleteConfirmState && (
         <div className="modal modal-overlay">
@@ -856,10 +886,16 @@ export function AppLayout({
               </label>
             </div>
             <div className="modal-actions">
-              <button className="btn-confirm-delete" onClick={handleConfirmDelete}>
+              <button
+                className="btn-confirm-delete"
+                onClick={handleConfirmDelete}
+              >
                 {t("treeDeleteConfirmProceed")}
               </button>
-              <button className="btn-cancel-delete" onClick={handleCancelDelete}>
+              <button
+                className="btn-cancel-delete"
+                onClick={handleCancelDelete}
+              >
                 {t("loadSavesBtnCancel")}
               </button>
             </div>
@@ -996,14 +1032,19 @@ function generateNodeDisplay(action, libraryMap, shortIdMap, lang) {
     case "unitPurchaseAdmin":
       return {
         nodeLabel: null,
-        nodeIcon: action.unitKey || action.key ? `/units/${action.unitKey || action.key}.webp` : null,
+        nodeIcon:
+          action.unitKey || action.key
+            ? `/units/${action.unitKey || action.key}.webp`
+            : null,
       };
 
     // Region unlock - show payment icon
     case "regionUnlockGoods":
       return {
         nodeLabel: null,
-        nodeIcon: action.goodKey ? getGoodIconPath(action.goodKey) : "/menu/goods.png",
+        nodeIcon: action.goodKey
+          ? getGoodIconPath(action.goodKey)
+          : "/menu/goods.png",
       };
 
     case "regionUnlockShards":
@@ -1229,5 +1270,3 @@ function generateActionTitle(action, libraryMap, shortIdMap, lang) {
       return action.title || type || "Aktion";
   }
 }
-
-

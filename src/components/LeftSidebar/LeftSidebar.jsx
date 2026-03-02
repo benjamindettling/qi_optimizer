@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ClockArrowUp, Trash2 } from "lucide-react";
 import { TreeVisualizer } from "../TreeVisualizer/TreeVisualizer";
 import { SaveMenu } from "../ActionToolbar/SaveMenu";
+import AdsterraBanner from "../Adsterra/AdsterraBanner";
 import { ACTION_COLORS } from "../../config/colors";
 import "./LeftSidebar.css";
 
@@ -231,7 +232,15 @@ export function LeftSidebar({
           </div>
         )}
       </div>
+
+      {/* Sidebar Bottom Banner */}
+      <div className="sidebar-ad-wrapper">
+        <AdsterraBanner
+          formatKey="d68f07f8b34919f00710f305079b7f46"
+          width={300}
+          height={250}
+        />
+      </div>
     </aside>
   );
 }
-
