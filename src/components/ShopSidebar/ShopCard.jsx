@@ -46,6 +46,9 @@ const isMhDefId = (defId) =>
 const isGutshausDefId = (defId) =>
   typeof defId === "string" &&
   (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+const isChurchDefId = (defId) =>
+  typeof defId === "string" &&
+  (defId === "kirche" || defId.endsWith(":kirche"));
 
 export function ShopCard({
   item,
@@ -306,6 +309,8 @@ export function ShopCard({
           ? "mh-card"
           : isGutshausDefId(defId)
             ? "gutshaus-card"
+            : isChurchDefId(defId)
+              ? "church-card"
             : undefined
       }
       role="button"

@@ -1691,6 +1691,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       .data(sortedLinks, (d) => d.id)
       .join("path")
       .attr("class", "edge")
+      .attr("data-edge-parent-id", (d) => sourceId(d))
+      .attr("data-edge-child-id", (d) => targetId(d))
       .attr("fill", "none")
       .attr("d", linkPath)
       .attr("stroke-width", (d) => {
@@ -1732,6 +1734,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       .data(deleteMode ? sortedLinks : [], (d) => `hit_${d.id}`)
       .join("path")
       .attr("class", "edge-hit")
+      .attr("data-edge-parent-id", (d) => sourceId(d))
+      .attr("data-edge-child-id", (d) => targetId(d))
       .attr("fill", "none")
       .attr("d", linkPath)
       .attr("stroke", "transparent")
@@ -2715,6 +2719,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         </div>
         <button
           className={`tree-focus-toggle ${selectionFocusMode ? "active" : ""}`}
+          data-tutorial-zone="tree-node-focus-btn"
           onClick={handleToggleSelectionFocusMode}
           title={
             selectionFocusMode

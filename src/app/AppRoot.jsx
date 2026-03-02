@@ -22,6 +22,7 @@ import {
   TUTORIAL_STEPS,
   TUTORIAL_EXAMPLE_SAVE_NAME,
   MH_TARGET_SLOTS,
+  CHURCH_TARGET_SLOTS,
 } from "../tutorial/tutorialSteps";
 import { T } from "../i18n/translations";
 import tutorialExampleSave from "../config/example/example_full.json";
@@ -36,6 +37,8 @@ const isMhDefId = (defId) =>
     defId.endsWith(":mehrgeschossiges_haus"));
 const isGutshausDefId = (defId) =>
   typeof defId === "string" && (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+const isChurchDefId = (defId) =>
+  typeof defId === "string" && (defId === "kirche" || defId.endsWith(":kirche"));
 
 const getRootChildren = (historyTree) => {
   const root = historyTree?.nodes?.get?.(0);
@@ -96,6 +99,7 @@ export function AppRoot() {
     currentStepIndex,
     completionCount,
     mhPlacedCount,
+    churchPlacedCount,
     fireEvent,
     startTutorial,
     showWarningNotice,
@@ -213,7 +217,6 @@ export function AppRoot() {
     const el = boardContentRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
 
-    const EXPANSION_NOTICE_HEIGHT = 40;
     const WORKSPACE_PADDING = 32;
 
     const update = () => {
@@ -230,8 +233,7 @@ export function AppRoot() {
         240,
         window.innerHeight -
           topBarH -
-          WORKSPACE_PADDING -
-          EXPANSION_NOTICE_HEIGHT,
+          WORKSPACE_PADDING,
       );
 
       // Board height = min(element width, viewport available height).
@@ -244,7 +246,7 @@ export function AppRoot() {
       // .board-content can use it as max-height without a resize loop.
       document.documentElement.style.setProperty(
         "--board-content-h",
-        `${availableH + EXPANSION_NOTICE_HEIGHT + 8}px`,
+        `${availableH + 8}px`,
       );
     };
 
@@ -332,6 +334,21 @@ export function AppRoot() {
 
   const handleSetSelectedBuildingId = useCallback(
     (defId) => {
+      const step = TUTORIAL_STEPS[currentStepIndex];
+      if (isTutorialActive && defId !== null) {
+        const requiresMh = step?.id === "board-select-mh";
+        const requiresChurch = step?.id === "board-select-church";
+        const requiresGutshaus = step?.id === "tree-select-gutshaus";
+        const wrongBuilding =
+          (requiresMh && !isMhDefId(defId)) ||
+          (requiresChurch && !isChurchDefId(defId)) ||
+          (requiresGutshaus && !isGutshausDefId(defId));
+        if (wrongBuilding) {
+          showWarningNotice("wrong-building");
+          return;
+        }
+      }
+
       if (defId === null) {
         controller.setSelectedBuildingId(null);
       } else if (controller.handleSelectBuilding) {
@@ -343,6 +360,20 @@ export function AppRoot() {
         setIsShopOpen(false);
         fireEvent("building-selected", { defId });
       }
+    },
+    [
+      controller,
+      currentStepIndex,
+      fireEvent,
+      isTutorialActive,
+      showWarningNotice,
+    ],
+  );
+
+  const handleSetSelectedCategory = useCallback(
+    (categoryKey) => {
+      controller.setSelectedCategory?.(categoryKey);
+      fireEvent("shopCategorySelected", { categoryKey });
     },
     [controller, fireEvent],
   );
@@ -682,12 +713,14 @@ export function AppRoot() {
     setTutorialRuntime({
       isShopOpen,
       selectedBuildingId: controller.selectedBuildingId,
+      selectedCategory: controller.selectedCategory,
       historyTree: controller.historyTree,
       historyIndex: controller.historyIndex,
     });
   }, [
     controller.historyIndex,
     controller.historyTree,
+    controller.selectedCategory,
     controller.selectedBuildingId,
     isShopOpen,
     isTutorialActive,
@@ -841,7 +874,7 @@ export function AppRoot() {
 
   const sidebarProps = {
     selectedCategory: controller.selectedCategory,
-    setSelectedCategory: controller.setSelectedCategory,
+    setSelectedCategory: handleSetSelectedCategory,
     setSelectedBuildingId: handleSetSelectedBuildingId,
     resources: controller.resources,
     stats: controller.stats,
@@ -927,6 +960,36 @@ export function AppRoot() {
             return;
           }
         }
+        if (step?.id === "board-place-church-sequence") {
+          if (
+            controller.selectedBuildingId &&
+            !isChurchDefId(controller.selectedBuildingId)
+          ) {
+            showWarningNotice("wrong-building");
+            return;
+          }
+          if (isChurchDefId(controller.selectedBuildingId)) {
+            const expected = CHURCH_TARGET_SLOTS[churchPlacedCount];
+            if (!expected || col !== expected.x || row !== expected.y) {
+              showWarningNotice("wrong-placement");
+              return;
+            }
+          }
+        }
+        if (step?.id === "board-harvest-first-mh") {
+          const first = MH_TARGET_SLOTS[0];
+          const isFirstMhCell =
+            col >= first.x &&
+            col < first.x + first.w &&
+            row >= first.y &&
+            row < first.y + first.h;
+          if (!isFirstMhCell) {
+            return;
+          }
+          if (controller.selectedBuildingId) {
+            controller.setSelectedBuildingId(null);
+          }
+        }
       }
       controller.handleCellClick(col, row);
     },
@@ -936,6 +999,7 @@ export function AppRoot() {
       currentStepIndex,
       isTutorialActive,
       mhPlacedCount,
+      churchPlacedCount,
       showWarningNotice,
     ],
   );

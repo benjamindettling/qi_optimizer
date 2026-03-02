@@ -4,6 +4,8 @@ import {
   REGION_ROWS,
   REGION_MASK,
   GOODS_TYPES,
+  REGION_GOODS_COSTS,
+  REGION_SHARD_COSTS,
 } from "../../config/boardConfig";
 import { computePurchasePlans } from "../../utils/gameMath";
 import { canAffordSingleGood } from "../../utils/stateUtils";
@@ -27,6 +29,7 @@ export const buildUnlockChoiceState = ({
   currentGoodsCost,
   currentShardCost,
   allowNegativeShards = false,
+  adminMode = false,
 }) => {
   const isInfinityCost = (value) =>
     value === "Infinity" ||
@@ -39,15 +42,46 @@ export const buildUnlockChoiceState = ({
     (inst) => libraryMap[inst.defId]?.category === "goods"
   );
   const shardsEnough = (resources.shards ?? 0) >= currentShardCost;
-  const shardsAllowed =
-    !isInfinityCost(currentShardCost) &&
-    (allowNegativeShards || shardsEnough);
+  const goodsAllowed = adminMode
+    ? !isInfinityCost(currentGoodsCost)
+    : hasAnyGoodEnough || hasGoodsBuilding;
+  const shardsAllowed = adminMode
+    ? !isInfinityCost(currentShardCost)
+    : !isInfinityCost(currentShardCost) &&
+      (allowNegativeShards || shardsEnough);
   return {
     idx,
+    mode: "unlock",
+    adminMode: !!adminMode,
     goodsCost: currentGoodsCost,
     shardCost: currentShardCost,
-    allowGoods: hasAnyGoodEnough || hasGoodsBuilding,
+    allowGoods: goodsAllowed,
     allowShards: shardsAllowed,
+  };
+};
+
+export const buildLockChoiceState = ({
+  idx,
+  goodsUnlocks = 0,
+  shardUnlocks = 0,
+}) => {
+  const maxGoodsIdx = Math.max(0, REGION_GOODS_COSTS.length - 1);
+  const maxShardIdx = Math.max(0, REGION_SHARD_COSTS.length - 1);
+  const currentGoodsIdx = Math.min(Math.max(goodsUnlocks ?? 0, 0), maxGoodsIdx);
+  const currentShardIdx = Math.min(Math.max(shardUnlocks ?? 0, 0), maxShardIdx);
+
+  return {
+    idx,
+    mode: "lock",
+    adminMode: true,
+    goodsCost: REGION_GOODS_COSTS[currentGoodsIdx],
+    shardCost: REGION_SHARD_COSTS[currentShardIdx],
+    nextGoodsCost:
+      currentGoodsIdx > 0 ? REGION_GOODS_COSTS[currentGoodsIdx - 1] : null,
+    nextShardCost:
+      currentShardIdx > 0 ? REGION_SHARD_COSTS[currentShardIdx - 1] : null,
+    allowGoods: currentGoodsIdx > 0,
+    allowShards: currentShardIdx > 0,
   };
 };
 

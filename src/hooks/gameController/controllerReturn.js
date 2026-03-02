@@ -111,6 +111,7 @@ export const buildControllerReturn = ({
   handleUnlockRegion: regionApi.handleUnlockRegion,
   handleDebugUnlockRegion: regionApi.handleDebugUnlockRegion,
   handleDebugLockRegion: regionApi.handleDebugLockRegion,
+  handleAdminLockRegion: regionApi.handleAdminLockRegion,
   toggleMove: modeApi.toggleMove,
   toggleSell: modeApi.toggleSell,
   toggleRefund: modeApi.toggleRefund,

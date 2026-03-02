@@ -11,6 +11,7 @@ import { canAffordSingleGood } from "../../utils/stateUtils";
 import { formatNumber } from "../../utils/formatNumber";
 import {
   buildUnlockChoiceState,
+  buildLockChoiceState,
   prepareFastBuyModal,
 } from "../../domain/regions/regionController";
 
@@ -163,6 +164,7 @@ export const useRegionHandlers = ({
           currentGoodsCost,
           currentShardCost,
           allowNegativeShards,
+          adminMode: !!infiniteResources,
         });
         setUnlockChoice(choice);
         setUnlockGoodSelect(null);
@@ -174,6 +176,10 @@ export const useRegionHandlers = ({
       if (method === "goods") {
         if (goodsUnlocks >= REGION_GOODS_COSTS.length) {
           updateStatus("Keine weiteren Güter-Erweiterungen verfügbar.");
+          return;
+        }
+        if (!infiniteResources && !goodKey) {
+          updateStatus("Bitte zuerst eine GÃ¼terart wÃ¤hlen.");
           return;
         }
         if (
@@ -207,7 +213,9 @@ export const useRegionHandlers = ({
         const label = `Erweiterung gekauft für ${formatNumber(
           currentGoodsCost,
         )} Güter`;
-        applyAdjustGoods(goodKey, -currentGoodsCost);
+        if (!infiniteResources) {
+          applyAdjustGoods(goodKey, -currentGoodsCost);
+        }
         setGoodsUnlocks((prev) =>
           Math.min(prev + 1, REGION_GOODS_COSTS.length - 1),
         );
@@ -326,27 +334,33 @@ export const useRegionHandlers = ({
       if (unlockedRegions[idx]) return;
       if (!neighborUnlocked(idx)) return;
 
-      setUnlockedRegions((prev) => {
-        const next = [...prev];
-        next[idx] = true;
-        return next;
+      const choice = buildUnlockChoiceState({
+        idx,
+        resources,
+        layout,
+        libraryMap,
+        currentGoodsCost,
+        currentShardCost,
+        allowNegativeShards,
+        adminMode: true,
       });
-      updateStatus("Admin: +1 Region");
-      recordHistoryAction?.({
-        type: "regionUnlockAdmin",
-        regionIdx: idx,
-      });
-      requestAutoSnapshot();
+      setUnlockChoice(choice);
+      setUnlockGoodSelect(null);
     },
     [
+      allowNegativeShards,
+      currentGoodsCost,
+      currentShardCost,
       debugRegions,
+      layout,
+      libraryMap,
       unlockedRegions,
       neighborUnlocked,
-      setUnlockedRegions,
-      updateStatus,
-      requestAutoSnapshot,
-      recordHistoryAction,
       editingLocked,
+      resources,
+      setUnlockChoice,
+      setUnlockGoodSelect,
+      updateStatus,
     ],
   );
 
@@ -365,27 +379,77 @@ export const useRegionHandlers = ({
         return;
       }
 
+      const choice = buildLockChoiceState({
+        idx,
+        goodsUnlocks,
+        shardUnlocks,
+      });
+      setUnlockChoice(choice);
+      setUnlockGoodSelect(null);
+    },
+    [
+      debugRegions,
+      goodsUnlocks,
+      shardUnlocks,
+      unlockedRegions,
+      hasAnyBuildingInRegion,
+      setUnlockChoice,
+      setUnlockGoodSelect,
+      updateStatus,
+      editingLocked,
+    ],
+  );
+
+  const handleAdminLockRegion = useCallback(
+    (idx, method) => {
+      if (editingLocked) {
+        updateStatus("Bearbeitung gesperrt. Bearbeitung aktivieren.");
+        return;
+      }
+      if (!debugRegions || !method) return;
+      if (!unlockedRegions[idx]) return;
+
+      const isGoods = method === "goods";
+      const canReduce = isGoods ? goodsUnlocks > 0 : shardUnlocks > 0;
+      if (!canReduce) {
+        updateStatus("Kosten kÃ¶nnen nicht weiter gesenkt werden.");
+        return;
+      }
+
       setUnlockedRegions((prev) => {
         const next = [...prev];
         next[idx] = false;
         return next;
       });
+      if (isGoods) {
+        setGoodsUnlocks((prev) => Math.max(0, prev - 1));
+      } else {
+        setShardUnlocks((prev) => Math.max(0, prev - 1));
+      }
+      setUnlockChoice(null);
+      setUnlockGoodSelect(null);
       updateStatus("Admin: -1 Region");
       recordHistoryAction?.({
         type: "regionLockAdmin",
         regionIdx: idx,
+        method,
       });
       requestAutoSnapshot();
     },
     [
       debugRegions,
-      unlockedRegions,
-      hasAnyBuildingInRegion,
-      setUnlockedRegions,
-      updateStatus,
-      requestAutoSnapshot,
-      recordHistoryAction,
       editingLocked,
+      goodsUnlocks,
+      recordHistoryAction,
+      requestAutoSnapshot,
+      setGoodsUnlocks,
+      setShardUnlocks,
+      setUnlockChoice,
+      setUnlockGoodSelect,
+      setUnlockedRegions,
+      shardUnlocks,
+      unlockedRegions,
+      updateStatus,
     ],
   );
 
@@ -401,5 +465,6 @@ export const useRegionHandlers = ({
     handleUnlockRegion,
     handleDebugUnlockRegion,
     handleDebugLockRegion,
+    handleAdminLockRegion,
   };
 };

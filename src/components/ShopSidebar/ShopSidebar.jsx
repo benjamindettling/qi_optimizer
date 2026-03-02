@@ -124,6 +124,9 @@ export function ShopSidebar({
             }}
             title={cat.label}
             aria-label={cat.label}
+            data-tutorial-zone={
+              cat.key === "culture" ? "shop-tab-culture" : undefined
+            }
           >
             {cat.iconEmoji ? (
               <span className="tab-emoji" aria-hidden="true">

@@ -4,6 +4,7 @@ import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import {
   MH_TARGET_SLOTS,
+  CHURCH_TARGET_SLOTS,
   TUTORIAL_SECTIONS,
   TUTORIAL_STEPS,
 } from "../../tutorial/tutorialSteps";
@@ -14,6 +15,8 @@ const isMhDefId = (defId) =>
   typeof defId === "string" &&
   (defId === "mehrgeschossiges_haus" ||
     defId.endsWith(":mehrgeschossiges_haus"));
+const isChurchDefId = (defId) =>
+  typeof defId === "string" && (defId === "kirche" || defId.endsWith(":kirche"));
 
 const getRootChildId = (historyTree, childIndex) => {
   const root = historyTree?.nodes?.get?.(0);
@@ -53,6 +56,19 @@ const collectSubtreeNodeIds = (historyTree, startNodeId) => {
   return Array.from(seen);
 };
 
+const getTreeEdgeRect = (parentId, childId) => {
+  if (parentId == null || childId == null) return null;
+  const edgeEl =
+    document.querySelector(
+      `.tree-visualizer [data-edge-parent-id="${parentId}"][data-edge-child-id="${childId}"].edge-hit`,
+    ) ||
+    document.querySelector(
+      `.tree-visualizer [data-edge-parent-id="${parentId}"][data-edge-child-id="${childId}"].edge`,
+    );
+  if (!edgeEl) return null;
+  return toRect(edgeEl.getBoundingClientRect());
+};
+
 const toRect = (domRect) => ({
   top: domRect.top,
   left: domRect.left,
@@ -85,6 +101,22 @@ const isEditableTarget = (target) => {
   return !!target.closest('[contenteditable="true"]');
 };
 
+const resolveZoneRect = (target) => {
+  if (!target) return null;
+  if (typeof target.getBoundingClientRect === "function") {
+    return toRect(target.getBoundingClientRect());
+  }
+  if (
+    Number.isFinite(target.top) &&
+    Number.isFinite(target.left) &&
+    Number.isFinite(target.width) &&
+    Number.isFinite(target.height)
+  ) {
+    return target;
+  }
+  return null;
+};
+
 export function TutorialOverlay() {
   const {
     isTutorialActive,
@@ -92,6 +124,7 @@ export function TutorialOverlay() {
     warningNotice,
     completionCount,
     mhPlacedCount,
+    churchPlacedCount,
     tutorialRuntime,
     advanceStep,
     exitTutorial,
@@ -166,13 +199,16 @@ export function TutorialOverlay() {
     if (!step) return [];
     if (
       step.dynamicMode === "mh-placement" ||
+      step.dynamicMode === "church-placement" ||
       step.dynamicMode === "mh-first-harvest" ||
       step.dynamicMode === "gutshaus-first-slot"
     ) {
       const slot =
         step.dynamicMode === "mh-first-harvest" || step.dynamicMode === "gutshaus-first-slot"
           ? MH_TARGET_SLOTS[0]
-          : MH_TARGET_SLOTS[mhPlacedCount];
+          : step.dynamicMode === "church-placement"
+            ? CHURCH_TARGET_SLOTS[churchPlacedCount]
+            : MH_TARGET_SLOTS[mhPlacedCount];
       const rect = computeBoardSlotRect(slot);
       return rect ? [rect] : [];
     }
@@ -201,6 +237,18 @@ export function TutorialOverlay() {
         const secondChildId = getRootChildId(historyTree, 1);
         const rect = getNodeRect(secondChildId);
         return rect ? [rect] : [];
+      }
+      if (step.dynamicMode === "tree-root-second-child-edge") {
+        const secondChildId = getRootChildId(historyTree, 1);
+        const rect = getTreeEdgeRect(0, secondChildId);
+        return rect
+          ? [
+              {
+                zone: `dynamic-tree-edge-0-${secondChildId}`,
+                ...rect,
+              },
+            ]
+          : [];
       }
       if (step.dynamicMode === "tree-root-second-branch-tail") {
         const secondChildId = getRootChildId(historyTree, 1);
@@ -252,7 +300,7 @@ export function TutorialOverlay() {
     }
 
     return [];
-  }, [computeBoardSlotRect, mhPlacedCount, step, tutorialRuntime.historyTree]);
+  }, [computeBoardSlotRect, mhPlacedCount, churchPlacedCount, step, tutorialRuntime.historyTree]);
 
   const staticHighlightZones = useMemo(() => {
     if (!step) return [];
@@ -262,6 +310,15 @@ export function TutorialOverlay() {
       }
       if (tutorialRuntime.isShopOpen) {
         return ["mh-card", "shop-panel"];
+      }
+      return ["shop-btn"];
+    }
+    if (step.dynamicMode === "church-placement") {
+      if (isChurchDefId(tutorialRuntime.selectedBuildingId)) {
+        return [];
+      }
+      if (tutorialRuntime.isShopOpen) {
+        return ["church-card", "shop-panel"];
       }
       return ["shop-btn"];
     }
@@ -276,9 +333,8 @@ export function TutorialOverlay() {
       const nextRects = [];
       staticHighlightZones.forEach((zone) => {
         const getter = ZONE_REGISTRY[zone];
-        const el = getter?.();
-        if (!el) return;
-        const rect = toRect(el.getBoundingClientRect());
+        const rect = resolveZoneRect(getter?.());
+        if (!rect) return;
         nextRects.push({
           zone,
           ...rect,
@@ -742,7 +798,10 @@ export function TutorialOverlay() {
         </div>
         <div className="tutorial-popover-actions">
           {step.advanceOn === "click" ? (
-            <button className="tutorial-btn-next" onClick={advanceStep}>
+            <button
+              className="tutorial-btn-next tutorial-btn-next--highlighted"
+              onClick={advanceStep}
+            >
               {nextLabel}
             </button>
           ) : (

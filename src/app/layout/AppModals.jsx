@@ -52,7 +52,9 @@ export function AppModals({
     setUnlockGoodSelect,
     resources,
     config,
+    currentGoodsCost,
     handleUnlockRegion,
+    handleAdminLockRegion,
     layout,
     libraryMap,
     harvestModal,
@@ -128,11 +130,27 @@ export function AppModals({
     <>
       <UnlockRegionModal
         unlockChoice={unlockChoice}
-        onChooseGoods={(idx, goodsCost) => {
-          setUnlockGoodSelect({ idx, goodsCost });
+        onChooseGoods={(choice) => {
+          if (!choice) return;
+          if (choice.mode === "lock") {
+            handleAdminLockRegion?.(choice.idx, "goods");
+            return;
+          }
+          if (choice.adminMode) {
+            handleUnlockRegion(choice.idx, "goods");
+            return;
+          }
+          setUnlockGoodSelect({ idx: choice.idx, goodsCost: choice.goodsCost });
           setUnlockChoice(null);
         }}
-        onUnlockWithShards={(idx) => handleUnlockRegion(idx, "shards")}
+        onChooseShards={(choice) => {
+          if (!choice) return;
+          if (choice.mode === "lock") {
+            handleAdminLockRegion?.(choice.idx, "shards");
+            return;
+          }
+          handleUnlockRegion(choice.idx, "shards");
+        }}
         onCancel={() => setUnlockChoice(null)}
         shards={resources?.shards ?? 0}
         allowNegativeShards={!!config?.allowNegativeShards}
@@ -167,6 +185,8 @@ export function AppModals({
 
       <GoodsPurchaseModal
         goodsModal={goodsModal}
+        goods={resources?.goods}
+        currentGoodsCost={currentGoodsCost}
         onPurchase={handleGoodsPurchase}
         onClose={() => setGoodsModal(null)}
       />

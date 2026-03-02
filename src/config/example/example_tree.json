@@ -7,7 +7,7 @@
       "extraCoins": 0,
       "extraSupplies": 0,
       "troopsStartBonus": 0,
-      "shardsStart": 650,
+      "shardsStart": 500,
       "coinBoost": 0,
       "supplyBoost": 0,
       "redAttackBoost": 0,
@@ -47,6 +47,24 @@
           "s": "H1",
           "x": 22,
           "y": 14
+        },
+        {
+          "t": "b",
+          "s": "C4",
+          "x": 8,
+          "y": 4
+        },
+        {
+          "t": "b",
+          "s": "C4",
+          "x": 8,
+          "y": 7
+        },
+        {
+          "t": "b",
+          "s": "C4",
+          "x": 8,
+          "y": 10
         },
         {
           "t": "fp"

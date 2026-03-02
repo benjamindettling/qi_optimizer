@@ -75,29 +75,11 @@
   flex: initial;
 }
 
-/* Notes section - flexible height */
-.notes-cluster .notes-section {
+/* Log section - takes over the freed notes/ad space */
+.notes-cluster .log-section {
   flex: 1 1 auto;
-  min-height: 120px;
+  min-height: 0;
   overflow: hidden;
-}
-
-.notes-cluster .notes-section .notes-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-panel-bg);
-  min-width: 0;
-  max-width: 100%;
-}
-
-.notes-cluster .notes-section .notes-card textarea {
-  flex: 1;
-  min-height: 100px;
-  background: var(--color-panel-bg-alt);
-  color: var(--color-text-strong);
-  min-width: 0;
-  max-width: 100%;
 }
 
 /* Extra tools */

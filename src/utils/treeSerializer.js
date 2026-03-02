@@ -15,10 +15,10 @@
  * - finishProductions: { t: "fp" }
  * - goodsPurchase/goodsPurchaseAdmin: { t: "gp"|"gpa", i: goodIndex(1-5), q: {amount:count} }
  * - unitPurchase/unitPurchaseAdmin: { t: "up"|"upa", i: unitIndex(1-3), q: {amount:count} }
- * - regionUnlockGoods: { t: "rug", r: regionIdx, i: goodIndex(1-5) }
- * - regionUnlockShards: { t: "rus", r: regionIdx }
+ * - regionUnlockGoods: { t: "rug", r: regionIdx, i?: goodIndex(1-5), a?:1 }
+ * - regionUnlockShards: { t: "rus", r: regionIdx, a?:1 }
  * - regionUnlockAdmin: { t: "rua", r: regionIdx }
- * - regionLockAdmin: { t: "rla", r: regionIdx }
+ * - regionLockAdmin: { t: "rla", r: regionIdx, m?:"g"|"s" }
  * - adminAdjust: { t: "aa", g: "r"|"g"|"u", k: index(1-5 or 1-3), d: delta }
  *     - g="r": resources (k: 1=coins, 2=supplies, 3=chronos, 4=shards, 5=quantumActions)
  *     - g="g": goods (k: 1-5 for the 5 goods)
@@ -227,20 +227,29 @@ function compressAction(action) {
       break;
       
     case "regionUnlockGoods":
-      // Store region index and goods index (1-5)
+      // Store region index, optional goods index, and optional admin flag.
       if (action.regionIdx != null) result.r = action.regionIdx;
-      result.i = goodsKeyToIndex(action.goodKey ?? action.goodsKey ?? action.key);
+      if (action.goodKey ?? action.goodsKey ?? action.key) {
+        result.i = goodsKeyToIndex(action.goodKey ?? action.goodsKey ?? action.key);
+      }
+      if (action.admin) result.a = 1;
       break;
       
     case "regionUnlockShards":
+      // Just the region index plus optional admin flag.
+      if (action.regionIdx != null) result.r = action.regionIdx;
+      if (action.admin) result.a = 1;
+      break;
+      
+    case "regionUnlockAdmin":
       // Just the region index
       if (action.regionIdx != null) result.r = action.regionIdx;
       break;
       
-    case "regionUnlockAdmin":
     case "regionLockAdmin":
-      // Just the region index
       if (action.regionIdx != null) result.r = action.regionIdx;
+      if (action.method === "goods") result.m = "g";
+      if (action.method === "shards") result.m = "s";
       break;
       
     case "adminAdjust":
@@ -373,16 +382,23 @@ function expandAction(compressed) {
       
     case "regionUnlockGoods":
       if (compressed.r != null) result.regionIdx = compressed.r;
-      result.goodKey = goodsIndexToKey(compressed.i);
+      if (compressed.i != null) result.goodKey = goodsIndexToKey(compressed.i);
+      if (compressed.a) result.admin = true;
       break;
       
     case "regionUnlockShards":
       if (compressed.r != null) result.regionIdx = compressed.r;
+      if (compressed.a) result.admin = true;
       break;
       
     case "regionUnlockAdmin":
+      if (compressed.r != null) result.regionIdx = compressed.r;
+      break;
+
     case "regionLockAdmin":
       if (compressed.r != null) result.regionIdx = compressed.r;
+      if (compressed.m === "g") result.method = "goods";
+      if (compressed.m === "s") result.method = "shards";
       break;
       
     case "adminAdjust":

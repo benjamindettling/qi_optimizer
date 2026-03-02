@@ -1,6 +1,5 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { Board } from "../../components/Board/Board";
-import { ExpansionCostNotice } from "../../components/Board/ExpansionCostNotice";
 import { TopBarPager } from "../../components/TopBar/TopBarPager";
 import { ShopSidebar } from "../../components/ShopSidebar/ShopSidebar";
 import { NotesCluster } from "../../components/RightSidebar/NotesCluster";
@@ -648,22 +647,6 @@ export function AppLayout({
                 onDebugUnlockRegion={wrappedDebugUnlockRegion}
                 onDebugLockRegion={wrappedDebugLockRegion}
               />
-              <ExpansionCostNotice
-                currentGoodsCost={topBarProps.currentGoodsCost}
-                currentShardCost={topBarProps.currentShardCost}
-                goodsUnlocks={topBarProps.goodsUnlocks}
-                shardUnlocks={topBarProps.shardUnlocks}
-                onSetGoodsUnlocks={(next) => {
-                  clearExclusiveModes();
-                  topBarProps.onSetGoodsUnlocks?.(next);
-                }}
-                onSetShardUnlocks={(next) => {
-                  clearExclusiveModes();
-                  topBarProps.onSetShardUnlocks?.(next);
-                }}
-                adminMode={topBarProps.adminMode}
-                editingLocked={topBarProps.editingLocked}
-              />
             </div>
           </div>
 
@@ -1020,7 +1003,7 @@ function generateNodeDisplay(action, libraryMap, shortIdMap, lang) {
     case "regionUnlockGoods":
       return {
         nodeLabel: null,
-        nodeIcon: action.goodKey ? getGoodIconPath(action.goodKey) : null,
+        nodeIcon: action.goodKey ? getGoodIconPath(action.goodKey) : "/menu/goods.png",
       };
 
     case "regionUnlockShards":
@@ -1118,6 +1101,12 @@ function generateActionTitle(action, libraryMap, shortIdMap, lang) {
       return `+1 Region${adminSuffix}`;
 
     case "regionLockAdmin":
+      if (action.method === "goods") {
+        return `-1 Region (Güter) (Admin)`;
+      }
+      if (action.method === "shards") {
+        return `-1 Region (Scherben) (Admin)`;
+      }
       return `-1 Region (Admin)`;
 
     case "goodsCostAdmin": {

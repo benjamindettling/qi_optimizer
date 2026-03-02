@@ -170,8 +170,10 @@ function formatAction(action, libraryMap, shortIdMap, lang) {
     let methodLabel = method;
     if (method === "goods" && action.goodKey) {
       methodLabel = action.goodKey;
+    } else if (method === "goods") {
+      methodLabel = lang === "EN" ? "Goods" : "Güter";
     } else if (method === "shards") {
-      methodLabel = "Scherben";
+      methodLabel = lang === "EN" ? "Shards" : "Scherben";
     }
 
     // If fastbuy was used, show the purchase first

@@ -63,7 +63,7 @@
     EN: "Basic Overview",
   },
   tutorialStepOverviewAllBody: {
-    DE: "Lass uns zuerst einen Überblick verschaffen (btw du kannst das Tutorial Fenster jederzeit verschieben wenn es im Weg ist).",
+    DE: "Lass uns zuerst einen Überblick verschaffen (btw du kannst das Tutorial Fenster jederzeit verschieben wenn es zB mal im Weg ist).",
     EN: "Here you see the main areas: board, board toolbar, tree, tree toolbar, notes, and the three top bar areas. Click Next.",
   },
   tutorialStepOverviewBoardTitle: { DE: "Board", EN: "Board" },
@@ -76,7 +76,7 @@
     EN: "Board Toolbar",
   },
   tutorialStepOverviewBoardToolbarBody: {
-    DE: "Diese Toolbar steuert Shop, Bewegen, Verkaufen, Boost sowie Produktions- und Ernteaktionen.",
+    DE: "Diese Toolbar assistiert dir beim Städtebau: Von links nach rechts: Bewegen, Verkaufen, Boosten, Shop, Zur Ernte sprringen, und alles einsammeln.",
     EN: "This toolbar controls shop, move, sell, boost, plus production and harvest actions.",
   },
   tutorialStepOverviewTreeTitle: { DE: "Verlaufsbaum", EN: "History Tree" },
@@ -93,27 +93,27 @@
     EN: "Here you control tree view, main branch selection, and delete functions.",
   },
   tutorialStepOverviewTopbarStatsTitle: {
-    DE: "TopBar: Statistiken",
+    DE: "Kopfzeile: Statistiken",
     EN: "Top Bar: Stats",
   },
   tutorialStepOverviewTopbarStatsBody: {
-    DE: "Hier siehst du Ressourcen, Truppen, Boosts und Happiness. In der Happiness-Spalte erkennst du je Stufe, was fehlt oder übrig ist.",
+    DE: "Hier siehst du alle Ressourcen, Truppen, Boosts und und aktuellee Zufriedenheit. Die meisten Einträge sind wohl selbsterklärend. Zur letzten Spalte, hier erkennst du die verschiedenen Zufriedenheitsstufen, und was fehlt oder übrig ist.",
     EN: "Here you see resources, units, boosts, and happiness. The happiness column shows per tier what is missing or extra.",
   },
   tutorialStepOverviewTopbarStepsTitle: {
-    DE: "TopBar: Schritt",
+    DE: "Kopfzeile: Schritt",
     EN: "Top Bar: Step",
   },
   tutorialStepOverviewTopbarStepsBody: {
-    DE: "Dieser Bereich zeigt den aktuellen Simulationsschritt und bietet Navigation zwischen Aktionen und Checkpoints.",
+    DE: "Dieser Bereich zeigt den Schritt an (aktuell Do Morgen). Ausserdem kannst du hier in der Zeit vor und zurück navigieren.",
     EN: "This area shows the current simulation step and navigation between actions and checkpoints.",
   },
   tutorialStepOverviewTopbarButtonsTitle: {
-    DE: "TopBar: Buttons",
+    DE: "Kopfzeile: Buttons",
     EN: "Top Bar: Buttons",
   },
   tutorialStepOverviewTopbarButtonsBody: {
-    DE: "Hier findest du Speichern/Laden, Profil, Hilfe, Sprache und den Tutorial-Start.",
+    DE: "Hier findest du Speichern/Laden, dein Profil, Hilfe, Sprache und den Tutorial-Start.",
     EN: "Here you find save/load, profile, help, language, and tutorial start.",
   },
   tutorialStepOverviewNotesTitle: { DE: "Log und weiteres", EN: "Notes and Log" },
@@ -139,24 +139,80 @@
     EN: "Now select the Multi-Storey House in the shop.",
   },
   tutorialStepBoardPlaceMhTitle: {
-    DE: "6 Mehrgeschossige Häuser platzieren",
-    EN: "Place 6 Multi-Storey Houses",
+    DE: "3 Mehrgeschossige Häuser platzieren",
+    EN: "Place 3 Multi-Storey Houses",
   },
   tutorialStepBoardPlaceMhBody: {
-    DE: "Platziere 6 Mehrgeschossige Häuser unten im Startgebiet von links nach rechts. Das Tutorial zeigt dir jeweils den nächsten Schritt.",
-    EN: "Place 6 Multi-Storey Houses in the lower part of the start area from left to right. The tutorial highlights each next target.",
+    DE: "Platziere 3 Mehrgeschossige Häuser unten im Startgebiet von links nach rechts.",
+    EN: "Place 3 Multi-Storey Houses in the lower part of the start area from left to right. The tutorial highlights each next target.",
+  },
+  tutorialStepBoardHappinessTitle: {
+    DE: "Zufriedenheit prüfen",
+    EN: "Check Happiness",
+  },
+  tutorialStepBoardHappinessBody: {
+    DE: "Hier siehst du, dass unsere Zufriedenheit im Keller ist. Uns fehlt 420 Zufriedenheit für volle Zufriedenheit.",
+    EN: "Here you can see that our happiness is in bad shape. On the left is the current happiness display, on the right the tier column. Let's fix that now.",
+  },
+  tutorialStepBoardOpenShopChurchTitle: {
+    DE: "Shop erneut öffnen",
+    EN: "Open the Shop Again",
+  },
+  tutorialStepBoardOpenShopChurchBody: {
+    DE: "Öffne den Shop noch einmal, damit wir etwas für die Zufriedenheit bauen können.",
+    EN: "Open the shop again so we can build something to improve happiness.",
+  },
+  tutorialStepBoardSelectCultureTabTitle: {
+    DE: "Kultur-Tab öffnen",
+    EN: "Open Culture Tab",
+  },
+  tutorialStepBoardSelectCultureTabBody: {
+    DE: "Wechsle jetzt in den Kultur-Tab des Shops.",
+    EN: "Now switch to the culture tab in the shop.",
+  },
+  tutorialStepBoardSelectChurchTitle: {
+    DE: "Kirche auswählen",
+    EN: "Select Church",
+  },
+  tutorialStepBoardSelectChurchBody: {
+    DE: "Wähle jetzt die Kirche aus.",
+    EN: "Now select the Church.",
+  },
+  tutorialStepBoardPlaceChurchTitle: {
+    DE: "3 Kirchen platzieren",
+    EN: "Place 3 Churches",
+  },
+  tutorialStepBoardPlaceChurchBody: {
+    DE: "Platziere 3 Kirchen auf den markierten 3x3-Flächen.",
+    EN: "Place 3 Churches on the highlighted 3x3 areas. The tutorial will again show the next target area.",
+  },
+  tutorialStepBoardLogTitle: {
+    DE: "Fortschritt im Log",
+    EN: "Progress in the Log",
+  },
+  tutorialStepBoardLogBody: {
+    DE: "Damit ist unsere Zufriedenheit auf höchster Stufe, und auch unser Log füllt sich langsam.",
+    EN: "Here in the log you can see our progress written down as a list of actions.",
   },
   tutorialStepBoardFinishTitle: { DE: "Produktionen beenden", EN: "Finish Productions" },
   tutorialStepBoardFinishBody: {
-    DE: "Dieser Button springt in der Zeit vor und markiert alle Produktionen als fertig.",
+    DE: "Dieser Button springt in der Zeit vor und beendet dabei alle Produktionen.",
     EN: "This button jumps forward in time and marks all productions as finished.",
   },
+  tutorialStepBoardFinishTimeInfoTitle: {
+    DE: "Neuer Halbtag",
+    EN: "Current Time",
+  },
+  tutorialStepBoardFinishTimeInfoBody: {
+    DE: "Jetzt sind wir bei 'Schritt 2' dem 'Donnerstag Abend' angelangt.",
+    EN: "We have now reached Thursday evening.",
+  },
   tutorialStepBoardHarvestFirstTitle: {
-    DE: "Erstes Gebäude einzeln ernten",
+    DE: "Gebäude einzeln ernten",
     EN: "Collect the First Building Manually",
   },
   tutorialStepBoardHarvestFirstBody: {
-    DE: "Du kannst Gebäude einzeln ernten. Klicke jetzt das erste Mehrgeschossige Haus an.",
+    DE: "Du kannst Gebäude einzeln ernten. Klicke jetzt mal das Mehrgeschossige Haus an.",
     EN: "You can collect buildings one by one. Click the first Multi-Storey House now.",
   },
   tutorialStepBoardHarvestAllTitle: {
@@ -169,14 +225,22 @@
   },
   tutorialStepBoardToolsTitle: { DE: "Move, Sell, Boost", EN: "Move, Sell, Boost" },
   tutorialStepBoardToolsBody: {
-    DE: "Move verschiebt Gebäude, Sell verkauft sie, Boost beschleunigt einzelne Gebäude.",
+    DE: "Weitere Buttons die wir jetzt genauer angucken: Move zum Gebäude Bewegen, Sell zum Gebäude Verkaufen, oder Boost um einzelne Gebäude mit Scherben zu boosten.",
     EN: "Move repositions buildings, Sell removes them, and Boost accelerates single buildings.",
   },
 
-  tutorialStepTreeIntroTitle: { DE: "Historie verstehen", EN: "Understand the Tree" },
+  tutorialStepTreeIntroTitle: { DE: "Baum verstehen", EN: "Understand the Tree" },
   tutorialStepTreeIntroBody: {
-    DE: "Kommen wir zur Historie. Eines der nützlichsten Werkzeuge dieses Simulators. Jeder Knoten ist eine Aktion, grüne Knoten stehen fürs Bauen und große Dreiecke für Zeitsprünge.",
+    DE: "Kommen wir zum Historie Baum. Eines der nützlichsten Werkzeuge dieses Simulators. Jeder Knoten ist eine Aktion.",
     EN: "Each node is one action. Green indicates building, and big triangles are time jumps.",
+  },
+  tutorialStepTreeNodeFocusTitle: {
+    DE: "Node-Fokus",
+    EN: "Node Focus",
+  },
+  tutorialStepTreeNodeFocusBody: {
+    DE: "Wenn dieser Button aktiv ist, visiert der Tree immer die aktuelle Aktion an. Wenn du mal manuell irgendwo hinscrollst, findest du damit schnell zurück.",
+    EN: "When this button is active, the tree always aims at the current action. If you scroll away manually, this quickly brings you back.",
   },
   tutorialStepTreeZoomOutTitle: {
     DE: "Herauszoomen",
@@ -191,7 +255,7 @@
     EN: "Navigate to Start",
   },
   tutorialStepTreeGoStartBody: {
-    DE: "Du kannst über den Baum per Klick direkt zu Zuständen springen. Gehe jetzt zurück zum Root-Knoten.",
+    DE: "Du kannst über den Baum per Klick direkt zu Zuständen springen. Gehe jetzt zurück zum Anfangs-Knoten.",
     EN: "Now navigate through the tree all the way back to the root node.",
   },
   tutorialStepTreeOpenShopGutshausTitle: {
@@ -215,7 +279,7 @@
     EN: "Place the Manor",
   },
   tutorialStepTreePlaceGutshausBody: {
-    DE: "Platziere das Gutshaus auf dem markierten 2x2-Feld.",
+    DE: "Platziere das Gutshaus.",
     EN: "Place the Manor on the highlighted 2x2 area.",
   },
   tutorialStepTreeCopyFirstToSecondTitle: {
@@ -250,12 +314,20 @@
     DE: "Öffne den markierten Endknoten, um das Ergebnis nach dem Fix zu sehen.",
     EN: "Open the highlighted end node of the second branch to inspect the result after the fix.",
   },
+  tutorialStepTreeBranchEffectsTitle: {
+    DE: "Auswirkungen sehen",
+    EN: "See the Effects",
+  },
+  tutorialStepTreeBranchEffectsBody: {
+    DE: "Wie du siehst, hat sich hier einiges geändert. Unsere Zufriedenheit ist zB nur noch bei 120% und die Menge an Geld und Chronos ist auch etwas anders. Der Baum denkt also wirklich nur in Sequenzen von Aktionen. Mit kleinen Änderungen und Copy-Pasting der Äste kann man so also schnell testen, was für Auswirkungen verschiedene Änderungen haben, und wenn dabei mal was Unmögliches passiert, hilft dir der Baum wie vorhin.",
+    EN: "As you can see, quite a few values changed here. Our happiness is now only at 120%, and the amounts of coins and chronos are different too. The tree really thinks only in sequences of actions. With small changes and branch copy-pasting, you can quickly test what different changes do, and if something impossible happens, the tree helps you like before.",
+  },
   tutorialStepTreeMainBranchTitle: {
     DE: "Zum Hauptbranch machen",
     EN: "Set as Main Branch",
   },
   tutorialStepTreeMainBranchBody: {
-    DE: "Der oberste Ast ist der 'Hauptast'. Markiere den aktuellen Branch jetzt als Hauptbranch.",
+    DE: "Der oberste Ast ist immer der 'Hauptast', und hat ein paar nette Vorteile. Machen wir aber unseren aktuellen Ast zum Hauptast.",
     EN: "The topmost branch is the main branch. Set the current branch as the main branch now.",
   },
   tutorialStepTreeCollapseBtnTitle: {
@@ -287,7 +359,7 @@
     EN: "Open Side Branch",
   },
   tutorialStepTreeHiddenBranchSelectBody: {
-    DE: "Hier sehen wir den Nebenast angedeutet. Klicke jetzt den zweiten Root-Child an.",
+    DE: "Hier sehen wir den Nebenast angedeutet. Klicke jetzt den Nebenast um ihn ganz auszuklappen.",
     EN: "Now the side branch is indicated. Click the second root child now.",
   },
   tutorialStepTreeHiddenBranchInfoTitle: {
@@ -295,7 +367,7 @@
     EN: "How Focus Works",
   },
   tutorialStepTreeHiddenBranchInfoBody: {
-    DE: "So wird auch der ganze Nebenast sichtbar. Der Modus „Äste verstecken“ zeigt immer den Hauptast und den aktuell besuchten Ast an.",
+    DE: "So wird auch der ganze Nebenast sichtbar. Der Modus „Äste verstecken“ zeigt übrigens IMMER den Hauptast an, und dazu den aktuell besuchten Nebenast falls nötig.",
     EN: "Now the full side branch is visible. The branch-hiding mode always shows the main branch and the currently visited branch.",
   },
   tutorialStepTreeDeleteIntroTitle: {
@@ -303,7 +375,7 @@
     EN: "Delete Actions",
   },
   tutorialStepTreeDeleteIntroBody: {
-    DE: "Wir können auch Aktionen löschen. Aktiviere jetzt den Löschmodus über den Papierkorb-Button.",
+    DE: "Wir können auch Aktionen löschen. Aktiviere jetzt den Löschmodus.",
     EN: "You can also delete actions. Enable delete mode now via the trash button.",
   },
   tutorialStepTreeDeleteSecondBranchTitle: {
@@ -311,7 +383,7 @@
     EN: "Delete the Full Second Branch",
   },
   tutorialStepTreeDeleteSecondBranchBody: {
-    DE: "Lösche jetzt den ganzen zweiten Ast. Bei der Knoten-Löschung wird nur diese Aktion entfernt, bei der verbindenden Kante werden alle Aktionen dahinter abgeschnitten.",
+    DE: "Wenn du jetzt auf Aktionen direkt klickst, wird nur diese gelöscht. Wenn du auf verbindende Kanten klickst wird der komplette Ast abgeschnitten. Versuche mal den ganzen Nebenast mit einem Klick zu löschen.",
     EN: "Delete the full second branch now. Deleting a node removes only that action, deleting the connecting edge cuts off all following actions.",
   },
   tutorialStepTreeDeleteWarningTitle: {
@@ -562,6 +634,11 @@
   },
   goodsAlt: { DE: "Güter", EN: "Goods" },
   shardsAlt: { DE: "Scherben", EN: "Shards" },
+  unlockRegionTitle: { DE: "Region freischalten", EN: "Unlock Region" },
+  lockRegionTitle: { DE: "Lock Popup", EN: "Lock Popup" },
+  goodsPurchaseTitle: { DE: "Gut kaufen", EN: "Buy Good" },
+  goodsPurchaseNextRegion: { DE: "Nächste Region:", EN: "Next Region:" },
+  goodsPurchaseOptionAmount: { DE: "+{amount}", EN: "+{amount}" },
 
   // === LOAD SAVES MODAL ===
   loadSavesTitle: { DE: "Spielstand laden", EN: "Load Save" },

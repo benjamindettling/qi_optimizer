@@ -864,12 +864,14 @@ export const useActionHistory = ({
           return;
         }
         case ACTION_REGION_UNLOCK_GOODS: {
-          if (!action.goodKey) return;
           const currentIdx = goodsUnlocksRef.current ?? 0;
           const goodsCost = goodsCostAt(currentIdx);
-          applyResourceDelta({
-            goods: { [action.goodKey]: -goodsCost },
-          });
+          if (!action.admin) {
+            if (!action.goodKey) return;
+            applyResourceDelta({
+              goods: { [action.goodKey]: -goodsCost },
+            });
+          }
           bumpGoodsUnlocks(1);
           setRegionUnlocked(action.regionIdx, true);
           return;
@@ -877,7 +879,9 @@ export const useActionHistory = ({
         case ACTION_REGION_UNLOCK_SHARDS: {
           const currentIdx = shardUnlocksRef.current ?? 0;
           const shardCost = shardCostAt(currentIdx);
-          applyResourceDelta({ shards: -shardCost });
+          if (!action.admin) {
+            applyResourceDelta({ shards: -shardCost });
+          }
           bumpShardUnlocks(1);
           setRegionUnlocked(action.regionIdx, true);
           return;
@@ -888,6 +892,11 @@ export const useActionHistory = ({
         }
         case ACTION_REGION_LOCK_ADMIN: {
           setRegionUnlocked(action.regionIdx, false);
+          if (action.method === "goods") {
+            bumpGoodsUnlocks(-1);
+          } else if (action.method === "shards") {
+            bumpShardUnlocks(-1);
+          }
           return;
         }
         case ACTION_GOODS_COST_ADMIN: {
@@ -1069,19 +1078,23 @@ export const useActionHistory = ({
         }
         case ACTION_REGION_UNLOCK_GOODS: {
           setRegionUnlocked(action.regionIdx, false);
-          if (!action.goodKey) return;
           const nextIdx = bumpGoodsUnlocks(-1);
-          const goodsCost = goodsCostAt(nextIdx);
-          applyResourceDelta({
-            goods: { [action.goodKey]: goodsCost },
-          });
+          if (!action.admin) {
+            if (!action.goodKey) return;
+            const goodsCost = goodsCostAt(nextIdx);
+            applyResourceDelta({
+              goods: { [action.goodKey]: goodsCost },
+            });
+          }
           return;
         }
         case ACTION_REGION_UNLOCK_SHARDS: {
           setRegionUnlocked(action.regionIdx, false);
           const nextIdx = bumpShardUnlocks(-1);
-          const shardCost = shardCostAt(nextIdx);
-          applyResourceDelta({ shards: shardCost });
+          if (!action.admin) {
+            const shardCost = shardCostAt(nextIdx);
+            applyResourceDelta({ shards: shardCost });
+          }
           return;
         }
         case ACTION_REGION_UNLOCK_ADMIN: {
@@ -1090,6 +1103,11 @@ export const useActionHistory = ({
         }
         case ACTION_REGION_LOCK_ADMIN: {
           setRegionUnlocked(action.regionIdx, true);
+          if (action.method === "goods") {
+            bumpGoodsUnlocks(1);
+          } else if (action.method === "shards") {
+            bumpShardUnlocks(1);
+          }
           return;
         }
         case ACTION_GOODS_COST_ADMIN: {
@@ -1532,11 +1550,13 @@ export const useActionHistory = ({
           break;
         }
         case ACTION_REGION_UNLOCK_GOODS: {
-          if (!action.goodKey) break;
           const goodsCost = goodsCostAt(goodsUnlocksSim);
-          applyResourceDeltaSim({
-            goods: { [action.goodKey]: -goodsCost },
-          });
+          if (!action.admin) {
+            if (!action.goodKey) break;
+            applyResourceDeltaSim({
+              goods: { [action.goodKey]: -goodsCost },
+            });
+          }
           goodsUnlocksSim += 1;
           if (action.regionIdx !== null && action.regionIdx !== undefined) {
             unlockedRegionsSim[action.regionIdx] = true;
@@ -1545,7 +1565,9 @@ export const useActionHistory = ({
         }
         case ACTION_REGION_UNLOCK_SHARDS: {
           const shardCost = shardCostAt(shardUnlocksSim);
-          applyResourceDeltaSim({ shards: -shardCost });
+          if (!action.admin) {
+            applyResourceDeltaSim({ shards: -shardCost });
+          }
           shardUnlocksSim += 1;
           if (action.regionIdx !== null && action.regionIdx !== undefined) {
             unlockedRegionsSim[action.regionIdx] = true;
@@ -1561,6 +1583,17 @@ export const useActionHistory = ({
         case ACTION_REGION_LOCK_ADMIN: {
           if (action.regionIdx !== null && action.regionIdx !== undefined) {
             unlockedRegionsSim[action.regionIdx] = false;
+          }
+          if (action.method === "goods") {
+            goodsUnlocksSim = clampIndex(
+              goodsUnlocksSim - 1,
+              REGION_GOODS_COSTS.length - 1,
+            );
+          } else if (action.method === "shards") {
+            shardUnlocksSim = clampIndex(
+              shardUnlocksSim - 1,
+              REGION_SHARD_COSTS.length - 1,
+            );
           }
           break;
         }
@@ -1971,11 +2004,13 @@ export const useActionHistory = ({
             break;
           }
           case ACTION_REGION_UNLOCK_GOODS: {
-            if (!action.goodKey) break;
             const goodsCost = goodsCostAt(goodsUnlocksSim);
-            applyResourceDeltaSim({
-              goods: { [action.goodKey]: -goodsCost },
-            });
+            if (!action.admin) {
+              if (!action.goodKey) break;
+              applyResourceDeltaSim({
+                goods: { [action.goodKey]: -goodsCost },
+              });
+            }
             goodsUnlocksSim += 1;
             if (action.regionIdx !== null && action.regionIdx !== undefined) {
               unlockedRegionsSim[action.regionIdx] = true;
@@ -1984,7 +2019,9 @@ export const useActionHistory = ({
           }
           case ACTION_REGION_UNLOCK_SHARDS: {
             const shardCost = shardCostAt(shardUnlocksSim);
-            applyResourceDeltaSim({ shards: -shardCost });
+            if (!action.admin) {
+              applyResourceDeltaSim({ shards: -shardCost });
+            }
             shardUnlocksSim += 1;
             if (action.regionIdx !== null && action.regionIdx !== undefined) {
               unlockedRegionsSim[action.regionIdx] = true;
@@ -2000,6 +2037,17 @@ export const useActionHistory = ({
           case ACTION_REGION_LOCK_ADMIN: {
             if (action.regionIdx !== null && action.regionIdx !== undefined) {
               unlockedRegionsSim[action.regionIdx] = false;
+            }
+            if (action.method === "goods") {
+              goodsUnlocksSim = clampIndex(
+                goodsUnlocksSim - 1,
+                REGION_GOODS_COSTS.length - 1,
+              );
+            } else if (action.method === "shards") {
+              shardUnlocksSim = clampIndex(
+                shardUnlocksSim - 1,
+                REGION_SHARD_COSTS.length - 1,
+              );
             }
             break;
           }

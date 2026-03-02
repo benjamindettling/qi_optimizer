@@ -63,6 +63,7 @@ export function HappinessPanel({ stats, happyInfo }) {
         <div
           className="resource-line"
           title={`Zufriedenheit: ${happyInfo.label}`}
+          data-tutorial-zone="happiness-current"
         >
           <img src={happyInfo.icon} alt="happiness" />
           <span
@@ -101,7 +102,7 @@ export function HappinessPanel({ stats, happyInfo }) {
           </div>
         </div>
       </div>
-      <div className="happy-tiers-column">
+      <div className="happy-tiers-column" data-tutorial-zone="happiness-tiers">
         {tierRows.map((row) => (
           <div className="happy-tier-row" key={row.labelPercent}>
             <span

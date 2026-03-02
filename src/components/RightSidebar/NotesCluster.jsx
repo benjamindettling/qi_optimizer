@@ -2,18 +2,13 @@
 // Replaces RightSidebar as a grid cluster component
 import { useEffect, useState } from "react";
 import { ActionLog } from "../ActionToolbar/ActionLog";
-import { NotesEditor } from "../ActionToolbar/NotesEditor";
 import { ACTION_COLORS } from "../../config/colors";
-import { GoogleAd } from "../GoogleAd/GoogleAd";
 import { useTutorialGate } from "../../hooks/useTutorialGate";
 import "./NotesCluster.css";
 
 const EXTRA_TOOLS_STORAGE_KEY = "qi_extraToolsCollapsed";
 
 export function NotesCluster({
-  // Notes props
-  notes,
-  onChangeNotes,
   // Log props
   historyTree,
   selectedNodeId,
@@ -58,13 +53,8 @@ export function NotesCluster({
 
   return (
     <div className={`notes-cluster${notesLocked ? " tutorial-zone-locked" : ""}`}>
-      {/* Notes Section */}
-      <div className="nc-section notes-section">
-        <NotesEditor notes={notes} onChangeNotes={onChangeNotes} />
-      </div>
-
       {/* Log Section */}
-      <div className="nc-section">
+      <div className="nc-section log-section">
         <ActionLog
           historyTree={historyTree}
           selectedNodeId={selectedNodeId}
@@ -129,13 +119,6 @@ export function NotesCluster({
           </div>
         )}
       </div>
-
-      {/* Google AdSense ad at the bottom */}
-      <GoogleAd
-        adSlot={import.meta.env.VITE_ADSENSE_NOTES_SLOT}
-        maxHeight={120}
-        className="notes-cluster-ad"
-      />
     </div>
   );
 }

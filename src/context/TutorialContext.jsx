@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import {
   MH_TARGET_SLOTS,
+  CHURCH_TARGET_SLOTS,
   TUTORIAL_STEPS,
   TUTORIAL_EXAMPLE_SAVE_NAME,
 } from "../tutorial/tutorialSteps";
@@ -11,9 +12,11 @@ const TutorialContext = createContext({
   warningNotice: null,
   completionCount: 0,
   mhPlacedCount: 0,
+  churchPlacedCount: 0,
   tutorialRuntime: {
     isShopOpen: false,
     selectedBuildingId: null,
+    selectedCategory: null,
     historyTree: null,
     historyIndex: 0,
   },
@@ -52,6 +55,8 @@ const isMhDefId = (defId) =>
     defId.endsWith(":mehrgeschossiges_haus"));
 const isGutshausDefId = (defId) =>
   typeof defId === "string" && (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+const isChurchDefId = (defId) =>
+  typeof defId === "string" && (defId === "kirche" || defId.endsWith(":kirche"));
 
 export function TutorialProvider({ children }) {
   const [isTutorialActive, setIsTutorialActive] = useState(false);
@@ -59,9 +64,11 @@ export function TutorialProvider({ children }) {
   const [warningNotice, setWarningNotice] = useState(null);
   const [completionCount, setCompletionCount] = useState(0);
   const [mhPlacedCount, setMhPlacedCount] = useState(0);
+  const [churchPlacedCount, setChurchPlacedCount] = useState(0);
   const [tutorialRuntime, setTutorialRuntime] = useState({
     isShopOpen: false,
     selectedBuildingId: null,
+    selectedCategory: null,
     historyTree: null,
     historyIndex: 0,
   });
@@ -82,6 +89,9 @@ export function TutorialProvider({ children }) {
     if (!step) return;
     if (step.id === "board-place-mh-sequence") {
       setMhPlacedCount(0);
+    }
+    if (step.id === "board-place-church-sequence") {
+      setChurchPlacedCount(0);
     }
   }, []);
 
@@ -134,9 +144,11 @@ export function TutorialProvider({ children }) {
       const safeStep = Math.max(0, Math.min(fromStep, TUTORIAL_STEPS.length - 1));
       setIsTutorialActive(true);
       setMhPlacedCount(0);
+      setChurchPlacedCount(0);
       setTutorialRuntime({
         isShopOpen: false,
         selectedBuildingId: null,
+        selectedCategory: null,
         historyTree: null,
         historyIndex: 0,
       });
@@ -192,6 +204,49 @@ export function TutorialProvider({ children }) {
           return;
         }
         setMhPlacedCount(nextCount);
+        return;
+      }
+
+      if (step.id === "board-select-culture-tab") {
+        if (eventName !== "shopCategorySelected") return;
+        if (payload?.categoryKey !== "culture") {
+          showWarningNotice("wrong-category");
+          return;
+        }
+        advanceFromCurrent();
+        return;
+      }
+
+      if (step.id === "board-select-church") {
+        if (eventName !== "building-selected") return;
+        if (!isChurchDefId(payload?.defId)) {
+          showWarningNotice("wrong-building");
+          return;
+        }
+        advanceFromCurrent();
+        return;
+      }
+
+      if (step.id === "board-place-church-sequence") {
+        if (!actionMatches("build", eventName)) return;
+        const expected = CHURCH_TARGET_SLOTS[churchPlacedCount];
+        if (!expected) return;
+        const isExactSlot = payload?.x === expected.x && payload?.y === expected.y;
+        if (payload?.defId && !isChurchDefId(payload.defId)) {
+          showWarningNotice("wrong-building");
+          return;
+        }
+        if (!isExactSlot) {
+          showWarningNotice("wrong-placement");
+          return;
+        }
+        const nextCount = churchPlacedCount + 1;
+        if (nextCount >= CHURCH_TARGET_SLOTS.length) {
+          setChurchPlacedCount(nextCount);
+          advanceFromCurrent();
+          return;
+        }
+        setChurchPlacedCount(nextCount);
         return;
       }
 
@@ -314,6 +369,7 @@ export function TutorialProvider({ children }) {
       currentStepIndex,
       isTutorialActive,
       mhPlacedCount,
+      churchPlacedCount,
       showWarningNotice,
     ],
   );
@@ -325,6 +381,7 @@ export function TutorialProvider({ children }) {
       warningNotice,
       completionCount,
       mhPlacedCount,
+      churchPlacedCount,
       tutorialRuntime,
       startTutorial,
       advanceStep,
@@ -341,6 +398,7 @@ export function TutorialProvider({ children }) {
       warningNotice,
       completionCount,
       mhPlacedCount,
+      churchPlacedCount,
       tutorialRuntime,
       startTutorial,
       advanceStep,
