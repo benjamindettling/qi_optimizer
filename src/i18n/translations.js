@@ -669,10 +669,6 @@
   },
   accountPrivacyDataTitle: { DE: "Verarbeitete Daten", EN: "Processed Data" },
   accountPrivacyPurposeTitle: { DE: "Zwecke", EN: "Purposes" },
-  accountPrivacyAdsTitle: {
-    DE: "Google AdSense (geplant)",
-    EN: "Google AdSense (planned)",
-  },
   accountPrivacyContactTitle: {
     DE: "Kontakt für Datenschutzanfragen",
     EN: "Contact for privacy requests",
@@ -844,8 +840,8 @@
     EN: "Optional: login data when using account features",
   },
   legalPrivacyDataPoint3: {
-    DE: "Optional: Cookie-Einwilligungen und Komfort-Einstellungen",
-    EN: "Optional: cookie consent and convenience settings",
+    DE: "Optional: lokal gespeicherte Komfort-Einstellungen",
+    EN: "Optional: locally stored convenience settings",
   },
   legalPrivacyPurposePoint1: {
     DE: "Bereitstellung und Sicherheit der Webseite",
@@ -858,10 +854,6 @@
   legalPrivacyPurposePoint3: {
     DE: "Betrieb von Login- und Cloud-Funktionen",
     EN: "Operating login and cloud features",
-  },
-  legalPrivacyAdsBody: {
-    DE: "Bei aktivierter Einbindung kann Google AdSense Cookies und nutzungsbezogene Daten für personalisierte oder nicht-personalisierte Werbung verarbeiten. Die Auslieferung erfolgt nur gemäß deiner Consent-Auswahl.",
-    EN: "If enabled, Google AdSense may process cookies and usage-related data for personalized or non-personalized advertising. Delivery happens only according to your consent selection.",
   },
   legalPrivacyPlaceholderNote: {
     DE: "Bitte ersetze alle Platzhalter vor dem Live-Betrieb mit deinen echten Angaben.",

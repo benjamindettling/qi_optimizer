@@ -116,9 +116,6 @@ export function LegalPage({ type = "contact" }) {
               <li>{t("legalPrivacyPurposePoint3")}</li>
             </ul>
 
-            <h2>{t("accountPrivacyAdsTitle")}</h2>
-            <p>{t("legalPrivacyAdsBody")}</p>
-
             <h2>{t("accountPrivacyContactTitle")}</h2>
             <div className="legal-card-block">
               <p>
@@ -136,4 +133,3 @@ export function LegalPage({ type = "contact" }) {
     </div>
   );
 }
-

@@ -641,25 +641,18 @@ export function AccountModal({
 
       <h4>{t("accountPrivacyDataTitle")}</h4>
       <ul>
-        <li>Technische Zugriffsdaten (z. B. IP, Browser, Zeitstempel)</li>
-        <li>Optional: Login-Daten bei Nutzung der Account-Funktionen</li>
-        <li>Optional: Cookie-Einwilligungen und Komfort-Einstellungen</li>
+        <li>{t("legalPrivacyDataPoint1")}</li>
+        <li>{t("legalPrivacyDataPoint2")}</li>
+        <li>{t("legalPrivacyDataPoint3")}</li>
       </ul>
 
       <h4>{t("accountPrivacyPurposeTitle")}</h4>
       <ul>
-        <li>Bereitstellung und Sicherheit der Webseite</li>
-        <li>Speichern von Einstellungen und Spielständen</li>
-        <li>Betrieb von Login- und Cloud-Funktionen</li>
+        <li>{t("legalPrivacyPurposePoint1")}</li>
+        <li>{t("legalPrivacyPurposePoint2")}</li>
+        <li>{t("legalPrivacyPurposePoint3")}</li>
       </ul>
 
-      <h4>{t("accountPrivacyAdsTitle")}</h4>
-      <p>
-        Bei aktivierter Einbindung kann Google AdSense Cookies und
-        nutzungsbezogene Daten für personalisierte oder nicht-personalisierte
-        Werbung verarbeiten. Die Auslieferung erfolgt nur gemaess deiner
-        Consent-Auswahl.
-      </p>
 
       <h4>{t("accountPrivacyContactTitle")}</h4>
       <div className="legal-block">
@@ -671,10 +664,7 @@ export function AccountModal({
         </p>
       </div>
 
-      <p className="legal-note">
-        Bitte ersetze alle Platzhalter vor dem Live-Betrieb mit deinen echten
-        Angaben.
-      </p>
+      <p className="legal-note">{t("legalPrivacyPlaceholderNote")}</p>
     </div>
   );
 
@@ -984,3 +974,4 @@ export function AccountModal({
     </div>
   );
 }
+
