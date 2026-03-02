@@ -1,30 +1,4 @@
-import { useEffect, useRef } from "react";
-
-export default function AdsterraBanner({ formatKey, width, height }) {
-  const bannerRef = useRef(null);
-
-  useEffect(() => {
-    // 1. Ensure we only load the ad once per component mount
-    if (!bannerRef.current || bannerRef.current.hasChildNodes()) return;
-
-    // 2. Set the global options object required by Adsterra
-    window.atOptions = {
-      key: formatKey,
-      format: "iframe",
-      height: height,
-      width: width,
-      params: {},
-    };
-
-    // 3. Create the script element and inject it
-    const script = document.createElement("script");
-    script.type = "text/javascript";
-    script.src = `https://www.highperformanceformat.com/${formatKey}/invoke.js`;
-    script.async = true;
-
-    bannerRef.current.appendChild(script);
-  }, [formatKey, width, height]);
-
+export default function AdsterraBanner({ adFile, width, height }) {
   return (
     <div
       className="adsterra-banner-container"
@@ -34,10 +8,18 @@ export default function AdsterraBanner({ formatKey, width, height }) {
         justifyContent: "center",
         alignItems: "center",
         margin: "10px 0",
-        minHeight: `${height}px`, // Reserves space so the UI doesn't jump
+        minHeight: `${height}px`, // Reserves space to stop UI jumping
       }}
     >
-      <div ref={bannerRef}></div>
+      <iframe
+        src={`/ads/${adFile}`}
+        width={width}
+        height={height}
+        frameBorder="0"
+        scrolling="no"
+        style={{ border: "none", overflow: "hidden", display: "block" }}
+        title={`Ad-${adFile}`}
+      />
     </div>
   );
 }
