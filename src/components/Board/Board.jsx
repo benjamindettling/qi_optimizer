@@ -190,6 +190,13 @@ export function Board({
   const svgRef = useRef(null);
   const boardSpaceRef = useRef(null);
   const pointerDownCellRef = useRef(null);
+  const pointerStateRef = useRef({
+    pointerType: "mouse",
+    startX: 0,
+    startY: 0,
+    hasDragged: false,
+    ghostAtStart: null,
+  });
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
 
   useEffect(() => {
@@ -704,6 +711,18 @@ export function Board({
     (event) => {
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell) return;
+
+      if (
+        event.pointerType === "touch" ||
+        pointerStateRef.current.pointerType === "touch"
+      ) {
+        const dx = event.clientX - pointerStateRef.current.startX;
+        const dy = event.clientY - pointerStateRef.current.startY;
+        if (Math.hypot(dx, dy) > 10) {
+          pointerStateRef.current.hasDragged = true;
+        }
+      }
+
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
     },
     [resolveCellFromClient, setHoverCell],
@@ -714,6 +733,15 @@ export function Board({
       if (event.button !== 0 && event.pointerType !== "touch") return;
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell) return;
+
+      pointerStateRef.current = {
+        pointerType: event.pointerType,
+        startX: event.clientX,
+        startY: event.clientY,
+        hasDragged: false,
+        ghostAtStart: previewOrigin ? { ...previewOrigin } : null,
+      };
+
       pointerDownCellRef.current = cell;
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
       try {
@@ -722,7 +750,7 @@ export function Board({
         // ignore capture failures
       }
     },
-    [resolveCellFromClient, setHoverCell],
+    [previewOrigin, resolveCellFromClient, setHoverCell],
   );
 
   const handlePointerUp = useCallback(
@@ -731,12 +759,35 @@ export function Board({
       pointerDownCellRef.current = null;
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell || !down) return;
+
+      const pState = pointerStateRef.current;
+      const isTouch =
+        event.pointerType === "touch" || pState.pointerType === "touch";
+
+      if (isTouch && pState.hasDragged) {
+        return;
+      }
+
       if (
         down.globalCol !== cell.globalCol ||
         down.globalRow !== cell.globalRow
       ) {
         return;
       }
+
+      if (isTouch && pState.ghostAtStart) {
+        const ghost = pState.ghostAtStart;
+        const isTapOnGhost =
+          cell.globalCol >= ghost.x &&
+          cell.globalCol < ghost.x + ghost.width &&
+          cell.globalRow >= ghost.y &&
+          cell.globalRow < ghost.y + ghost.height;
+
+        if (!isTapOnGhost) {
+          return;
+        }
+      }
+
       handleCellClick(cell.globalCol, cell.globalRow);
     },
     [handleCellClick, resolveCellFromClient],
