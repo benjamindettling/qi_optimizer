@@ -231,9 +231,7 @@ export function AppRoot() {
       );
       const viewportH = Math.max(
         240,
-        window.innerHeight -
-          topBarH -
-          WORKSPACE_PADDING,
+        window.innerHeight - topBarH - WORKSPACE_PADDING,
       );
 
       // Board height = min(element width, viewport available height).

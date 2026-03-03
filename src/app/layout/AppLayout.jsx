@@ -5,7 +5,6 @@ import { ShopSidebar } from "../../components/ShopSidebar/ShopSidebar";
 import { NotesCluster } from "../../components/RightSidebar/NotesCluster";
 import { MiniToolbar } from "../../components/MiniToolbar/MiniToolbar";
 import { TreeVisualizer } from "../../components/TreeVisualizer/TreeVisualizer";
-import AdsterraBanner from "../../components/Adsterra/AdsterraBanner";
 import { FixDeficitsModal } from "../../components/modals/FixDeficitsModal";
 import { FixLayoutModal } from "../../components/modals/FixLayoutModal";
 import { ACTION_COLORS } from "../../config/colors";
@@ -603,15 +602,6 @@ export function AppLayout({
           />
         </div>
 
-        {/* DESKTOP ONLY: 728x90 Top Banner */}
-        <div className="desktop-ad-wrapper">
-          <AdsterraBanner
-            formatKey="79768e549ee8a365af5fb42ff0c3f653"
-            width={728}
-            height={90}
-          />
-        </div>
-
         {/* Shop overlay (modal) */}
         <div className={`shop-shell ${isShopOpen ? "open" : "closed"}`}>
           <div className="shop-overlay" onClick={onCloseShop} />
@@ -838,15 +828,6 @@ export function AppLayout({
             onExportPdf={wrappedExportPdf}
             onFindWorst={wrappedFindWorst}
             isPast={toolbarProps.isPast}
-          />
-        </div>
-
-        {/* MOBILE ONLY: Sticky Footer Ad */}
-        <div className="mobile-sticky-footer-ad">
-          <AdsterraBanner
-            formatKey="01ae31fbc3b8a7427d60976f3ce8e088"
-            width={320}
-            height={50}
           />
         </div>
       </div>

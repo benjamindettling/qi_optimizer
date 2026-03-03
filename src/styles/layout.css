@@ -56,6 +56,8 @@
   flex-direction: column;
   gap: 0.5rem;
   min-height: 300px;
+  max-height: var(--board-content-h, none);
+  overflow: hidden;
 }
 
 /* ============================================================
@@ -120,6 +122,8 @@
   gap: 0.75rem;
   min-width: 0;
   justify-content: flex-start;
+  max-height: var(--board-content-h, none);
+  overflow: hidden;
 }
 
 /* ============================================================
@@ -168,10 +172,9 @@
   gap: 0.5rem;
   min-width: 0;
   max-width: 100%;
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 200px;
-  /* Cap tree height to match the board's computed height */
-  max-height: var(--board-content-h, none);
+  max-height: none;
   overflow: hidden;
 }
 
@@ -354,46 +357,4 @@
   color: var(--color-text-strong);
   padding: 0.5rem 0.625rem;
   border-radius: var(--radius-sm);
-}
-
-/* --- ADSTERRA RESPONSIVE VISIBILITY --- */
-
-/* By default, hide the mobile sticky footer */
-.mobile-sticky-footer-ad {
-  display: none;
-}
-
-/* On Desktop (Screens wider than 1024px) */
-@media (min-width: 1024px) {
-  .desktop-ad-wrapper {
-    display: block;
-  }
-  .sidebar-ad-wrapper {
-    display: block;
-  }
-}
-
-/* On Mobile/Tablets (Screens smaller than 1024px) */
-@media (max-width: 1023px) {
-  /* Hide the large desktop banner */
-  .desktop-ad-wrapper {
-    display: none;
-  }
-  
-  /* Show the sticky footer at the very bottom of the viewport */
-  .mobile-sticky-footer-ad {
-    display: block;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    z-index: 9999; /* Ensure it floats above game elements */
-    background-color: #fff; /* Optional: adds a background behind the ad */
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-  }
-  
-  /* Add padding to the bottom of the app so the sticky footer doesn't cover your game content */
-  .page {
-    padding-bottom: 50px; 
-  }
 }
