@@ -29,8 +29,6 @@ export function TopBar({
   setViewMode,
   adminMode,
   onToggleAdmin,
-  useShortNames,
-  setUseShortNames,
   onEditResource,
   onEditGood,
   onEditUnit,
@@ -53,8 +51,6 @@ export function TopBar({
 }) {
   void viewMode;
   void setViewMode;
-  void useShortNames;
-  void setUseShortNames;
 
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;

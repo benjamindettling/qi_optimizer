@@ -21,7 +21,6 @@ export const DEFAULT_CONFIG = {
   skipToEnd: true,
   colorTheme: "dark",
   placementMode: "single",
-  useShortNames: true,
 };
 
 export const DEFAULT_START_RESOURCES = {

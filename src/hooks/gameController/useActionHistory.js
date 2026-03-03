@@ -3264,6 +3264,7 @@ export const useActionHistory = ({
   return {
     historyIndex: selectedNodeId,
     historyTree,
+    computeStateAtNode,
     setHistoryTree,
     setSelectedNodeId,
     historyNodes: getTreeNodesForVisualizer,

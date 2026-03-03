@@ -1,12 +1,17 @@
 import { useCallback, useState } from "react";
 import { exportBoardPdf } from "../../domain/export/pdfExport";
 import { printBoardPng } from "../../domain/export/boardPrint";
+import { T } from "../../i18n/translations";
 
 // Orchestrates board PNG and PDF exports with progress state.
 export function useBoardExport({
   boardRef,
   topBarRef,
-  checkpoints,
+  historyTree,
+  computeStateAtNode,
+  libraryMap,
+  shortIdMap,
+  lang,
   loadName,
   checkpointIndex,
   setCheckpointIndex,
@@ -14,9 +19,9 @@ export function useBoardExport({
   resumeCheckpointTracking,
   buildSnapshot,
   applySnapshot,
-  harvestFullForPdf,
 }) {
   const [pdfProgress, setPdfProgress] = useState(null);
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
 
   const handlePrint = useCallback(async () => {
     await printBoardPng({ boardRef, loadName });
@@ -24,17 +29,21 @@ export function useBoardExport({
 
   const handleExportPdf = useCallback(async () => {
     if (!loadName) {
-      alert("Bitte zuerst einen Spielstand wählen.");
+      alert(t("pdfExportNoSave"));
       return;
     }
-    if (!checkpoints?.length) {
-      alert("Keine Checkpoints vorhanden.");
+    if (!historyTree?.nodes || historyTree.nodes.size <= 1 || !computeStateAtNode) {
+      alert(t("pdfExportNoHistory"));
       return;
     }
 
-    setPdfProgress({ current: 0, total: checkpoints.length });
+    setPdfProgress({ current: 0, total: 1 });
     await exportBoardPdf({
-      checkpoints,
+      historyTree,
+      computeStateAtNode,
+      libraryMap,
+      shortIdMap,
+      lang,
       loadName,
       boardRef,
       topBarRef,
@@ -44,21 +53,24 @@ export function useBoardExport({
       setCheckpointIndex,
       pauseCheckpointTracking,
       resumeCheckpointTracking,
-      harvestFullForPdf,
       setProgress: setPdfProgress,
     });
   }, [
-    checkpoints,
-    loadName,
-    boardRef,
-    topBarRef,
-    buildSnapshot,
     applySnapshot,
+    boardRef,
+    buildSnapshot,
     checkpointIndex,
-    setCheckpointIndex,
+    computeStateAtNode,
+    historyTree,
+    lang,
+    libraryMap,
+    loadName,
     pauseCheckpointTracking,
     resumeCheckpointTracking,
-    harvestFullForPdf,
+    setCheckpointIndex,
+    shortIdMap,
+    t,
+    topBarRef,
   ]);
 
   return { handlePrint, handleExportPdf, pdfProgress };

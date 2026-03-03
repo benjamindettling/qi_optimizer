@@ -18,7 +18,6 @@ import { TOWNHALL_START_POSITION } from "../../config/gameDefaults";
 const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
 const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
 const INFINITE_STORAGE_KEY = "qi_infiniteResources";
-const SHORTNAME_STORAGE_KEY = "qi_useShortNames";
 const SHOP_TAB_STORAGE_KEY = "qi_shopTab";
 const TOOLBAR_POSITION_STORAGE_KEY = "qi_toolbarPosition";
 const WARN_DELETE_SINGLE_STORAGE_KEY = "qi_warnDeleteSingleAction";
@@ -266,17 +265,6 @@ export const useGameState = () => {
     return Math.min(600, window.innerWidth - 48);
   });
   
-  const [useShortNames, setUseShortNames] = useState(() => {
-    if (typeof window === "undefined") return true;
-    try {
-      const raw = localStorage.getItem(SHORTNAME_STORAGE_KEY);
-      // Default to true if not explicitly set to false
-      return raw !== "false";
-    } catch {
-      return true;
-    }
-  });
-  
   // Toolbar position: "left" (default) or "top"
   const [toolbarPosition, setToolbarPosition] = useState(() => {
     if (typeof window === "undefined") return "left";
@@ -349,18 +337,6 @@ export const useGameState = () => {
       console.error("Failed to persist infinite toggle", e);
     }
   }, [infiniteResources]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(
-        SHORTNAME_STORAGE_KEY,
-        useShortNames ? "true" : "false",
-      );
-    } catch (e) {
-      console.error("Failed to persist short-names toggle", e);
-    }
-  }, [useShortNames]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -600,8 +576,6 @@ export const useGameState = () => {
     setReadyMap,
     buildLocks,
     setBuildLocks,
-    useShortNames,
-    setUseShortNames,
     toolbarPosition,
     setToolbarPosition,
     warnDeleteSingleAction,

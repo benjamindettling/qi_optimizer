@@ -8,8 +8,6 @@ export function useAccountCloudSync({
   replaceConfig,
   viewMode,
   setViewMode,
-  useShortNames,
-  setUseShortNames,
   boardScale,
   setBoardScale,
   warnDeleteSingleAction,
@@ -50,7 +48,6 @@ export function useAccountCloudSync({
             config,
             prefs: {
               viewMode,
-              useShortNames,
               boardScale,
               warnDeleteSingleAction,
               warnDeleteSubtree,
@@ -66,8 +63,6 @@ export function useAccountCloudSync({
 
         if (remote.prefs) {
           if (remote.prefs.viewMode) setViewMode(remote.prefs.viewMode);
-          if (typeof remote.prefs.useShortNames === "boolean")
-            setUseShortNames(remote.prefs.useShortNames);
           if (typeof remote.prefs.boardScale === "number")
             setBoardScale(remote.prefs.boardScale);
           if (typeof remote.prefs.warnDeleteSingleAction === "boolean")

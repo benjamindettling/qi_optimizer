@@ -55,12 +55,19 @@ const ADMIN_ADJUST_GROUP = new Set([
   "goodsCostAdmin",
   "shardsCostAdmin",
 ]);
+const REGION_UNLOCK_GROUP = new Set([
+  "regionUnlock",
+  "regionUnlockGoods",
+  "regionUnlockShards",
+  "regionUnlockAdmin",
+]);
 
 // Get the bundle key for an action type
 // Returns the key used to determine if two actions can be bundled together
 const getBundleKey = (actionType) => {
   if (NEVER_BUNDLE.has(actionType)) return null; // Never bundle
   if (ADMIN_ADJUST_GROUP.has(actionType)) return "adminAdjust"; // Group these together
+  if (REGION_UNLOCK_GROUP.has(actionType)) return "regionUnlock";
   return actionType; // Exact match required
 };
 

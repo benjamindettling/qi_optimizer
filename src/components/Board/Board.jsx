@@ -174,7 +174,6 @@ export function Board({
   cellSizePx,
   readyMap = {},
   buildLocks = {},
-  useShortNames = false,
   highlightedIds = new Set(),
   boardRef,
   onWrapperResize,
@@ -182,6 +181,7 @@ export function Board({
   neighborUnlocked,
   canAnyUnlock = false,
   onRegionClick,
+  isShopOpen = false,
   adminMode = false,
   onDebugUnlockRegion,
   onDebugLockRegion,
@@ -205,6 +205,7 @@ export function Board({
   });
   const [isTouchSelection, setIsTouchSelection] = useState(false);
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
+  const regionInteractionsDisabled = isShopOpen || !!selectedBuildingId || isTouchSelection;
 
   useEffect(() => {
     if (!wrapperRef.current || !onWrapperResize) return undefined;
@@ -223,6 +224,12 @@ export function Board({
       setIsTouchSelection(false);
     }
   }, [carried, previewOrigin, selectedBuildingId]);
+
+  useEffect(() => {
+    if (regionInteractionsDisabled) {
+      setHoveredRegionIdx(null);
+    }
+  }, [regionInteractionsDisabled]);
 
   const safeCols = Math.max(1, Math.floor(Number(viewWidth) || 0));
   const safeRows = Math.max(1, Math.floor(Number(viewHeight) || 0));
@@ -911,7 +918,6 @@ export function Board({
 
       if (selectedBuildingId) {
         if (result?.ok) {
-          onDropComplete?.();
           setIsTouchSelection(false);
         }
         return;
@@ -1123,10 +1129,7 @@ export function Board({
                   <g data-layer="buildings" pointerEvents="none">
                     {(layout || []).map((b) => {
                       const def = libraryMap?.[b.defId] || {};
-                      const label =
-                        useShortNames
-                          ? getBuildingName(def, lang, "short")
-                          : getBuildingName(def, lang, "name");
+                      const label = getBuildingName(def, lang, "short");
 
                       const baseColor =
                         categoryColors?.[def.category] || "#ffffff";
@@ -1277,7 +1280,8 @@ export function Board({
                   </g>
 
                   <g data-layer="region-interactions">
-                    {visibleRegions
+                    {!regionInteractionsDisabled &&
+                      visibleRegions
                       .filter((region) => region.clickable)
                       .map((region) => (
                         <rect

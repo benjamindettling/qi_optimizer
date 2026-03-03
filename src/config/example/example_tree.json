@@ -22,7 +22,6 @@
       "skipToEnd": true,
       "colorTheme": "dark",
       "placementMode": "single",
-      "useShortNames": true,
       "toolbarPosition": "top",
       "boardScale": 100,
       "warnDeleteSingleAction": true,

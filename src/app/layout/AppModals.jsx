@@ -29,8 +29,6 @@ export function AppModals({
   setAccountModalOpen,
   viewMode,
   setViewMode,
-  useShortNames,
-  setUseShortNames,
   toolbarPosition,
   setToolbarPosition,
   boardScale,
@@ -230,8 +228,6 @@ export function AppModals({
         onApplyStartBonus={applyStartBonusToCheckpoints}
         viewMode={viewMode}
         setViewMode={setViewMode}
-        useShortNames={useShortNames}
-        setUseShortNames={setUseShortNames}
         toolbarPosition={toolbarPosition}
         setToolbarPosition={setToolbarPosition}
         boardScale={boardScale}

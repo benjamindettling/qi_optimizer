@@ -27,9 +27,11 @@ import {
 import { T } from "../i18n/translations";
 import tutorialExampleSave from "../config/example/example_full.json";
 import tutorialTreeSave from "../config/example/example_tree.json";
+import seemsAlchemistSave from "../config/example/SeemsAlchemist.json";
 import { deserializeTree, getMainBranchEndNodeId } from "../utils/treeSerializer";
 
 const ROOT_TREE_NEXT_NODE_ID = 1;
+const DEFAULT_BUNDLED_SAVES = [seemsAlchemistSave];
 
 const isMhDefId = (defId) =>
   typeof defId === "string" &&
@@ -117,6 +119,7 @@ export function AppRoot() {
     }
   });
   const [tutorialExampleInjected, setTutorialExampleInjected] = useState(false);
+  const [defaultExamplesInjected, setDefaultExamplesInjected] = useState(false);
 
   // Cloud sync for account settings (config + preferences)
   const {
@@ -128,8 +131,6 @@ export function AppRoot() {
     replaceConfig: controller.replaceConfig,
     viewMode: controller.viewMode,
     setViewMode: controller.setViewMode,
-    useShortNames: controller.useShortNames,
-    setUseShortNames: controller.setUseShortNames,
     boardScale: controller.boardScale,
     setBoardScale: controller.setBoardScale,
     warnDeleteSingleAction: controller.warnDeleteSingleAction,
@@ -162,7 +163,11 @@ export function AppRoot() {
   const { handlePrint, handleExportPdf, pdfProgress } = useBoardExport({
     boardRef,
     topBarRef,
-    checkpoints: controller.checkpoints,
+    historyTree: controller.historyTree,
+    computeStateAtNode: controller.computeStateAtNode,
+    libraryMap: controller.libraryMap,
+    shortIdMap: controller.shortIdMap,
+    lang,
     loadName: controller.loadName,
     checkpointIndex: controller.checkpointIndex,
     setCheckpointIndex: controller.setCheckpointIndex,
@@ -170,7 +175,6 @@ export function AppRoot() {
     resumeCheckpointTracking: controller.resumeCheckpointTracking,
     buildSnapshot: controller.buildSnapshot,
     applySnapshot: controller.applySnapshot,
-    harvestFullForPdf: controller.harvestFullForPdf,
   });
 
   useEffect(() => {
@@ -742,6 +746,24 @@ export function AppRoot() {
     isTutorialActive,
   ]);
 
+  useEffect(() => {
+    if (!controller.savesLoaded || !controller.setAllSaves || defaultExamplesInjected) {
+      return;
+    }
+    controller.setAllSaves((prev) => {
+      const next = { ...(prev || {}) };
+      let changed = false;
+      DEFAULT_BUNDLED_SAVES.forEach((entry) => {
+        const name = entry?.name;
+        if (!name || next[name]) return;
+        next[name] = { ...entry, name };
+        changed = true;
+      });
+      return changed ? next : prev;
+    });
+    setDefaultExamplesInjected(true);
+  }, [controller.savesLoaded, controller.setAllSaves, defaultExamplesInjected]);
+
   const ensureTutorialExampleSave = useCallback(() => {
     if (!controller.setAllSaves || tutorialExampleInjected) return;
     controller.setAllSaves((prev) => {
@@ -904,8 +926,6 @@ export function AppRoot() {
     setViewMode: controller.setViewMode,
     adminMode,
     onToggleAdmin: controller.handleToggleInfinite,
-    useShortNames: controller.useShortNames,
-    setUseShortNames: controller.setUseShortNames,
     onOpenHelp: () => {
       controller.setHelpModal(true);
       fireEvent("helpOpened");
@@ -1004,11 +1024,11 @@ export function AppRoot() {
 
   const guardedRegionClick = useCallback(
     (...args) => {
-      if (boardLocked) return;
+      if (boardLocked || isShopOpen || controller.selectedBuildingId) return;
       controller.handleUnlockRegion(...args);
       fireEvent("region-opened");
     },
-    [boardLocked, controller, fireEvent],
+    [boardLocked, controller, fireEvent, isShopOpen],
   );
 
   const boardProps = {
@@ -1035,12 +1055,12 @@ export function AppRoot() {
     boardTransformClass: controller.boardTransformClass,
     buildLocks: controller.buildLocks,
     readyMap: controller.readyMap,
-    useShortNames: controller.useShortNames,
     // Region props
     unlockedRegions: controller.unlockedRegions,
     neighborUnlocked: controller.neighborUnlocked,
     canAnyUnlock: controller.canAnyUnlock,
     onRegionClick: guardedRegionClick,
+    isShopOpen,
     adminMode,
     onDebugUnlockRegion: controller.handleDebugUnlockRegion,
     onDebugLockRegion: controller.handleDebugLockRegion,
@@ -1217,8 +1237,6 @@ export function AppRoot() {
         setAccountModalOpen={setAccountModalOpen}
         viewMode={controller.viewMode}
         setViewMode={controller.setViewMode}
-        useShortNames={controller.useShortNames}
-        setUseShortNames={controller.setUseShortNames}
         toolbarPosition={controller.toolbarPosition}
         setToolbarPosition={controller.setToolbarPosition}
         boardScale={controller.boardScale}

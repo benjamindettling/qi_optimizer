@@ -42,8 +42,6 @@ export function AccountModal({
   onApplyStartBonus,
   viewMode,
   setViewMode,
-  useShortNames,
-  setUseShortNames,
   toolbarPosition,
   setToolbarPosition,
   boardScale,
@@ -108,7 +106,6 @@ export function AccountModal({
     () => ({
       ...config,
       viewMode: viewMode,
-      useShortNames: useShortNames,
       toolbarPosition: toolbarPosition,
       boardScale: Math.round((boardScale ?? 1) * 100),
       warnDeleteSingleAction: warnDeleteSingleAction,
@@ -117,7 +114,6 @@ export function AccountModal({
     [
       config,
       viewMode,
-      useShortNames,
       toolbarPosition,
       boardScale,
       warnDeleteSingleAction,
@@ -133,7 +129,6 @@ export function AccountModal({
     setDraft({
       ...config,
       viewMode: viewMode,
-      useShortNames: useShortNames,
       toolbarPosition: toolbarPosition,
       boardScale: Math.round((boardScale ?? 1) * 100),
       warnDeleteSingleAction: warnDeleteSingleAction,
@@ -173,7 +168,6 @@ export function AccountModal({
 
     // Compute final preference values
     const finalViewMode = draft.viewMode ?? viewMode;
-    const finalUseShortNames = draft.useShortNames ?? useShortNames;
     const finalToolbarPosition = draft.toolbarPosition ?? toolbarPosition;
     const finalBoardScale =
       Math.max(1, Math.min(500, draft.boardScale ?? 100)) / 100;
@@ -185,9 +179,6 @@ export function AccountModal({
     // Apply preference settings locally
     if (viewMode !== finalViewMode) {
       setViewMode(finalViewMode);
-    }
-    if (useShortNames !== finalUseShortNames) {
-      setUseShortNames(finalUseShortNames);
     }
     if (toolbarPosition !== finalToolbarPosition) {
       setToolbarPosition(finalToolbarPosition);
@@ -212,7 +203,6 @@ export function AccountModal({
           draft,
           {
             viewMode: finalViewMode,
-            useShortNames: finalUseShortNames,
             toolbarPosition: finalToolbarPosition,
             boardScale: finalBoardScale,
             warnDeleteSingleAction: finalWarnDeleteSingleAction,

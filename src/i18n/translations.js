@@ -570,6 +570,37 @@
     DE: "Aktuelle Datei als PDF exportieren",
     EN: "Export current file as PDF",
   },
+  pdfExportNoSave: {
+    DE: "Bitte zuerst einen Spielstand wählen.",
+    EN: "Please select a save first.",
+  },
+  pdfExportNoHistory: {
+    DE: "Keine Exportdaten im Verlaufsbaum vorhanden.",
+    EN: "No exportable history data found.",
+  },
+  pdfExportStart: { DE: "Start", EN: "Start" },
+  pdfExportActionLog: { DE: "Log", EN: "Log" },
+  pdfExportSection: { DE: "Abschnitt", EN: "Section" },
+  pdfExportPostHarvest: {
+    DE: "Ressourcen nach der Ernte",
+    EN: "Resources After Harvest",
+  },
+  pdfExportEndSection: {
+    DE: "Ressourcen am Ende des Schritts",
+    EN: "Resources at End of Step",
+  },
+  pdfExportBoardSnapshot: {
+    DE: "Stadtansicht",
+    EN: "City Snapshot",
+  },
+  pdfExportNoActions: {
+    DE: "Keine Aktionen",
+    EN: "No actions",
+  },
+  pdfExportFailed: {
+    DE: "PDF-Export fehlgeschlagen. Details stehen in der Konsole.",
+    EN: "PDF export failed. See the console for details.",
+  },
   toolPastEditTitle: {
     DE: "Bearbeitung im Vergangenheitszustand aktivieren",
     EN: "Enable editing in past state",
