@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { BOARD_HEIGHT, BOARD_WIDTH } from "../../config/boardConfig";
 import { canAffordResources, hasPopulationForDef } from "../../utils/stateUtils";
 import { isAreaFree } from "../../utils/layoutUtils";
@@ -36,6 +36,7 @@ export const usePlacementHandlers = ({
   setLayout,
   setCarried,
   setMoveMode,
+  moveSnapshot,
   setReadyMap,
   setBuildLocks,
   setMoveSnapshot,
@@ -54,6 +55,8 @@ export const usePlacementHandlers = ({
   nextIdRef,
   recordHistoryAction,
   moveChainRef,
+  applySnapshot,
+  clearMoveChain,
 }) => {
   const selectedDef = useMemo(
     () => (selectedBuildingId ? libraryMap[selectedBuildingId] : null),
@@ -83,12 +86,23 @@ export const usePlacementHandlers = ({
     });
   }, [recordHistoryAction, moveChainRef]);
 
-  // Clear move chain without recording (e.g., when canceling)
   const cancelMove = useCallback(() => {
-    if (moveChainRef) {
-      moveChainRef.current = [];
+    if (moveSnapshot) {
+      applySnapshot(moveSnapshot);
     }
-  }, [moveChainRef]);
+    clearMoveChain?.();
+    setCarried(null);
+    setMoveSnapshot(null);
+  }, [applySnapshot, clearMoveChain, moveSnapshot, setCarried, setMoveSnapshot]);
+
+  const onCancelAction = useCallback(() => {
+    if (carried) {
+      cancelMove();
+    }
+    if (selectedBuildingId) {
+      setSelectedBuildingId(null);
+    }
+  }, [cancelMove, carried, selectedBuildingId, setSelectedBuildingId]);
 
   const handleCellClick = useCallback(
     (x, y) => {
@@ -122,15 +136,24 @@ export const usePlacementHandlers = ({
             finishMove();
             requestAutoSnapshot();
           }
-          return;
+          return {
+            ok: true,
+            done: !!dropResult?.done,
+            kind: "move",
+            swapped: !!dropResult?.swapped,
+          };
         }
-        return;
+        return {
+          ok: false,
+          done: false,
+          kind: "move",
+        };
       }
 
       if ((sellMode || refundMode) && target) {
         if (libraryMap[target.defId]?.category === "townhall") {
           updateStatus("Rathaus kann nicht verkauft werden.");
-          return;
+          return { ok: false, done: false, kind: "sell" };
         }
         const def = libraryMap[target.defId];
         const lang = getCurrentLang();
@@ -176,7 +199,7 @@ export const usePlacementHandlers = ({
         }
         recordHistoryAction?.(sellHistory);
         requestAutoSnapshot();
-        return;
+        return { ok: true, done: true, kind: "sell" };
       }
 
       if (boostMode && target) {
@@ -199,7 +222,7 @@ export const usePlacementHandlers = ({
           const cost = BOOST_UNLOCK_SHARDS;
           if (!canSpendShards(cost)) {
             updateStatus("Need more shards.");
-            return;
+            return { ok: false, done: false, kind: "boost" };
           }
           spendShards(cost);
           if (def?.category === "culture") {
@@ -227,7 +250,7 @@ export const usePlacementHandlers = ({
           const cost = boostCostForDef(def);
           if (!canSpendShards(cost)) {
             updateStatus("Need more shards.");
-            return;
+            return { ok: false, done: false, kind: "boost" };
           }
           spendShards(cost);
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
@@ -240,14 +263,14 @@ export const usePlacementHandlers = ({
           updateStatus(`Boosted ${getBuildingName(def, lang, "name")}`);
         }
         requestAutoSnapshot();
-        return;
+        return { ok: true, done: true, kind: "boost" };
       }
 
       if (selectedDef) {
         // Admin/infinite mode bypasses population check
         if (!infiniteResources && !hasPopulationForDef(stats, selectedDef)) {
           updateStatus("Not enough free population.");
-          return;
+          return { ok: false, done: false, kind: "build" };
         }
         const adjustedX = Math.min(x, BOARD_WIDTH - selectedDef.width);
         const adjustedY = Math.min(y, BOARD_HEIGHT - selectedDef.height);
@@ -263,14 +286,14 @@ export const usePlacementHandlers = ({
           )
         ) {
           updateStatus("Blocked or locked area.");
-          return;
+          return { ok: false, done: false, kind: "build" };
         }
         if (
           !infiniteResources &&
           !canAffordResources(effectiveResources, selectedDef.cost)
         ) {
           updateStatus("Not enough resources.");
-          return;
+          return { ok: false, done: false, kind: "build" };
         }
         branchFromPast();
         applySpend(selectedDef.cost);
@@ -305,7 +328,7 @@ export const usePlacementHandlers = ({
           }, 0);
         }
         requestAutoSnapshot();
-        return;
+        return { ok: true, done: true, kind: "build" };
       }
 
       if (moveMode && target) {
@@ -326,7 +349,7 @@ export const usePlacementHandlers = ({
             overwriteCheckpointAtIndex(buildSnapshot());
           }, 0);
         }
-        return;
+        return { ok: true, done: false, kind: "pickup" };
       }
 
       if (
@@ -345,18 +368,22 @@ export const usePlacementHandlers = ({
         });
         harvestBuildings([target], "Geerntet", true);
         requestAutoSnapshot();
-        return;
+        return { ok: true, done: true, kind: "harvest" };
       }
 
       if (!moveMode && target && libraryMap[target.defId]?.category === "military") {
         const def = libraryMap[target.defId];
         setUnitModal({ def });
+        return { ok: true, done: true, kind: "inspect" };
       }
 
       if (!moveMode && target && libraryMap[target.defId]?.category === "goods") {
         const def = libraryMap[target.defId];
         setGoodsModal({ def });
+        return { ok: true, done: true, kind: "inspect" };
       }
+
+      return { ok: false, done: false, kind: "noop" };
     },
     [
       layout,
@@ -394,7 +421,6 @@ export const usePlacementHandlers = ({
       buildSnapshot,
       moveMode,
       suppressNextCheckpoint,
-      setSelectedBuildingId,
       setGoodsModal,
       setUnitModal,
       nextIdRef,
@@ -404,5 +430,5 @@ export const usePlacementHandlers = ({
     ],
   );
 
-  return { handleCellClick, cancelMove };
+  return { handleCellClick, cancelMove, onCancelAction };
 };

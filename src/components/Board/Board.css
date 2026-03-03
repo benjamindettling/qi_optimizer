@@ -27,3 +27,34 @@
   height: auto;
   touch-action: none;
 }
+
+.touch-action-button {
+  cursor: pointer;
+}
+
+.touch-action-button__bg {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: board-touch-pulse 1.4s ease-in-out infinite;
+}
+
+.touch-action-button--cancel .touch-action-button__bg {
+  animation-delay: 0.12s;
+}
+
+.touch-action-button__icon {
+  pointer-events: none;
+}
+
+@keyframes board-touch-pulse {
+  0%,
+  100% {
+    opacity: 0.96;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}

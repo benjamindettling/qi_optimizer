@@ -108,6 +108,7 @@ export const buildControllerReturn = ({
   hasAnyGoodsEnough: regionApi.hasAnyGoodsEnough,
   canAnyUnlock: regionApi.canAnyUnlock,
   handleCellClick: placementApi.handleCellClick,
+  onCancelAction: placementApi.onCancelAction,
   handleUnlockRegion: regionApi.handleUnlockRegion,
   handleDebugUnlockRegion: regionApi.handleDebugUnlockRegion,
   handleDebugLockRegion: regionApi.handleDebugLockRegion,

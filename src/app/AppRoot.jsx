@@ -928,7 +928,7 @@ export function AppRoot() {
 
   const guardedCellClick = useCallback(
     (col, row) => {
-      if (boardLocked) return;
+      if (boardLocked) return { ok: false, done: false, kind: "locked" };
       if (isTutorialActive) {
         const step = TUTORIAL_STEPS[currentStepIndex];
         if (step?.id === "board-place-mh-sequence") {
@@ -943,7 +943,7 @@ export function AppRoot() {
             const expected = MH_TARGET_SLOTS[mhPlacedCount];
             if (!expected || col !== expected.x || row !== expected.y) {
               showWarningNotice("wrong-placement");
-              return;
+              return { ok: false, done: false, kind: "tutorial-blocked" };
             }
           }
         }
@@ -951,11 +951,11 @@ export function AppRoot() {
           const target = MH_TARGET_SLOTS[0];
           if (!isGutshausDefId(controller.selectedBuildingId)) {
             showWarningNotice("wrong-building");
-            return;
+            return { ok: false, done: false, kind: "tutorial-blocked" };
           }
           if (!target || col !== target.x || row !== target.y) {
             showWarningNotice("wrong-placement");
-            return;
+            return { ok: false, done: false, kind: "tutorial-blocked" };
           }
         }
         if (step?.id === "board-place-church-sequence") {
@@ -970,7 +970,7 @@ export function AppRoot() {
             const expected = CHURCH_TARGET_SLOTS[churchPlacedCount];
             if (!expected || col !== expected.x || row !== expected.y) {
               showWarningNotice("wrong-placement");
-              return;
+              return { ok: false, done: false, kind: "tutorial-blocked" };
             }
           }
         }
@@ -982,14 +982,14 @@ export function AppRoot() {
             row >= first.y &&
             row < first.y + first.h;
           if (!isFirstMhCell) {
-            return;
+            return { ok: false, done: false, kind: "tutorial-blocked" };
           }
           if (controller.selectedBuildingId) {
             controller.setSelectedBuildingId(null);
           }
         }
       }
-      controller.handleCellClick(col, row);
+      return controller.handleCellClick(col, row);
     },
     [
       boardLocked,
@@ -1026,6 +1026,7 @@ export function AppRoot() {
     handleCellClick: guardedCellClick,
     setHoverCell: controller.setHoverCell,
     onDropComplete: () => controller.setSelectedBuildingId(null),
+    onCancelAction: controller.onCancelAction,
     boardRef,
     highlightedIds,
     layout: controller.layout,
@@ -1044,6 +1045,9 @@ export function AppRoot() {
     onDebugUnlockRegion: controller.handleDebugUnlockRegion,
     onDebugLockRegion: controller.handleDebugLockRegion,
     infiniteResources: controller.infiniteResources,
+    moveMode: controller.moveMode,
+    selectedBuildingId: controller.selectedBuildingId,
+    carried: controller.carried,
   };
 
   const toolbarProps = {

@@ -337,6 +337,7 @@ export const useGameController = () => {
     sellMode: state.sellMode,
     refundMode: state.refundMode,
     boostMode: state.boostMode,
+    moveSnapshot: state.moveSnapshot,
     buildLocks: state.buildLocks,
     readyMap: state.readyMap,
     resources: state.resources,
@@ -370,6 +371,8 @@ export const useGameController = () => {
     nextIdRef: state.nextIdRef,
     recordHistoryAction: historyApi.recordHistoryAction,
     moveChainRef,
+    applySnapshot: snapshotApi.applySnapshot,
+    clearMoveChain,
   });
 
   const viewApi = useViewHandlers({

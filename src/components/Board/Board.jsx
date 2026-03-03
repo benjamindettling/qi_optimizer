@@ -7,12 +7,14 @@ import {
   useState,
   useId,
 } from "react";
+import { Check, X } from "lucide-react";
 import {
   REGION_SIZE,
   REGION_COLS,
   REGION_ROWS,
   REGION_MASK,
 } from "../../config/boardConfig";
+import { findTargetInstance } from "../../domain/placement/placementController";
 import { useLang } from "../../context/LanguageContext";
 import { getBuildingName } from "../../utils/buildingName";
 import "./Board.css";
@@ -164,6 +166,7 @@ export function Board({
   handleCellClick,
   setHoverCell,
   onDropComplete,
+  onCancelAction,
   layout,
   libraryMap,
   categoryColors,
@@ -183,6 +186,9 @@ export function Board({
   onDebugUnlockRegion,
   onDebugLockRegion,
   infiniteResources = false,
+  moveMode = false,
+  selectedBuildingId = null,
+  carried = null,
 }) {
   const { lang } = useLang();
   const svgIdSeed = useId();
@@ -197,6 +203,7 @@ export function Board({
     hasDragged: false,
     ghostAtStart: null,
   });
+  const [isTouchSelection, setIsTouchSelection] = useState(false);
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
 
   useEffect(() => {
@@ -210,6 +217,12 @@ export function Board({
     observer.observe(wrapperRef.current);
     return () => observer.disconnect();
   }, [onWrapperResize]);
+
+  useEffect(() => {
+    if (!previewOrigin && !carried && !selectedBuildingId) {
+      setIsTouchSelection(false);
+    }
+  }, [carried, previewOrigin, selectedBuildingId]);
 
   const safeCols = Math.max(1, Math.floor(Number(viewWidth) || 0));
   const safeRows = Math.max(1, Math.floor(Number(viewHeight) || 0));
@@ -377,6 +390,45 @@ export function Board({
       height: previewOrigin.height * safeCellSize,
     };
   }, [previewOrigin, safeCellSize, viewColStart, viewRowStart]);
+
+  const touchActionButtons = useMemo(() => {
+    if (!previewRect || !isTouchSelection) return null;
+
+    const buttonRadius = Math.max(15, safeCellSize * 0.42);
+    const buttonGap = Math.max(8, safeCellSize * 0.22);
+    const buttonMargin = Math.max(10, safeCellSize * 0.3);
+    const buttonOffset = buttonRadius + buttonGap / 2;
+    const minCenterX = buttonRadius + buttonOffset;
+    const maxCenterX = boardWidthPx - buttonRadius - buttonOffset;
+    const unclampedCenterX = previewRect.x + previewRect.width / 2;
+    const centerX = Math.min(
+      maxCenterX,
+      Math.max(minCenterX, unclampedCenterX),
+    );
+
+    let centerY = previewRect.y - buttonRadius - buttonMargin;
+    if (centerY - buttonRadius < 0) {
+      centerY = previewRect.y + previewRect.height + buttonRadius + buttonMargin;
+    }
+    centerY = Math.min(
+      boardHeightPx - buttonRadius,
+      Math.max(buttonRadius, centerY),
+    );
+
+    return {
+      iconSize: Math.max(18, buttonRadius * 1.15),
+      radius: buttonRadius,
+      strokeWidth: Math.max(2, safeCellSize * 0.08),
+      confirm: {
+        x: centerX - buttonOffset,
+        y: centerY,
+      },
+      cancel: {
+        x: centerX + buttonOffset,
+        y: centerY,
+      },
+    };
+  }, [boardHeightPx, boardWidthPx, isTouchSelection, previewRect, safeCellSize]);
 
   const unlockedGridPath = useMemo(() => {
     const segments = [];
@@ -733,6 +785,7 @@ export function Board({
       if (event.button !== 0 && event.pointerType !== "touch") return;
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell) return;
+      const target = findTargetInstance(layout, cell.globalCol, cell.globalRow);
 
       pointerStateRef.current = {
         pointerType: event.pointerType,
@@ -742,6 +795,13 @@ export function Board({
         ghostAtStart: previewOrigin ? { ...previewOrigin } : null,
       };
 
+      if (
+        event.pointerType === "touch" &&
+        (isTouchSelection || selectedBuildingId || (moveMode && target))
+      ) {
+        setIsTouchSelection(true);
+      }
+
       pointerDownCellRef.current = cell;
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
       try {
@@ -750,7 +810,15 @@ export function Board({
         // ignore capture failures
       }
     },
-    [previewOrigin, resolveCellFromClient, setHoverCell],
+    [
+      isTouchSelection,
+      layout,
+      moveMode,
+      previewOrigin,
+      resolveCellFromClient,
+      selectedBuildingId,
+      setHoverCell,
+    ],
   );
 
   const handlePointerUp = useCallback(
@@ -775,22 +843,24 @@ export function Board({
         return;
       }
 
-      if (isTouch && pState.ghostAtStart) {
-        const ghost = pState.ghostAtStart;
-        const isTapOnGhost =
-          cell.globalCol >= ghost.x &&
-          cell.globalCol < ghost.x + ghost.width &&
-          cell.globalRow >= ghost.y &&
-          cell.globalRow < ghost.y + ghost.height;
-
-        if (!isTapOnGhost) {
-          return;
-        }
+      if (
+        isTouch &&
+        isTouchSelection &&
+        (selectedBuildingId || carried || previewOrigin)
+      ) {
+        return;
       }
 
       handleCellClick(cell.globalCol, cell.globalRow);
     },
-    [handleCellClick, resolveCellFromClient],
+    [
+      carried,
+      handleCellClick,
+      isTouchSelection,
+      previewOrigin,
+      resolveCellFromClient,
+      selectedBuildingId,
+    ],
   );
 
   const handleDragOver = useCallback(
@@ -825,6 +895,49 @@ export function Board({
       boardRef.current = node;
     },
     [boardRef],
+  );
+
+  const stopTouchActionEvent = useCallback((event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  const handleTouchConfirm = useCallback(
+    (event) => {
+      stopTouchActionEvent(event);
+      if (!previewOrigin) return;
+
+      const result = handleCellClick(previewOrigin.x, previewOrigin.y);
+
+      if (selectedBuildingId) {
+        if (result?.ok) {
+          onDropComplete?.();
+          setIsTouchSelection(false);
+        }
+        return;
+      }
+
+      if (carried && result?.ok && result?.done) {
+        setIsTouchSelection(false);
+      }
+    },
+    [
+      carried,
+      handleCellClick,
+      onDropComplete,
+      previewOrigin,
+      selectedBuildingId,
+      stopTouchActionEvent,
+    ],
+  );
+
+  const handleTouchCancel = useCallback(
+    (event) => {
+      stopTouchActionEvent(event);
+      setIsTouchSelection(false);
+      onCancelAction?.();
+    },
+    [onCancelAction, stopTouchActionEvent],
   );
 
   if (!Number.isFinite(viewColStart) || !Number.isFinite(viewRowStart)) {
@@ -1205,6 +1318,61 @@ export function Board({
                         </rect>
                       ))}
                   </g>
+
+                  {previewRect && touchActionButtons ? (
+                    <g data-layer="touch-actions">
+                      <g
+                        className="touch-action-button touch-action-button--confirm"
+                        transform={`translate(${touchActionButtons.confirm.x} ${touchActionButtons.confirm.y})`}
+                        onPointerDown={stopTouchActionEvent}
+                        onClick={handleTouchConfirm}
+                        pointerEvents="auto"
+                      >
+                        <circle
+                          className="touch-action-button__bg"
+                          r={touchActionButtons.radius}
+                          fill="#33a852"
+                          stroke="#ffffff"
+                          strokeWidth={touchActionButtons.strokeWidth}
+                        />
+                        <Check
+                          className="touch-action-button__icon"
+                          x={-touchActionButtons.iconSize / 2}
+                          y={-touchActionButtons.iconSize / 2}
+                          width={touchActionButtons.iconSize}
+                          height={touchActionButtons.iconSize}
+                          color="#ffffff"
+                          strokeWidth={2.75}
+                          pointerEvents="none"
+                        />
+                      </g>
+                      <g
+                        className="touch-action-button touch-action-button--cancel"
+                        transform={`translate(${touchActionButtons.cancel.x} ${touchActionButtons.cancel.y})`}
+                        onPointerDown={stopTouchActionEvent}
+                        onClick={handleTouchCancel}
+                        pointerEvents="auto"
+                      >
+                        <circle
+                          className="touch-action-button__bg"
+                          r={touchActionButtons.radius}
+                          fill="#d64545"
+                          stroke="#ffffff"
+                          strokeWidth={touchActionButtons.strokeWidth}
+                        />
+                        <X
+                          className="touch-action-button__icon"
+                          x={-touchActionButtons.iconSize / 2}
+                          y={-touchActionButtons.iconSize / 2}
+                          width={touchActionButtons.iconSize}
+                          height={touchActionButtons.iconSize}
+                          color="#ffffff"
+                          strokeWidth={2.75}
+                          pointerEvents="none"
+                        />
+                      </g>
+                    </g>
+                  ) : null}
                 </g>
               </g>
             </g>
