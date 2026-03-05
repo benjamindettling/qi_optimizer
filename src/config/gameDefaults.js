@@ -4,7 +4,7 @@ export const DEFAULT_CONFIG = {
   extraCoins: 0,
   extraSupplies: 0,
   troopsStartBonus: 0,
-  shardsStart: 500,
+  shardsLimit: 500,
   coinBoost: 0,
   supplyBoost: 0,
   // Fight boosts - separate attack/defense for each color
@@ -15,12 +15,13 @@ export const DEFAULT_CONFIG = {
   fightColor: "rot", // "rot" or "blau"
   qaBaseBonus: 0,
   qaHarvestHours: 12,
-  allowNegativeShards: false,
+  allowShardLimitOverflow: true,
   // Preferences
   viewMode: "diagonal",
   skipToEnd: true,
   colorTheme: "dark",
   placementMode: "single",
+  shardDisplayMode: "spent",
 };
 
 export const DEFAULT_START_RESOURCES = {

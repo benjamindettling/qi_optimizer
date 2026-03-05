@@ -2,6 +2,7 @@ import { flushSync } from "react-dom";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
+import { getActionLogColor } from "../../config/colors";
 import { T } from "../../i18n/translations";
 import { formatNumber } from "../../utils/formatNumber";
 import { buildActionLogEntries } from "../../utils/actionLogEntries";
@@ -200,6 +201,19 @@ const drawSectionHeading = (pdf, title, x, y) => {
   pdf.text(title, x, y);
 };
 
+const hexToRgb = (hex, fallback = [240, 244, 255]) => {
+  const normalized = String(hex || "").trim().replace(/^#/, "");
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+    return fallback;
+  }
+
+  return [
+    Number.parseInt(normalized.slice(0, 2), 16),
+    Number.parseInt(normalized.slice(2, 4), 16),
+    Number.parseInt(normalized.slice(4, 6), 16),
+  ];
+};
+
 const drawResourceRows = async (pdf, resources, t, { x, y, width }) => {
   const iconSize = 18;
   const rowHeight = 24;
@@ -246,7 +260,9 @@ const drawResourceRows = async (pdf, resources, t, { x, y, width }) => {
 const drawLogBlock = (pdf, entries, emptyText, { x, y, width, maxHeight }) => {
   const lineHeight = 14;
   const padding = 10;
-  const lines = entries?.length ? entries.map((entry) => entry.text) : [emptyText];
+  const lines = entries?.length
+    ? entries
+    : [{ text: emptyText, color: "separator" }];
   const maxLines = Math.max(1, Math.floor((maxHeight - padding * 2) / lineHeight));
   const visibleLines = lines.slice(0, maxLines);
   const blockHeight = Math.min(maxHeight, visibleLines.length * lineHeight + padding * 2);
@@ -259,10 +275,11 @@ const drawLogBlock = (pdf, entries, emptyText, { x, y, width, maxHeight }) => {
 
   pdf.setFont("courier", "normal");
   pdf.setFontSize(10.5);
-  pdf.setTextColor(240, 244, 255);
 
-  visibleLines.forEach((line, index) => {
-    pdf.text(line, x + padding, y + padding + 11 + index * lineHeight);
+  visibleLines.forEach((entry, index) => {
+    const [r, g, b] = hexToRgb(getActionLogColor(entry.color));
+    pdf.setTextColor(r, g, b);
+    pdf.text(entry.text, x + padding, y + padding + 11 + index * lineHeight);
   });
 
   return blockHeight;

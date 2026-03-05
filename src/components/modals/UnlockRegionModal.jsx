@@ -3,6 +3,10 @@ import { formatNumber } from "../../utils/formatNumber";
 import { Infinity as InfinityIcon } from "lucide-react";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import {
+  allowShardLimitOverflow,
+  willShardCostExceedLimit,
+} from "../../utils/shards";
 
 const isInfinityCost = (value) =>
   value === "Infinity" || value === Infinity || value === Number.POSITIVE_INFINITY;
@@ -33,7 +37,7 @@ const renderCostValue = (value, className = "") =>
  * - onChooseShards: (choice: any) => void
  * - onCancel: () => void
  * - shards: number
- * - allowNegativeShards: boolean
+ * - config: object
  */
 export function UnlockRegionModal({
   unlockChoice,
@@ -41,7 +45,7 @@ export function UnlockRegionModal({
   onChooseShards,
   onCancel,
   shards = 0,
-  allowNegativeShards = false,
+  config,
 }) {
   if (!unlockChoice) return null;
   const { lang } = useLang();
@@ -60,10 +64,10 @@ export function UnlockRegionModal({
   const shardsIcon = "/shards.webp";
   const isLockMode = mode === "lock";
   const shardWillGoNegative =
-    allowNegativeShards &&
+    allowShardLimitOverflow(config) &&
     !isInfinityCost(shardCost) &&
     !isLockMode &&
-    (shards ?? 0) - shardCost < 0;
+    willShardCostExceedLimit({ shards: shards ?? 0, cost: shardCost });
 
   const renderChoiceValue = (currentCost, nextCost, enabled, className = "") => {
     if (isLockMode) {

@@ -1,4 +1,11 @@
+import { REGION_GOODS_COSTS, REGION_SHARD_COSTS } from "../config/boardConfig";
+import {
+  getBoostCostForTier,
+  getUnlockCostForTier,
+} from "../config/buildingTiers";
+import { T } from "../i18n/translations";
 import { getBuildingName } from "./buildingName";
+import { formatNumber } from "./formatNumber";
 
 const IGNORED_TYPES = new Set([
   "move",
@@ -21,27 +28,33 @@ const CHECKPOINT_TYPES = new Set([
   "finishProductionsAdmin",
 ]);
 const HARVEST_ALL_TYPES = new Set(["harvestAll", "harvestAllAdmin"]);
-const BOOST_HARVEST_TYPES = new Set([
-  "boostReady",
-  "harvest",
-  ...HARVEST_ALL_TYPES,
-]);
+const HARVEST_TYPES = new Set(["harvest", ...HARVEST_ALL_TYPES]);
+const BOOST_UNLOCK_TYPES = new Set(["boostUnlock", "boostUnlockAdmin"]);
+const BOOST_READY_TYPES = new Set(["boostReady", "boostReadyAdmin"]);
+const REGION_UNLOCK_GOODS_TYPES = new Set(["regionUnlockGoods"]);
+const REGION_UNLOCK_SHARD_TYPES = new Set(["regionUnlockShards"]);
 
-function resolveActionBuildingName(action, libraryMap, shortIdMap, lang) {
+const getTranslator = (lang) => (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+
+function resolveActionDef(action, libraryMap, shortIdMap) {
   const defId =
     action?.defId || (action?.shortId ? shortIdMap?.[action.shortId] : null);
-  if (!defId || !libraryMap) return "?";
-  const def = libraryMap[defId];
-  return getBuildingName(def, lang, "name");
+  if (!defId || !libraryMap) return null;
+  return libraryMap[defId] ?? null;
 }
 
-function resolveRegionMethodLabel(action, lang) {
+function resolveActionBuildingName(action, libraryMap, shortIdMap, lang) {
+  const def = resolveActionDef(action, libraryMap, shortIdMap);
+  return def ? getBuildingName(def, lang, "name") : "?";
+}
+
+function resolveRegionMethodLabel(action, lang, t) {
   const type = action?.type || "";
   const method =
     action?.method ||
-    (type === "regionUnlockGoods"
+    (REGION_UNLOCK_GOODS_TYPES.has(type)
       ? "goods"
-      : type === "regionUnlockShards"
+      : REGION_UNLOCK_SHARD_TYPES.has(type)
         ? "shards"
         : "?");
 
@@ -49,22 +62,75 @@ function resolveRegionMethodLabel(action, lang) {
     return action.goodKey;
   }
   if (method === "goods") {
-    return lang === "EN" ? "Goods" : "Güter";
+    return t("logGoodsLabel");
   }
   if (method === "shards") {
-    return lang === "EN" ? "Shards" : "Scherben";
+    return t("resourceShards");
   }
   return method;
 }
 
-function formatRegionCount(count, methodLabel, lang) {
-  if (lang === "EN") {
-    return `+${count} ${count === 1 ? "Region" : "Regions"} (${methodLabel})`;
+function formatAmountLabel(value, unitLabel) {
+  if (
+    value === Infinity ||
+    value === "Infinity" ||
+    value === Number.POSITIVE_INFINITY
+  ) {
+    return `[Infinity ${unitLabel}]`;
   }
-  return `+${count} ${count === 1 ? "Region" : "Regionen"} (${methodLabel})`;
+  return `[${formatNumber(value)} ${unitLabel}]`;
 }
 
-function getChainDescriptor(action, libraryMap, shortIdMap, lang) {
+function formatRegionCount(count, methodLabel, lang, t) {
+  const regionLabel =
+    count === 1 ? t("logRegionSingular") : t("logRegionPlural");
+  return `+${count} ${regionLabel} (${methodLabel})`;
+}
+
+function getActionCostMeta(action, libraryMap, shortIdMap, lang, counters, t) {
+  const type = action?.type || "";
+
+  if (REGION_UNLOCK_GOODS_TYPES.has(type)) {
+    const costIndex = Math.min(
+      counters.goodsUnlocks,
+      REGION_GOODS_COSTS.length - 1,
+    );
+    const value = REGION_GOODS_COSTS[costIndex];
+    const unitLabel = resolveRegionMethodLabel(action, lang, t);
+    counters.goodsUnlocks += 1;
+    return { value, unitLabel };
+  }
+
+  if (REGION_UNLOCK_SHARD_TYPES.has(type)) {
+    const costIndex = Math.min(
+      counters.shardUnlocks,
+      REGION_SHARD_COSTS.length - 1,
+    );
+    const value = REGION_SHARD_COSTS[costIndex];
+    counters.shardUnlocks += 1;
+    return { value, unitLabel: t("resourceShards") };
+  }
+
+  if (BOOST_UNLOCK_TYPES.has(type)) {
+    const def = resolveActionDef(action, libraryMap, shortIdMap);
+    return {
+      value: getUnlockCostForTier(def?.tier),
+      unitLabel: t("resourceShards"),
+    };
+  }
+
+  if (BOOST_READY_TYPES.has(type)) {
+    const def = resolveActionDef(action, libraryMap, shortIdMap);
+    return {
+      value: getBoostCostForTier(def?.tier),
+      unitLabel: t("resourceShards"),
+    };
+  }
+
+  return null;
+}
+
+function getChainDescriptor(action, meta, libraryMap, shortIdMap, lang, t) {
   if (!action) return null;
   const type = action.type || "";
 
@@ -98,7 +164,51 @@ function getChainDescriptor(action, libraryMap, shortIdMap, lang) {
     };
   }
 
-  if (type === "boostUnlock") {
+  if (type === "boostUnlock" || type === "boostReady") {
+    const buildingName = resolveActionBuildingName(
+      action,
+      libraryMap,
+      shortIdMap,
+      lang,
+    );
+    const amountSuffix = meta?.unitLabel
+      ? ` ${formatAmountLabel(meta.value, meta.unitLabel)}`
+      : "";
+    return {
+      chainKind: type,
+      bucketKey: buildingName,
+      color: "yellow",
+      addCost: true,
+      textForCount: (count, totalCost) =>
+        `${count}x ${t("logBoostAction")} ${buildingName}${
+          totalCost?.unitLabel
+            ? ` ${formatAmountLabel(totalCost.value, totalCost.unitLabel)}`
+            : amountSuffix
+        }`,
+    };
+  }
+
+  if (
+    type === "regionUnlock" ||
+    REGION_UNLOCK_GOODS_TYPES.has(type) ||
+    REGION_UNLOCK_SHARD_TYPES.has(type)
+  ) {
+    const methodLabel = resolveRegionMethodLabel(action, lang, t);
+    return {
+      chainKind: "regionUnlock",
+      bucketKey: methodLabel,
+      color: "blue",
+      addCost: true,
+      textForCount: (count, totalCost) =>
+        `${formatRegionCount(count, methodLabel, lang, t)}${
+          totalCost?.unitLabel
+            ? ` ${formatAmountLabel(totalCost.value, totalCost.unitLabel)}`
+            : ""
+        }`,
+    };
+  }
+
+  if (type === "harvest") {
     const buildingName = resolveActionBuildingName(
       action,
       libraryMap,
@@ -106,41 +216,10 @@ function getChainDescriptor(action, libraryMap, shortIdMap, lang) {
       lang,
     );
     return {
-      chainKind: "unlock",
+      chainKind: "harvest",
       bucketKey: buildingName,
-      color: "yellow",
-      textForCount: (count) => `${count}x unlock ${buildingName}`,
-    };
-  }
-
-  if (
-    type === "regionUnlock" ||
-    type === "regionUnlockGoods" ||
-    type === "regionUnlockShards"
-  ) {
-    const methodLabel = resolveRegionMethodLabel(action, lang);
-    return {
-      chainKind: "regionUnlock",
-      bucketKey: methodLabel,
-      color: "blue",
-      textForCount: (count) => formatRegionCount(count, methodLabel, lang),
-    };
-  }
-
-  if (BOOST_HARVEST_TYPES.has(type)) {
-    const isBoost = type === "boostReady";
-    const isHarvestAll = HARVEST_ALL_TYPES.has(type);
-    const target = isHarvestAll
-      ? lang === "EN"
-        ? "all"
-        : "alles"
-      : resolveActionBuildingName(action, libraryMap, shortIdMap, lang);
-    const op = isBoost ? "boost" : "harvest";
-    return {
-      chainKind: "boostHarvest",
-      bucketKey: `${op}|${target}`,
-      color: isBoost ? "yellow" : "harvest",
-      textForCount: (count) => `${count}x ${op} ${target}`,
+      color: "harvest",
+      textForCount: (count) => `${count}x ${t("logHarvestAction")} ${buildingName}`,
     };
   }
 
@@ -162,7 +241,7 @@ function getPurchaseTotal(action) {
   return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
 }
 
-function formatAction(action, libraryMap, shortIdMap, lang) {
+function formatAction(action, meta, libraryMap, shortIdMap, lang, t) {
   if (!action) return null;
   const type = action.type || "";
 
@@ -182,16 +261,18 @@ function formatAction(action, libraryMap, shortIdMap, lang) {
     };
   }
 
-  if (type === "boostUnlock") {
+  if (type === "boostUnlock" || type === "boostReady") {
+    const buildingName = resolveActionBuildingName(
+      action,
+      libraryMap,
+      shortIdMap,
+      lang,
+    );
+    const amountSuffix = meta?.unitLabel
+      ? ` ${formatAmountLabel(meta.value, meta.unitLabel)}`
+      : "";
     return {
-      text: `-> unlock ${resolveActionBuildingName(action, libraryMap, shortIdMap, lang)}`,
-      color: "yellow",
-    };
-  }
-
-  if (type === "boostReady") {
-    return {
-      text: `-> boost ${resolveActionBuildingName(action, libraryMap, shortIdMap, lang)}`,
+      text: `1x ${t("logBoostAction")} ${buildingName}${amountSuffix}`,
       color: "yellow",
     };
   }
@@ -210,8 +291,8 @@ function formatAction(action, libraryMap, shortIdMap, lang) {
 
   if (HARVEST_ALL_TYPES.has(type)) {
     return {
-      text: lang === "EN" ? "-> harvest all" : "-> alles einsammeln",
-      color: "harvest",
+      text: t("logHarvestAll"),
+      color: "harvestAll",
     };
   }
 
@@ -225,8 +306,8 @@ function formatAction(action, libraryMap, shortIdMap, lang) {
 
   if (type === "harvest") {
     return {
-      text: `-> harvest ${resolveActionBuildingName(action, libraryMap, shortIdMap, lang)}`,
-      color: "yellow",
+      text: `1x ${t("logHarvestAction")} ${resolveActionBuildingName(action, libraryMap, shortIdMap, lang)}`,
+      color: "harvest",
     };
   }
 
@@ -244,6 +325,7 @@ export function buildActionLogEntries({
     return [];
   }
 
+  const t = getTranslator(lang);
   const { nodes } = historyTree;
   const pathToSelected = [];
   let current = selectedNodeId;
@@ -307,6 +389,25 @@ export function buildActionLogEntries({
     }
   }
 
+  const actionMetaByNodeId = new Map();
+  const counters = { goodsUnlocks: 0, shardUnlocks: 0 };
+  for (let i = 0; i < forwardPath.length; i += 1) {
+    const nodeId = forwardPath[i];
+    const action = nodes.get(nodeId)?.action;
+    if (!action) continue;
+    const meta = getActionCostMeta(
+      action,
+      libraryMap,
+      shortIdMap,
+      lang,
+      counters,
+      t,
+    );
+    if (meta) {
+      actionMetaByNodeId.set(nodeId, meta);
+    }
+  }
+
   const logEntries = [];
   let pendingChain = null;
 
@@ -316,7 +417,7 @@ export function buildActionLogEntries({
       const bucket = pendingChain.buckets.get(key);
       if (!bucket) continue;
       logEntries.push({
-        text: bucket.textForCount(bucket.count),
+        text: bucket.textForCount(bucket.count, bucket.totalCost),
         color: bucket.color,
         nodeId: bucket.lastNodeId,
         isHighlighted: bucket.includesSelected,
@@ -328,11 +429,14 @@ export function buildActionLogEntries({
   for (let i = 0; i < relevantNodeIds.length; i += 1) {
     const nodeId = relevantNodeIds[i];
     const node = nodes.get(nodeId);
+    const meta = actionMetaByNodeId.get(nodeId) ?? null;
     const descriptor = getChainDescriptor(
       node?.action,
+      meta,
       libraryMap,
       shortIdMap,
       lang,
+      t,
     );
 
     if (descriptor) {
@@ -350,6 +454,12 @@ export function buildActionLogEntries({
         existing.count += 1;
         existing.lastNodeId = nodeId;
         if (nodeId === selectedNodeId) existing.includesSelected = true;
+        if (descriptor.addCost && meta?.unitLabel) {
+          existing.totalCost = {
+            value: (existing.totalCost?.value ?? 0) + (meta.value ?? 0),
+            unitLabel: meta.unitLabel,
+          };
+        }
       } else {
         pendingChain.order.push(descriptor.bucketKey);
         pendingChain.buckets.set(descriptor.bucketKey, {
@@ -358,13 +468,24 @@ export function buildActionLogEntries({
           textForCount: descriptor.textForCount,
           lastNodeId: nodeId,
           includesSelected: nodeId === selectedNodeId,
+          totalCost:
+            descriptor.addCost && meta?.unitLabel
+              ? { value: meta.value ?? 0, unitLabel: meta.unitLabel }
+              : null,
         });
       }
       continue;
     }
 
     flushPendingChain();
-    const formatted = formatAction(node?.action, libraryMap, shortIdMap, lang);
+    const formatted = formatAction(
+      node?.action,
+      meta,
+      libraryMap,
+      shortIdMap,
+      lang,
+      t,
+    );
     if (!formatted) continue;
 
     const formattedArray = Array.isArray(formatted) ? formatted : [formatted];

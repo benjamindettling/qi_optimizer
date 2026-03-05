@@ -69,6 +69,7 @@ Pass `lang` from the nearest `useLang()` call or from `localStorage`.
 - **Framework:** React 18 with hooks only — no class components.
 - **Build tool:** Vite. Do not add Webpack, CRA, or other bundlers.
 - **Styling:** Plain CSS files co-located with components. No CSS-in-JS, no Tailwind, no Sass.
+- **Colors:** Define all reusable colors, semantic color mappings, and exported CSS color variables in `src/config/colors.js`. Component CSS files may only consume existing color variables and must not introduce new hex/rgb/rgba color definitions.
 - **Icons:** `lucide-react` for all UI icons. Do not introduce other icon libraries.
 - **State:** Local `useState` / `useReducer` for component state; custom hooks in `src/hooks/gameController/` for game state. No Redux, Zustand, or other state libraries.
 - **No TypeScript.** The project is plain JavaScript (.js / .jsx). Do not convert files or add `.ts` / `.tsx` files.

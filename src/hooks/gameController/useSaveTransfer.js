@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { serializeTree, deserializeTree, getMainBranchEndNodeId } from "../../utils/treeSerializer";
+import { extractSaveConfig } from "../../utils/saveConfig";
 
 // Export/import save files to JSON.
 // Version 2: Only exports the history tree (no snapshots/checkpoints)
@@ -214,8 +215,9 @@ export const useSaveTransfer = ({
 
   // Update savefile config
   const handleUpdateSaveConfig = useCallback(
-    (name, newConfig) => {
+    (name, newConfig, options = {}) => {
       if (!name) return;
+      const nextSyncUser = options?.syncUser === true;
       setAllSaves((prev) => {
         if (!(name in prev)) return prev;
         const save = prev[name];
@@ -224,6 +226,7 @@ export const useSaveTransfer = ({
           [name]: {
             ...save,
             saveConfig: newConfig,
+            syncUser: nextSyncUser,
           },
         };
       });
@@ -244,15 +247,7 @@ export const useSaveTransfer = ({
       const originalSave = saves[loadName];
       const newName = `${loadName}_SYNCED`;
       
-      // Extract only the resource-related config fields from user config
-      const syncedConfig = {
-        extraCoins: userConfig?.extraCoins ?? 0,
-        extraSupplies: userConfig?.extraSupplies ?? 0,
-        goodsStartBonus: userConfig?.goodsStartBonus ?? 0,
-        troopsStartBonus: userConfig?.troopsStartBonus ?? 0,
-        coinBoost: userConfig?.coinBoost ?? 0,
-        supplyBoost: userConfig?.supplyBoost ?? 0,
-      };
+      const syncedConfig = extractSaveConfig(userConfig);
       
       setAllSaves((prev) => ({
         ...prev,
@@ -260,6 +255,7 @@ export const useSaveTransfer = ({
           ...originalSave,
           name: newName,
           saveConfig: syncedConfig,
+          syncUser: true,
         },
       }));
       

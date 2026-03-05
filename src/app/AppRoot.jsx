@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { CircleHelp } from "lucide-react";
 import { useGameController } from "../hooks/useGameController";
 import { AppLayout } from "./layout/AppLayout";
 import { AppModals } from "./layout/AppModals";
@@ -11,6 +12,7 @@ import { useSnapshotNavigation } from "./hooks/useSnapshotNavigation";
 import { useBoardExport } from "./hooks/useBoardExport";
 import { useAccountCloudSync } from "../hooks/useAccountCloudSync";
 import { applyThemeToDocument, initializeCssColors } from "../config/colors";
+import { LanguageToggle } from "../components/LanguageToggle/LanguageToggle";
 import { StartingPage } from "../components/StartingPage/StartingPage";
 import { LegalPage } from "../components/LegalPage/LegalPage";
 import { useLang } from "../context/LanguageContext";
@@ -29,6 +31,7 @@ import tutorialExampleSave from "../config/example/example_full.json";
 import tutorialTreeSave from "../config/example/example_tree.json";
 import seemsAlchemistSave from "../config/example/SeemsAlchemist.json";
 import { deserializeTree, getMainBranchEndNodeId } from "../utils/treeSerializer";
+import "./ui/FloatingPageControls.css";
 
 const ROOT_TREE_NEXT_NODE_ID = 1;
 const DEFAULT_BUNDLED_SAVES = [seemsAlchemistSave];
@@ -872,6 +875,7 @@ export function AppRoot() {
       "extraSupplies",
       "goodsStartBonus",
       "troopsStartBonus",
+      "shardsLimit",
       "coinBoost",
       "supplyBoost",
     ];
@@ -891,6 +895,11 @@ export function AppRoot() {
     setAccountInitialTab(tabKey);
     setAccountModalOpen(true);
   };
+
+  const handleOpenHelp = useCallback(() => {
+    controller.setHelpModal(true);
+    fireEvent("helpOpened");
+  }, [controller, fireEvent]);
 
   const sidebarProps = {
     selectedCategory: controller.selectedCategory,
@@ -926,10 +935,7 @@ export function AppRoot() {
     setViewMode: controller.setViewMode,
     adminMode,
     onToggleAdmin: controller.handleToggleInfinite,
-    onOpenHelp: () => {
-      controller.setHelpModal(true);
-      fireEvent("helpOpened");
-    },
+    onOpenHelp: handleOpenHelp,
     onOpenAccount: () => openAccountModal("account"),
     onEditResource: controller.handleEditResource,
     onEditGood: controller.handleEditGood,
@@ -1055,6 +1061,9 @@ export function AppRoot() {
     boardTransformClass: controller.boardTransformClass,
     buildLocks: controller.buildLocks,
     readyMap: controller.readyMap,
+    boostMode: controller.boostMode,
+    resources: controller.resources,
+    config: controller.config,
     // Region props
     unlockedRegions: controller.unlockedRegions,
     neighborUnlocked: controller.neighborUnlocked,
@@ -1087,6 +1096,7 @@ export function AppRoot() {
     onLoad: (name) =>
       controller.handleLoadState(name, { createSnapshot: true }),
     saves: controller.visibleSaves,
+    userConfig: controller.userConfig,
     snapshots: controller.snapshots,
     selectedSnapshotName: controller.selectedSnapshotName,
     onSnapshotBack: handleSnapshotBack,
@@ -1229,6 +1239,21 @@ export function AppRoot() {
         <Route path="/imprint" element={<LegalPage type="imprint" />} />
         <Route path="/privacy" element={<LegalPage type="privacy" />} />
       </Routes>
+      {isSimulator && (
+        <div className="floating-page-controls">
+          <LanguageToggle className="floating-page-btn floating-page-btn--lang" />
+          <button
+            type="button"
+            className="floating-page-btn floating-page-btn--help"
+            title={t("btnHelpTitle")}
+            aria-label={t("btnHelpLabel")}
+            onClick={handleOpenHelp}
+            data-tutorial-zone="help-btn"
+          >
+            <CircleHelp size={18} />
+          </button>
+        </div>
+      )}
       {/* Modals rendered on all routes so Account & LoadSaves work everywhere */}
       <AppModals
         controller={controller}

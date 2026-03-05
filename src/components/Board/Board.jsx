@@ -17,6 +17,8 @@ import {
 import { findTargetInstance } from "../../domain/placement/placementController";
 import { useLang } from "../../context/LanguageContext";
 import { getBuildingName } from "../../utils/buildingName";
+import { PRIMARY_COLORS } from "../../config/colors";
+import { getBoostInteractionState } from "../../utils/shards";
 import "./Board.css";
 
 const TIER_HUE_SHIFT = {
@@ -174,6 +176,9 @@ export function Board({
   cellSizePx,
   readyMap = {},
   buildLocks = {},
+  boostMode = false,
+  resources,
+  config,
   highlightedIds = new Set(),
   boardRef,
   onWrapperResize,
@@ -1150,15 +1155,33 @@ export function Board({
                       const locked = !!buildLocks[b.id];
                       const ready = !!readyMap[b.id];
                       const isHighlighted = highlightedIds?.has?.(b.id);
+                      const boostState = boostMode
+                        ? getBoostInteractionState({
+                            def,
+                            locked,
+                            ready,
+                            shards: resources?.shards ?? 0,
+                            config,
+                            infiniteResources,
+                          })
+                        : null;
                       const labelColor = isHighlighted
                         ? themeColors.white
-                        : locked
+                        : boostMode
                           ? ready
                             ? "#ffeb3b"
-                            : "#9aa3b5"
-                          : ready
-                            ? "#ffeb3b"
-                            : themeColors.white;
+                            : boostState?.impossible
+                              ? "rgba(255, 255, 255, 0.45)"
+                              : boostState?.overLimit
+                                ? PRIMARY_COLORS.red
+                                : themeColors.white
+                          : locked
+                            ? ready
+                              ? "#ffeb3b"
+                              : "#9aa3b5"
+                            : ready
+                              ? "#ffeb3b"
+                              : themeColors.white;
 
                       return (
                         <g key={`building-${b.id}`} opacity={locked ? 0.5 : 1}>

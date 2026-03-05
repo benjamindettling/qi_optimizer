@@ -1,4 +1,4 @@
-// Tier mappings for build times and boost shard costs.
+// Tier mappings for build times and shard-based building actions.
 export const TIER_TO_BUILD_TIME = {
   1: 0,
   2: 1,
@@ -17,7 +17,11 @@ export const TIER_TO_BOOST_SHARDS = {
   3: 95,
 };
 
-export const BOOST_UNLOCK_SHARDS = 50;
+export const TIER_TO_UNLOCK_SHARDS = {
+  1: 0,
+  2: 25,
+  3: 50,
+};
 
 export const resolveTier = (tier) => {
   const num = Number(tier);
@@ -29,5 +33,8 @@ export const getBuildTimeForTier = (tier) =>
 
 export const getBoostCostForTier = (tier) =>
   TIER_TO_BOOST_SHARDS[resolveTier(tier)] ?? 50;
+
+export const getUnlockCostForTier = (tier) =>
+  TIER_TO_UNLOCK_SHARDS[resolveTier(tier)] ?? 0;
 
 export const isTierLocked = (tier) => resolveTier(tier) === 3;

@@ -13,6 +13,7 @@ export const useSnapshotManager = (args) => {
     loadHistoryTreeRef: args.loadHistoryTreeRef,
     historyTreeRef: args.historyTreeRef,
     config: args.config,
+    userConfig: args.userConfig,
     activeSaveConfig: args.activeSaveConfig,
     setActiveSaveConfig: args.setActiveSaveConfig,
   });

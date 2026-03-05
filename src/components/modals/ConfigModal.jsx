@@ -91,12 +91,12 @@ export function ConfigModal({
             />
           </label>
           <label className="config-row">
-            <Label icon={shardsIcon} text="Scherben Start" />
+            <Label icon={shardsIcon} text="Scherben Limit" />
             <input
               {...numberProps}
-              value={draft.shardsStart ?? 500}
+              value={draft.shardsLimit ?? 500}
               onChange={(e) =>
-                updateField("shardsStart", Number(e.target.value) || 0)
+                updateField("shardsLimit", Number(e.target.value) || 0)
               }
             />
           </label>
@@ -184,12 +184,23 @@ export function ConfigModal({
             />
           </label>
           <label className="config-row">
-            <Label text="Erlaube negative Scherben" />
+            <Label text="Anzahl Scherben" />
+            <select
+              className="config-input"
+              value={draft.shardDisplayMode ?? "spent"}
+              onChange={(e) => updateField("shardDisplayMode", e.target.value)}
+            >
+              <option value="spent">Verbraucht</option>
+              <option value="stock">Vorrätig</option>
+            </select>
+          </label>
+          <label className="config-row">
+            <Label text="Erlaube Scherben Limit Überschreitung" />
             <input
               type="checkbox"
-              checked={!!draft.allowNegativeShards}
+              checked={draft.allowShardLimitOverflow !== false}
               onChange={(e) =>
-                updateField("allowNegativeShards", e.target.checked)
+                updateField("allowShardLimitOverflow", e.target.checked)
               }
             />
           </label>

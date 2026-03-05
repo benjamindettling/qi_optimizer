@@ -8,6 +8,7 @@ import {
   GOODS_TYPES,
 } from "../config/boardConfig";
 import { canAffordSingleGood } from "../utils/stateUtils";
+import { canPayShardCost } from "../utils/shards";
 
 /**
  * Derive region unlock helpers and costs.
@@ -19,7 +20,7 @@ export function useRegionAccess({
   resources,
   layout,
   libraryMap,
-  allowNegativeShards = false,
+  config,
 }) {
   const isInfinityCost = (value) =>
     value === "Infinity" ||
@@ -79,8 +80,11 @@ export function useRegionAccess({
   const canAnyUnlock = useMemo(
     () =>
       (!isInfinityCost(currentShardCost) &&
-        (allowNegativeShards ||
-          (resources.shards ?? 0) >= currentShardCost)) ||
+        canPayShardCost({
+          shards: resources.shards ?? 0,
+          cost: currentShardCost,
+          config,
+        })) ||
       hasAnyGoodsProducer ||
       hasAnyGoodsEnough,
     [
@@ -88,7 +92,7 @@ export function useRegionAccess({
       currentShardCost,
       hasAnyGoodsProducer,
       hasAnyGoodsEnough,
-      allowNegativeShards,
+      config,
     ]
   );
 

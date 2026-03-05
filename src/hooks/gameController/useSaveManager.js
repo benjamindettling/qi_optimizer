@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSaves } from "../useSaves";
 import { useSnapshotHistory } from "./useSnapshotHistory";
 import { serializeTree, deserializeTree, getMainBranchEndNodeId } from "../../utils/treeSerializer";
+import { extractSaveConfig } from "../../utils/saveConfig";
 
 // Manages save/load flows and snapshot history.
 export const useSaveManager = ({
@@ -35,6 +36,7 @@ export const useSaveManager = ({
   loadHistoryTreeRef,
   historyTreeRef,
   config,
+  userConfig,
   activeSaveConfig,
   setActiveSaveConfig,
 }) => {
@@ -96,6 +98,7 @@ export const useSaveManager = ({
   });
 
   const [pendingAutoSnapshot, setPendingAutoSnapshot] = useState(null);
+  const prevUserConfigSignatureRef = useRef(null);
   
   // Track last saved node count for computing unsaved changes
   const [lastSavedNodeCount, setLastSavedNodeCount] = useState(null);
@@ -131,6 +134,45 @@ export const useSaveManager = ({
     requestAutoSnapshot,
   ]);
 
+  useEffect(() => {
+    if (!savesLoaded) return;
+
+    const syncedConfig = extractSaveConfig(userConfig);
+    const signature = JSON.stringify(syncedConfig);
+    if (prevUserConfigSignatureRef.current === signature) {
+      return;
+    }
+    prevUserConfigSignatureRef.current = signature;
+
+    setAllSaves((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(prev || {}).forEach(([name, entry]) => {
+        if (entry?.syncUser !== true) return;
+        const currentConfig = extractSaveConfig(entry?.saveConfig);
+        if (JSON.stringify(currentConfig) === signature) return;
+        next[name] = {
+          ...entry,
+          saveConfig: syncedConfig,
+          syncUser: true,
+        };
+        changed = true;
+      });
+      return changed ? next : prev;
+    });
+
+    if (loadName && saves?.[loadName]?.syncUser === true) {
+      setActiveSaveConfig?.(syncedConfig);
+    }
+  }, [
+    userConfig,
+    savesLoaded,
+    setAllSaves,
+    loadName,
+    saves,
+    setActiveSaveConfig,
+  ]);
+
   // Version 2 save: Only tree + name, no snapshots/checkpoints
   const handleSaveState = useCallback(
     (nameArg) => {
@@ -150,17 +192,17 @@ export const useSaveManager = ({
       }
       
       // Determine saveConfig to use:
-      // 1. If overwriting existing save, preserve its config
-      // 2. If saving to new name while on a savefile, copy the active config
-      // 3. Otherwise, no saveConfig (will use account config when loaded)
+      // 1. If overwriting an existing save, preserve its saveConfig as-is.
+      // 2. If creating a new save, copy the current user config into saveConfig.
       let saveConfigToUse = null;
+      let syncUserToUse = false;
       const existingSave = saves[targetName];
-      if (existingSave?.saveConfig) {
-        // Preserve existing save's config
+      if (Object.prototype.hasOwnProperty.call(saves, targetName)) {
         saveConfigToUse = existingSave.saveConfig;
-      } else if (activeSaveConfig && loadName) {
-        // Copy config from currently loaded save to new save
-        saveConfigToUse = { ...activeSaveConfig };
+        syncUserToUse = existingSave?.syncUser === true;
+      } else {
+        saveConfigToUse = extractSaveConfig(userConfig);
+        syncUserToUse = true;
       }
       
       // Version 2 format: only tree and name
@@ -169,11 +211,12 @@ export const useSaveManager = ({
         name: targetName,
         tree: serializedTree,
         saveConfig: saveConfigToUse,
+        syncUser: syncUserToUse,
         // No snapshot, no checkpoints - state is reconstructed from tree
       });
       
-      // If we copied config to a new save, also set it as active
-      if (saveConfigToUse && targetName !== loadName) {
+      // New saves immediately become the active save context.
+      if (targetName !== loadName) {
         setActiveSaveConfig?.(saveConfigToUse);
       }
       
@@ -186,13 +229,13 @@ export const useSaveManager = ({
     [
       loadName,
       saves,
-      activeSaveConfig,
       saveSnapshot,
       setLoadName,
       setActiveSaveConfig,
       updateStatus,
       historyTreeRef,
       config,
+      userConfig,
     ],
   );
 

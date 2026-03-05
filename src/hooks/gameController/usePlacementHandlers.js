@@ -4,12 +4,11 @@ import { canAffordResources, hasPopulationForDef } from "../../utils/stateUtils"
 import { isAreaFree } from "../../utils/layoutUtils";
 import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
 import {
-  BOOST_UNLOCK_SHARDS,
-  getBoostCostForTier,
   isTierLocked,
 } from "../../config/buildingTiers";
 import { dropCarried, findTargetInstance } from "../../domain/placement/placementController";
 import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
+import { getBoostInteractionState } from "../../utils/shards";
 
 // Board click handling for placement, move, sell, and boost.
 export const usePlacementHandlers = ({
@@ -28,7 +27,7 @@ export const usePlacementHandlers = ({
   selectedBuildingId,
   autoSelectNew,
   infiniteResources,
-  allowNegativeShards,
+  config,
   effectiveResources,
   applySpend,
   applyRefund,
@@ -205,12 +204,6 @@ export const usePlacementHandlers = ({
       if (boostMode && target) {
         const def = libraryMap[target.defId];
         const lang = getCurrentLang();
-        const boostCostForDef = (value) => getBoostCostForTier(value?.tier);
-        const canSpendShards = (cost) =>
-          infiniteResources ||
-          cost <= 0 ||
-          allowNegativeShards ||
-          (resources.shards ?? 0) >= cost;
         const spendShards = (cost) => {
           if (infiniteResources || cost <= 0) return;
           setResources((prev) => ({
@@ -218,13 +211,20 @@ export const usePlacementHandlers = ({
             shards: (prev.shards ?? 0) - cost,
           }));
         };
-        if (buildLocks[target.id]) {
-          const cost = BOOST_UNLOCK_SHARDS;
-          if (!canSpendShards(cost)) {
+        const boostState = getBoostInteractionState({
+          def,
+          locked: !!buildLocks[target.id],
+          ready: !!readyMap[target.id],
+          shards: resources.shards ?? 0,
+          config,
+          infiniteResources,
+        });
+        if (boostState.action === "unlock") {
+          if (!boostState.allowed) {
             updateStatus("Need more shards.");
             return { ok: false, done: false, kind: "boost" };
           }
-          spendShards(cost);
+          spendShards(boostState.cost);
           if (def?.category === "culture") {
             harvestBuildings([target], "Harvest", true);
             updateStatus(`Unlocked ${getBuildingName(def, lang, "name")}`);
@@ -238,7 +238,7 @@ export const usePlacementHandlers = ({
             x: target.x,
             y: target.y,
           });
-        } else if (readyMap[target.id] === true) {
+        } else if (boostState.action === "harvest") {
           recordHistoryAction?.({
             type: "harvest",
             shortId: def?.shortId ?? target.defId,
@@ -246,13 +246,12 @@ export const usePlacementHandlers = ({
             y: target.y,
           });
           harvestBuildings([target], "Harvest", true);
-        } else {
-          const cost = boostCostForDef(def);
-          if (!canSpendShards(cost)) {
+        } else if (boostState.action === "boost") {
+          if (!boostState.allowed) {
             updateStatus("Need more shards.");
             return { ok: false, done: false, kind: "boost" };
           }
-          spendShards(cost);
+          spendShards(boostState.cost);
           setReadyMap((prev) => ({ ...prev, [target.id]: true }));
           recordHistoryAction?.({
             type: infiniteResources ? "boostReadyAdmin" : "boostReady",
@@ -261,6 +260,9 @@ export const usePlacementHandlers = ({
             y: target.y,
           });
           updateStatus(`Boosted ${getBuildingName(def, lang, "name")}`);
+        } else {
+          updateStatus("This building cannot be boosted.");
+          return { ok: false, done: false, kind: "boost" };
         }
         requestAutoSnapshot();
         return { ok: true, done: true, kind: "boost" };
@@ -406,7 +408,7 @@ export const usePlacementHandlers = ({
       applyRefund,
       setMoveSnapshot,
       resources,
-      allowNegativeShards,
+      config,
       setResources,
       boostMode,
       infiniteResources,

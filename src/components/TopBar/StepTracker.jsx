@@ -11,6 +11,7 @@ import { T } from "../../i18n/translations";
 export function StepTracker({
   timeStep,
   loadName,
+  saveNameColor,
   canStepBack,
   canStepForward,
   onJumpPrevCheckpoint,
@@ -42,7 +43,9 @@ export function StepTracker({
           {t("stepLabel")} {stepVal}
         </span>
         <span className="step-day">{dayDisplay}</span>
-        <span className="step-savename">{loadName || "-"}</span>
+        <span className="step-savename" style={{ color: saveNameColor }}>
+          {loadName || "-"}
+        </span>
       </div>
       <div className="step-buttons">
         <button

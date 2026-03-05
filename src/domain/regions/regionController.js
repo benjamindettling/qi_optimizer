@@ -9,6 +9,7 @@ import {
 } from "../../config/boardConfig";
 import { computePurchasePlans } from "../../utils/gameMath";
 import { canAffordSingleGood } from "../../utils/stateUtils";
+import { canPayShardCost } from "../../utils/shards";
 
 export const regionIndexForCell = (x, y) =>
   Math.floor(x / REGION_SIZE) + REGION_COLS * Math.floor(y / REGION_SIZE);
@@ -28,7 +29,7 @@ export const buildUnlockChoiceState = ({
   libraryMap,
   currentGoodsCost,
   currentShardCost,
-  allowNegativeShards = false,
+  config,
   adminMode = false,
 }) => {
   const isInfinityCost = (value) =>
@@ -41,14 +42,17 @@ export const buildUnlockChoiceState = ({
   const hasGoodsBuilding = layout.some(
     (inst) => libraryMap[inst.defId]?.category === "goods"
   );
-  const shardsEnough = (resources.shards ?? 0) >= currentShardCost;
   const goodsAllowed = adminMode
     ? !isInfinityCost(currentGoodsCost)
     : hasAnyGoodEnough || hasGoodsBuilding;
   const shardsAllowed = adminMode
     ? !isInfinityCost(currentShardCost)
     : !isInfinityCost(currentShardCost) &&
-      (allowNegativeShards || shardsEnough);
+      canPayShardCost({
+        shards: resources.shards ?? 0,
+        cost: currentShardCost,
+        config,
+      });
   return {
     idx,
     mode: "unlock",

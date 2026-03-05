@@ -1,6 +1,7 @@
 // Auto-generated action log between checkpoints.
 import { useMemo } from "react";
 import { useLang } from "../../context/LanguageContext";
+import { getActionLogColor } from "../../config/colors";
 import { buildActionLogEntries } from "../../utils/actionLogEntries";
 import "./ActionLog.css";
 
@@ -34,7 +35,8 @@ export function ActionLog({
           entries.map((entry, idx) => (
             <div
               key={`${entry.nodeId}-${idx}`}
-              className={`action-log-entry color-${entry.color}${entry.isHighlighted ? " highlighted" : ""}${entry.isSubEntry ? " sub-entry" : ""}`}
+              className={`action-log-entry${entry.isHighlighted ? " highlighted" : ""}${entry.isSubEntry ? " sub-entry" : ""}`}
+              style={{ color: getActionLogColor(entry.color) }}
             >
               {entry.text}
             </div>

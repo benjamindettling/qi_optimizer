@@ -9,8 +9,8 @@ import {
   BOARD_HEIGHT,
 } from "../../config/boardConfig";
 import {
-  BOOST_UNLOCK_SHARDS,
   getBoostCostForTier,
+  getUnlockCostForTier,
   isTierLocked,
 } from "../../config/buildingTiers";
 import { QA_BASE_PER_HOUR } from "../../config/gameDefaults";
@@ -25,6 +25,7 @@ import { buildInitialGameState } from "../../config/initialState";
 import { computePurchasePlans } from "../../utils/gameMath";
 import { solveTilingMask } from "../../utils/tilingSolver";
 import { buildTilingMask, buildTilingGroups, applyTilingSolution } from "../../utils/tilingTranslator";
+import { allowShardLimitOverflow } from "../../utils/shards";
 
 const ACTION_BUILD = "build";
 const ACTION_BUILD_ADMIN = "buildAdmin";
@@ -927,7 +928,7 @@ export const useActionHistory = ({
           const id = findInstanceId(action);
           if (id === null || id === undefined) return;
           if (action.type === ACTION_BOOST_UNLOCK) {
-            applyResourceDelta({ shards: -BOOST_UNLOCK_SHARDS });
+            applyResourceDelta({ shards: -getUnlockCostForTier(def?.tier) });
           }
           setBuildLocks((prev) => {
             const next = { ...prev, [id]: false };
@@ -1138,7 +1139,7 @@ export const useActionHistory = ({
           const id = findInstanceId(action);
           if (id === null || id === undefined) return;
           if (action.type === ACTION_BOOST_UNLOCK) {
-            applyResourceDelta({ shards: BOOST_UNLOCK_SHARDS });
+            applyResourceDelta({ shards: getUnlockCostForTier(def?.tier) });
           }
           setBuildLocks((prev) => {
             const next = { ...prev, [id]: true };
@@ -1505,7 +1506,7 @@ export const useActionHistory = ({
       if (resources.coins < 0) return true;
       if (resources.supplies < 0) return true;
       if (resources.chronos < 0) return true;
-      if (resources.shards < 0) return true;
+      if (!allowShardLimitOverflow(config) && resources.shards < 0) return true;
       if (resources.quantumActions < 0) return true;
       if (Object.values(resources.goods).some((v) => (v ?? 0) < 0)) return true;
       if (Object.values(resources.units).some((v) => (v ?? 0) < 0)) return true;
@@ -1631,7 +1632,7 @@ export const useActionHistory = ({
           const target = findSimInstance(action);
           if (!target) break;
           if (action.type === ACTION_BOOST_UNLOCK) {
-            applyResourceDeltaSim({ shards: -BOOST_UNLOCK_SHARDS });
+            applyResourceDeltaSim({ shards: -getUnlockCostForTier(def?.tier) });
           }
           buildLocksSim[target.id] = false;
           break;
@@ -2085,7 +2086,7 @@ export const useActionHistory = ({
             const target = findSimInstance(action);
             if (!target) break;
             if (action.type === ACTION_BOOST_UNLOCK) {
-              applyResourceDeltaSim({ shards: -BOOST_UNLOCK_SHARDS });
+              applyResourceDeltaSim({ shards: -getUnlockCostForTier(def?.tier) });
             }
             buildLocksSim[target.id] = false;
             break;
@@ -2637,7 +2638,7 @@ export const useActionHistory = ({
       if ((resources.supplies ?? 0) < 0) {
         deficits.supplies = Math.abs(resources.supplies);
       }
-      if ((resources.shards ?? 0) < 0) {
+      if (!allowShardLimitOverflow(config) && (resources.shards ?? 0) < 0) {
         deficits.shards = Math.abs(resources.shards);
       }
       // Check all goods
@@ -2662,7 +2663,7 @@ export const useActionHistory = ({
 
       return flags;
     },
-    [buildOrderFixPlan, isPlacementInsideUnlocked],
+    [buildOrderFixPlan, config, isPlacementInsideUnlocked],
   );
 
   // Verify a subtree starting from a given node

@@ -20,6 +20,7 @@ export const PRIMARY_COLORS = {
   gray: "#6b7280",
   darkGreen: "#007f20",
   adminMagenta: "#75002d",
+  purple: "#a05cff",
   white: "#ffffff",
   black: "#000000",
 
@@ -164,6 +165,34 @@ export const ACTION_COLORS = {
 };
 
 // =============================================================================
+// ACTION LOG COLORS - Shared by the in-app log and PDF export
+// =============================================================================
+export const ACTION_LOG_COLORS = {
+  green: ACTION_COLORS.build,
+  red: ACTION_COLORS.sell,
+  yellow: ACTION_COLORS.boostSingle,
+  turquoise: PRIMARY_COLORS.turquoise,
+  blue: ACTION_COLORS.regionUnlock,
+  harvestAll: ACTION_COLORS.harvestPartial,
+  harvest: ACTION_COLORS.collectSingle,
+  separator: PRIMARY_COLORS.gray,
+  default: PRIMARY_COLORS.white,
+};
+
+export const getActionLogColor = (colorKey) =>
+  ACTION_LOG_COLORS[colorKey] ?? ACTION_LOG_COLORS.default;
+
+export const SAVEFILE_STATUS_COLORS = {
+  impossible: PRIMARY_COLORS.red,
+  desynced: PRIMARY_COLORS.yellow,
+  synced: PRIMARY_COLORS.turquoise,
+  default: PRIMARY_COLORS.white,
+};
+
+export const getSavefileStatusColor = (statusKey) =>
+  SAVEFILE_STATUS_COLORS[statusKey] ?? SAVEFILE_STATUS_COLORS.default;
+
+// =============================================================================
 // UTILITY: Generate CSS custom properties from theme
 // =============================================================================
 export const themeToCssVars = (theme) => {
@@ -201,6 +230,8 @@ export const themeToCssVars = (theme) => {
     "--color-region-note": theme.regionNote,
     "--color-tooltip-bg": theme.tooltipBg,
     "--color-tooltip-border": theme.tooltipBorder,
+    "--color-action-log-highlight-bg": SEMANTIC_COLORS.overlayLight,
+    "--color-action-log-highlight-border": "rgba(255, 255, 255, 0.3)",
   };
 };
 

@@ -509,6 +509,8 @@
   // === TOPBAR – SAVE CONTROLS ===
   btnSaveTitle: { DE: "Speichern", EN: "Save" },
   btnLoadTitle: { DE: "Laden", EN: "Load" },
+  btnOnlineTitle: { DE: "Online", EN: "Online" },
+  btnOnlineLabel: { DE: "Online", EN: "Online" },
   btnQuickMenuTitle: { DE: "Schnellmenü", EN: "Quick menu" },
   quickMenuHeader: { DE: "Schnellzugriff", EN: "Quick Access" },
   quickMenuExport: { DE: "Export", EN: "Export" },
@@ -519,6 +521,22 @@
   },
   confirmDeleteSave: { DE: "wirklich löschen?", EN: "really delete?" },
   promptSaveName: { DE: "Save name?", EN: "Save name?" },
+  saveModalTitle: { DE: "Spielstand speichern", EN: "Save file" },
+  saveModalNameLabel: { DE: "Name", EN: "Name" },
+  saveModalNamePlaceholder: {
+    DE: "Spielstandname",
+    EN: "Savefile name",
+  },
+  saveModalCreateAction: {
+    DE: "Kreiere {name}",
+    EN: "Create {name}",
+  },
+  saveModalUpdateAction: {
+    DE: "Update {name}",
+    EN: "Update {name}",
+  },
+  saveModalCreateFallback: { DE: "Kreiere", EN: "Create" },
+  saveModalUpdateFallback: { DE: "Update", EN: "Update" },
 
   // === TOPBAR – RESOURCE LABELS ===
   resourceCoins: { DE: "Münzen", EN: "Coins" },
@@ -601,6 +619,30 @@
     DE: "PDF-Export fehlgeschlagen. Details stehen in der Konsole.",
     EN: "PDF export failed. See the console for details.",
   },
+  logHarvestAll: {
+    DE: "Alles einsammeln",
+    EN: "Harvest all",
+  },
+  logHarvestAction: {
+    DE: "Einsammeln",
+    EN: "Harvest",
+  },
+  logBoostAction: {
+    DE: "beschleunigen",
+    EN: "boost",
+  },
+  logGoodsLabel: {
+    DE: "Güter",
+    EN: "Goods",
+  },
+  logRegionSingular: {
+    DE: "Region",
+    EN: "Region",
+  },
+  logRegionPlural: {
+    DE: "Regionen",
+    EN: "Regions",
+  },
   toolPastEditTitle: {
     DE: "Bearbeitung im Vergangenheitszustand aktivieren",
     EN: "Enable editing in past state",
@@ -682,6 +724,38 @@
   loadSavesBtnConfirm: { DE: "Bestätigen", EN: "Confirm" },
   loadSavesBtnCancel: { DE: "Abbrechen", EN: "Cancel" },
   loadSavesBtnSaveConfig: { DE: "Savefile-Config", EN: "Savefile Config" },
+  saveConfigModalTitle: { DE: "Config", EN: "Config" },
+  saveConfigClose: { DE: "Schließen", EN: "Close" },
+  saveConfigExtraCoins: { DE: "Münzen Extra", EN: "Extra Coins" },
+  saveConfigExtraSupplies: { DE: "Vorräte Extra", EN: "Extra Supplies" },
+  saveConfigExtraGoods: { DE: "Güter Extra", EN: "Extra Goods" },
+  saveConfigExtraTroops: { DE: "Truppen Extra", EN: "Extra Troops" },
+  saveConfigStartShards: { DE: "Scherben Limit", EN: "Shards Limit" },
+  saveConfigCoinBoost: { DE: "Münzen % Boost", EN: "Coins % Boost" },
+  saveConfigSupplyBoost: { DE: "Vorräte % Boost", EN: "Supplies % Boost" },
+  saveConfigFindSmallest: {
+    DE: "Finde kleinste Config",
+    EN: "Find smallest config",
+  },
+  saveConfigApplyUser: {
+    DE: "Eigene Configs einfügen",
+    EN: "Insert own config",
+  },
+  saveConfigMinUnsupported: {
+    DE: "Für diesen Spielstand kann keine kleinste Config berechnet werden.",
+    EN: "A smallest config cannot be calculated for this save.",
+  },
+  saveConfigConflictTitle: { DE: "Warnung", EN: "Warning" },
+  saveConfigConflictIntro: {
+    DE: "Die folgenden Werte deiner eigenen Config liegen unter der minimal sicheren Savefile-Config. Das würde unmögliche Zustände erzeugen:",
+    EN: "The following values from your user config are below the minimum safe savefile config. That would create impossible states:",
+  },
+  saveConfigConflictSaveValue: { DE: "Sichere Savefile-Config", EN: "Safe save config" },
+  saveConfigConflictUserValue: { DE: "Eigene Config", EN: "User config" },
+  saveConfigConflictProceed: {
+    DE: "Trotzdem übernehmen",
+    EN: "Apply anyway",
+  },
   loadSavesBtnRename: { DE: "Umbenennen", EN: "Rename" },
   loadSavesBtnExport: { DE: "Exportieren", EN: "Export" },
   loadSavesBtnDelete: { DE: "Löschen", EN: "Delete" },
@@ -750,7 +824,7 @@
   configLabelExtraSupplies: { DE: "Vorräte Extra", EN: "Extra Supplies" },
   configLabelExtraGoods: { DE: "Güter Extra", EN: "Extra Goods" },
   configLabelExtraTroops: { DE: "Truppen Extra", EN: "Extra Troops" },
-  configLabelShardsStart: { DE: "Scherben Start", EN: "Starting Shards" },
+  configLabelShardsStart: { DE: "Scherben Limit", EN: "Shards Limit" },
   configLabelCoinBoost: { DE: "Münzen % Boost", EN: "Coins % Boost" },
   configLabelSupplyBoost: { DE: "Vorräte % Boost", EN: "Supplies % Boost" },
   configLabelFightColor: { DE: "Farbe zum Kämpfen", EN: "Fight Color" },
@@ -810,6 +884,22 @@
   accountPrefWarnDeleteSubtree: {
     DE: "Warnung fürs Löschen von ganzen Aktionsketten",
     EN: "Warning for deleting full action chains",
+  },
+  accountPrefShardCountMode: {
+    DE: "Anzahl Scherben",
+    EN: "Shard Count",
+  },
+  accountPrefShardCountSpent: {
+    DE: "Verbraucht",
+    EN: "Spent",
+  },
+  accountPrefShardCountStock: {
+    DE: "Vorrätig",
+    EN: "Stocked",
+  },
+  accountPrefAllowShardLimitOverflow: {
+    DE: "Erlaube Scherben Limit Überschreitung",
+    EN: "Allow shard limit overflow",
   },
   accountPrefYes: { DE: "Ja", EN: "Yes" },
   accountPrefNo: { DE: "Nein", EN: "No" },

@@ -29,8 +29,8 @@ export function FixDeficitsModal({
     }
 
     if (deficits.shards && deficits.shards > 0) {
-      const currentStart = currentConfig?.shardsStart || 500;
-      fixes.shardsStart = currentStart + Math.ceil(deficits.shards);
+      const currentStart = currentConfig?.shardsLimit || 500;
+      fixes.shardsLimit = currentStart + Math.ceil(deficits.shards);
     }
 
     // For goods deficits, suggest increasing goodsStartBonus
@@ -263,7 +263,7 @@ export function FixDeficitsModal({
                       </span>
                     </div>
                   )}
-                  {fixes.shardsStart !== undefined && (
+                  {fixes.shardsLimit !== undefined && (
                     <div
                       style={{
                         display: "flex",
@@ -277,13 +277,13 @@ export function FixDeficitsModal({
                         alt="Shards"
                         style={{ width: "18px", height: "18px" }}
                       />
-                      <span>Start-Scherben:</span>
+                      <span>Scherben-Limit:</span>
                       <span style={{ color: "var(--ui-text-muted)" }}>
-                        {currentConfig?.shardsStart || 500}
+                        {currentConfig?.shardsLimit || 500}
                       </span>
                       <span>→</span>
                       <span style={{ color: "#22c55e", fontWeight: "600" }}>
-                        {fixes.shardsStart}
+                        {fixes.shardsLimit}
                       </span>
                     </div>
                   )}

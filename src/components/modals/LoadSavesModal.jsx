@@ -8,9 +8,12 @@ import {
   X,
   Settings,
 } from "lucide-react";
+import { useMemo } from "react";
 import { SaveConfigModal } from "./SaveConfigModal";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import { getSavefileStatusColor } from "../../config/colors";
+import { getSavefileSyncState } from "../../utils/saveConfig";
 
 export function LoadSavesModal({
   open,
@@ -24,6 +27,7 @@ export function LoadSavesModal({
   onSaveConfig,
   loadName = "",
   hasUnsavedChanges = false,
+  userConfig,
 }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
@@ -39,6 +43,16 @@ export function LoadSavesModal({
   const sortedNames = Object.keys(saves)
     .filter((name) => !saves[name]?.meta?.isSnapshot)
     .sort();
+  const saveStatuses = useMemo(() => {
+    const next = {};
+    sortedNames.forEach((name) => {
+      next[name] = getSavefileSyncState({
+        saveEntry: saves?.[name],
+        userConfig,
+      });
+    });
+    return next;
+  }, [sortedNames, saves, userConfig]);
 
   useEffect(() => {
     if (!open) {
@@ -203,7 +217,12 @@ export function LoadSavesModal({
                       </button>
                     </div>
                   ) : (
-                    <span className="load-saves-name">{name}</span>
+                    <span
+                      className="load-saves-name"
+                      style={{ color: getSavefileStatusColor(saveStatuses[name]) }}
+                    >
+                      {name}
+                    </span>
                   )}
                 </button>
 
@@ -319,13 +338,15 @@ export function LoadSavesModal({
       <SaveConfigModal
         open={!!configEditingName}
         saveName={configEditingName}
+        saveEntry={configEditingName ? saves[configEditingName] : null}
         saveConfig={
           configEditingName ? saves[configEditingName]?.saveConfig : null
         }
+        userConfig={userConfig}
         onClose={() => setConfigEditingName(null)}
-        onSave={(newConfig) => {
+        onSave={(newConfig, options) => {
           if (configEditingName) {
-            onSaveConfig?.(configEditingName, newConfig);
+            onSaveConfig?.(configEditingName, newConfig, options);
           }
         }}
       />

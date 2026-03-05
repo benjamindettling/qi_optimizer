@@ -284,12 +284,12 @@ export function AccountModal({
         />
       </label>
       <label className="config-row">
-        <Label icon={shardsIcon} text="Scherben Start" />
+        <Label icon={shardsIcon} text={t("configLabelShardsStart")} />
         <input
           {...numberProps}
-          value={draft.shardsStart ?? 500}
+          value={draft.shardsLimit ?? 500}
           onChange={(e) =>
-            updateField("shardsStart", Number(e.target.value) || 0)
+            updateField("shardsLimit", Number(e.target.value) || 0)
           }
         />
       </label>
@@ -523,6 +523,40 @@ export function AccountModal({
             onClick={() => updateField("placementMode", "single")}
           >
             Modus beenden
+          </button>
+        </div>
+      </div>
+      <div className="config-row">
+        <Label text={t("accountPrefShardCountMode")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.shardDisplayMode !== "stock" ? "active" : ""}
+            onClick={() => updateField("shardDisplayMode", "spent")}
+          >
+            {t("accountPrefShardCountSpent")}
+          </button>
+          <button
+            className={draft.shardDisplayMode === "stock" ? "active" : ""}
+            onClick={() => updateField("shardDisplayMode", "stock")}
+          >
+            {t("accountPrefShardCountStock")}
+          </button>
+        </div>
+      </div>
+      <div className="config-row">
+        <Label text={t("accountPrefAllowShardLimitOverflow")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.allowShardLimitOverflow !== false ? "active" : ""}
+            onClick={() => updateField("allowShardLimitOverflow", true)}
+          >
+            {t("accountPrefYes")}
+          </button>
+          <button
+            className={draft.allowShardLimitOverflow === false ? "active" : ""}
+            onClick={() => updateField("allowShardLimitOverflow", false)}
+          >
+            {t("accountPrefNo")}
           </button>
         </div>
       </div>

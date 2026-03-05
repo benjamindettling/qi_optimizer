@@ -14,6 +14,11 @@ import {
   buildLockChoiceState,
   prepareFastBuyModal,
 } from "../../domain/regions/regionController";
+import {
+  allowShardLimitOverflow,
+  canPayShardCost,
+  willShardCostExceedLimit,
+} from "../../utils/shards";
 
 // Region unlocks, debug tools, and related costs.
 export const useRegionHandlers = ({
@@ -23,7 +28,7 @@ export const useRegionHandlers = ({
   resources,
   layout,
   libraryMap,
-  allowNegativeShards,
+  config,
   effectiveResources,
   infiniteResources,
   debugRegions,
@@ -55,8 +60,9 @@ export const useRegionHandlers = ({
     resources: effectiveResources,
     layout,
     libraryMap,
-    allowNegativeShards,
+    config,
   });
+  const allowOverflow = allowShardLimitOverflow(config);
 
   const handleSetGoodsUnlocks = useCallback(
     (nextIdx) => {
@@ -163,7 +169,7 @@ export const useRegionHandlers = ({
           libraryMap,
           currentGoodsCost,
           currentShardCost,
-          allowNegativeShards,
+          config,
           adminMode: !!infiniteResources,
         });
         setUnlockChoice(choice);
@@ -231,8 +237,12 @@ export const useRegionHandlers = ({
         }
         if (
           !infiniteResources &&
-          !allowNegativeShards &&
-          (effectiveResources.shards ?? 0) < currentShardCost
+          !canPayShardCost({
+            shards: effectiveResources.shards ?? 0,
+            cost: currentShardCost,
+            config,
+            infiniteResources,
+          })
         ) {
           updateStatus("Need more shards to unlock.");
           return;
@@ -275,7 +285,7 @@ export const useRegionHandlers = ({
       libraryMap,
       currentGoodsCost,
       currentShardCost,
-      allowNegativeShards,
+      config,
       infiniteResources,
       effectiveResources,
       goodsUnlocks,
@@ -341,16 +351,16 @@ export const useRegionHandlers = ({
         libraryMap,
         currentGoodsCost,
         currentShardCost,
-        allowNegativeShards,
+        config,
         adminMode: true,
       });
       setUnlockChoice(choice);
       setUnlockGoodSelect(null);
     },
     [
-      allowNegativeShards,
       currentGoodsCost,
       currentShardCost,
+      config,
       debugRegions,
       layout,
       libraryMap,
@@ -460,6 +470,11 @@ export const useRegionHandlers = ({
     hasAnyGoodsProducer,
     hasAnyGoodsEnough,
     canAnyUnlock,
+    allowShardOverflow: allowOverflow,
+    shardCostOverLimit: willShardCostExceedLimit({
+      shards: effectiveResources.shards ?? 0,
+      cost: currentShardCost,
+    }),
     handleSetGoodsUnlocks,
     handleSetShardUnlocks,
     handleUnlockRegion,

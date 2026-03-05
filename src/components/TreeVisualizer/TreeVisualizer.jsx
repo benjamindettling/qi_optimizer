@@ -204,6 +204,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const dragThreshold = 5; // Pixels of movement before considering it a drag
   const [deleteHoverNodeId, setDeleteHoverNodeId] = useState(null);
   const [deleteHoverBranch, setDeleteHoverBranch] = useState(null); // { parentId, childId }
+  const [hoveredCheckpointMarker, setHoveredCheckpointMarker] = useState(null);
 
   // Config matching treeHistory
   const cfg = useMemo(
@@ -739,6 +740,18 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     [activeRootId, activeChildrenMap],
   );
 
+  const handleSelectCheckpointTarget = useCallback(
+    (targetNodeId) => {
+      if (targetNodeId == null) return;
+      const resolvedTarget = resolveCollapsedSelection(targetNodeId);
+      setInternalSelected(resolvedTarget);
+      setSelectedEdge(null);
+      setBranchPopup(null);
+      onSelectNode?.(resolvedTarget);
+    },
+    [onSelectNode, resolveCollapsedSelection],
+  );
+
   // Compute depths (distance from root within each checkpoint group)
   const computeDepths = useCallback(() => {
     const depth = new Map();
@@ -988,22 +1001,22 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         groupMaxDepth.set(groupNum, maxD);
       }
 
-      // Calculate checkpoint line X positions
-      // Each checkpoint line is placed after the furthest non-checkpoint node in that group
+      // Calculate checkpoint line X positions.
+      // The guide line sits midway on the edge before the checkpoint node.
       const checkpointLineX = new Map();
+      const groupBaseX = new Map();
       let accumulatedX = cfg.leftPadding;
 
       for (let g = 0; g <= maxGroup; g++) {
+        groupBaseX.set(g, accumulatedX);
         const maxD = groupMaxDepth.get(g) ?? 0;
-        // Checkpoint line is after the max depth in this group
-        const lineX = accumulatedX + (maxD + 1) * cfg.unitX;
+        const lineX = accumulatedX + (maxD + 0.5) * cfg.unitX;
         checkpointLineX.set(g, lineX);
-        // Next group starts after the checkpoint line + some spacing
-        accumulatedX = lineX + cfg.checkpointSpacing;
+        const checkpointNodeX = lineX + cfg.unitX * 0.5;
+        accumulatedX = checkpointNodeX + cfg.checkpointSpacing;
       }
 
       const positions = new Map();
-      const checkpointXPositions = [];
 
       for (const n of internalNodes) {
         if (!activeNodeIds.has(n.id)) continue;
@@ -1013,15 +1026,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
         let x;
         if (n.isCheckpoint) {
-          // Checkpoint nodes sit on the checkpoint line
-          x = checkpointLineX.get(group);
-          checkpointXPositions.push(x);
+          x = (checkpointLineX.get(group) ?? cfg.leftPadding) + cfg.unitX * 0.5;
         } else {
           // Non-checkpoint nodes: position based on depth since last checkpoint
-          const baseX =
-            group > 0
-              ? checkpointLineX.get(group - 1) + cfg.checkpointSpacing
-              : cfg.leftPadding;
+          const baseX = groupBaseX.get(group) ?? cfg.leftPadding;
           const dSinceCP =
             depthSinceCheckpoint.get(n.id) ?? depth.get(n.id) ?? 0;
           x = baseX + dSinceCP * cfg.unitX;
@@ -1036,17 +1044,12 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         kids.forEach((k, idx) => childIndexMap.set(`${pId}|${k.id}`, idx));
       }
 
-      // Deduplicate checkpoint X positions
-      const uniqueCheckpointX = [...new Set(checkpointXPositions)].sort(
-        (a, b) => a - b,
-      );
-
       return {
         positions,
         depth,
         rowStarts,
         childIndexMap,
-        checkpointXPositions: uniqueCheckpointX,
+        checkpointLineX,
       };
     },
     [
@@ -1184,7 +1187,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const gCheckpoints = gRoot.append("g").attr("class", "checkpoints");
     const gLinks = gRoot.append("g").attr("class", "links");
     const gNodes = gRoot.append("g").attr("class", "nodes");
-    const gLabels = svg.append("g").attr("class", "checkpoint-labels");
+    const gCheckpointOverlay = svg
+      .append("g")
+      .attr("class", "checkpoint-overlay");
 
     const zoom = d3
       .zoom()
@@ -1196,7 +1201,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             const target = event.target;
             if (
               target.closest(
-                ".node-group, .square-group, .triangle-group, .edge-hit",
+                ".node-group, .square-group, .triangle-group, .edge-hit, .checkpoint-marker, .checkpoint-line, .checkpoint-label",
               )
             ) {
               return false;
@@ -1224,7 +1229,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       gCheckpoints,
       gLinks,
       gNodes,
-      gLabels,
+      gCheckpointOverlay,
       zoom,
     };
 
@@ -1577,10 +1582,10 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const api = apiRef.current;
     if (!api || internalNodes.length === 0) return;
 
-    const { gCheckpoints, gLinks, gNodes } = api;
+    const { gCheckpoints, gCheckpointOverlay, gLinks, gNodes } = api;
 
     const { visibleNodes, hiddenEdgeHints, showAll } = computeVisibility();
-    const { positions, childIndexMap, checkpointXPositions } = computePositions(
+    const { positions, childIndexMap, checkpointLineX } = computePositions(
       visibleNodes,
       showAll,
     );
@@ -1841,65 +1846,134 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         .attr("opacity", 0.6);
     }
 
-    // Draw checkpoint vertical lines - very long for zoomed out view
-    gCheckpoints.selectAll("*").remove();
-    // Also add root line at x = cfg.leftPadding
-    const allLinePositions = [cfg.leftPadding, ...(checkpointXPositions || [])];
-    const lineExtent = 10000; // Very long lines for zoom out
-
-    gCheckpoints
-      .selectAll("line.checkpoint-line")
-      .data(allLinePositions)
-      .join("line")
-      .attr("class", "checkpoint-line")
-      .attr("x1", (d) => d)
-      .attr("y1", -lineExtent)
-      .attr("x2", (d) => d)
-      .attr("y2", lineExtent)
-      .attr("stroke", (d, i) =>
-        i === 0 ? "#60a5fa" : actionColors.checkpoint || "#004d4d",
-      )
-      .attr("stroke-width", 2)
-      .attr("stroke-dasharray", "8 4")
-      .attr("opacity", 0.5);
-
-    // Update checkpoint labels (in fixed position group)
-    const { gLabels } = api;
-    if (gLabels) {
-      gLabels.selectAll("*").remove();
-      const labelY = height - 20; // Fixed at bottom of viewport
-
-      allLinePositions.forEach((xPos, i) => {
-        // Transform x position to screen coordinates
-        const screenX = xPos * currentTransform.k + currentTransform.x;
-
-        // Only show if visible in viewport
-        if (screenX >= -20 && screenX <= width + 20) {
-          gLabels
-            .append("text")
-            .attr("class", "checkpoint-label")
-            .attr("x", screenX)
-            .attr("y", labelY)
-            .attr("text-anchor", "middle")
-            .attr(
-              "fill",
-              i === 0 ? "#60a5fa" : actionColors.checkpoint || "#004d4d",
-            )
-            .attr("font-size", "14px")
-            .attr("font-weight", "bold")
-            .text(i + 1);
-        }
+    const checkpointMarkers = [];
+    const rootPos = positions.get(activeRootId);
+    if (rootPos) {
+      checkpointMarkers.push({
+        key: "checkpoint-root",
+        label: 0,
+        worldX: rootPos.x,
+        targetNodeId: activeRootId,
       });
     }
+
+    let mainBranchCursor = activeRootId;
+    const seenMainBranch = new Set();
+    let checkpointIndex = 1;
+    while (mainBranchCursor != null && !seenMainBranch.has(mainBranchCursor)) {
+      seenMainBranch.add(mainBranchCursor);
+      const firstChild = (activeChildrenMap.get(mainBranchCursor) ?? [])[0];
+      if (!firstChild) break;
+      const childNode = nodeMap.get(firstChild.id);
+      if (childNode?.isCheckpoint) {
+        const group = positions.get(firstChild.id)?.checkpointGroup;
+        const worldX = group != null ? checkpointLineX.get(group) : null;
+        if (worldX != null) {
+          checkpointMarkers.push({
+            key: `checkpoint-${checkpointIndex}`,
+            label: checkpointIndex,
+            worldX,
+            targetNodeId: mainBranchCursor,
+          });
+          checkpointIndex += 1;
+        }
+      }
+      mainBranchCursor = firstChild.id;
+    }
+
+    // Draw checkpoint vertical lines and labels in fixed screen space.
+    gCheckpoints.selectAll("*").remove();
+    gCheckpointOverlay.selectAll("*").remove();
+    const overlayMarkers = checkpointMarkers
+      .map((marker) => ({
+        ...marker,
+        screenX: marker.worldX * currentTransform.k + currentTransform.x,
+      }))
+      .filter((marker) => marker.screenX >= -24 && marker.screenX <= width + 24);
+    const markerColor = actionColors.checkpoint || "#004d4d";
+    const labelY = height - 20;
+
+    const checkpointOverlay = gCheckpointOverlay
+      .selectAll("g.checkpoint-marker")
+      .data(overlayMarkers, (d) => d.key)
+      .join((enter) => {
+        const g = enter
+          .append("g")
+          .attr("class", "checkpoint-marker")
+          .style("pointer-events", "none");
+        g.append("line").attr("class", "checkpoint-line-hit");
+        g.append("line").attr("class", "checkpoint-line");
+        g.append("text").attr("class", "checkpoint-label");
+        return g;
+      });
+
+    checkpointOverlay.each((d, index, nodesArr) => {
+      const group = d3.select(nodesArr[index]);
+      const isHovered = hoveredCheckpointMarker === d.key;
+
+      group
+        .select("line.checkpoint-line-hit")
+        .attr("x1", d.screenX)
+        .attr("y1", 0)
+        .attr("x2", d.screenX)
+        .attr("y2", height)
+        .attr("stroke", "transparent")
+        .attr("stroke-width", 18)
+        .attr("opacity", 0)
+        .style("pointer-events", "stroke")
+        .style("cursor", "pointer")
+        .on("mouseenter", () => setHoveredCheckpointMarker(d.key))
+        .on("mouseleave", () =>
+          setHoveredCheckpointMarker((prev) => (prev === d.key ? null : prev)),
+        )
+        .on("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handleSelectCheckpointTarget(d.targetNodeId);
+        });
+
+      group
+        .select("line.checkpoint-line")
+        .attr("x1", d.screenX)
+        .attr("y1", 0)
+        .attr("x2", d.screenX)
+        .attr("y2", height)
+        .attr("stroke", isHovered ? "#ffffff" : markerColor)
+        .attr("stroke-width", isHovered ? 3 : 2)
+        .attr("stroke-dasharray", "8 4")
+        .attr("opacity", isHovered ? 0.95 : 0.55)
+        .style("pointer-events", "none");
+
+      group
+        .select("text.checkpoint-label")
+        .attr("x", d.screenX)
+        .attr("y", labelY)
+        .attr("text-anchor", "middle")
+        .attr("fill", isHovered ? "#ffffff" : markerColor)
+        .attr("font-size", isHovered ? "15px" : "14px")
+        .attr("font-weight", "bold")
+        .style("pointer-events", "auto")
+        .style("cursor", "pointer")
+        .text(d.label)
+        .on("mouseenter", () => setHoveredCheckpointMarker(d.key))
+        .on("mouseleave", () =>
+          setHoveredCheckpointMarker((prev) => (prev === d.key ? null : prev)),
+        )
+        .on("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          handleSelectCheckpointTarget(d.targetNodeId);
+        });
+    });
 
     // Draw nodes - clear and redraw with different shapes
     gNodes.selectAll("*").remove();
 
     // Helper to create triangle path
     const trianglePath = (x, y, r) => {
-      const h = r * 1.5; // Height
-      const w = r * 1.3; // Half-width
-      return `M ${x - w} ${y + h * 0.5} L ${x + w} ${y + h * 0.5} L ${x} ${y - h * 0.6} Z`;
+      const h = r * 1.2;
+      const w = r * 1.45;
+      return `M ${x - w * 0.55} ${y - h} L ${x - w * 0.55} ${y + h} L ${x + w * 0.7} ${y} Z`;
     };
 
     // Helper for node stroke based on selection, drop target, and validity flags
@@ -2299,6 +2373,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     collectSubtreeNodeIds,
     handleDeleteAction,
     handleDragStart,
+    handleSelectCheckpointTarget,
+    hoveredCheckpointMarker,
+    activeRootId,
   ]);
 
   // Navigation handlers

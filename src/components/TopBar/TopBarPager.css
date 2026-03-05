@@ -75,6 +75,7 @@
 
 .panel--menu {
   justify-content: flex-end;
+  padding-right: 5.5rem;
 }
 
 /* Stats panel content */
@@ -251,7 +252,7 @@
 
 .menu-panel .menu-button-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
@@ -328,11 +329,58 @@
   font-size: 0.8125rem;
 }
 
-.menu-panel .menu-lang-btn.lang-toggle-btn {
-  width: 44px;
-  height: 44px;
-  justify-content: center;
-  font-size: 16px;
+.menu-save-modal {
+  width: 400px;
+}
+
+.menu-save-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.menu-save-modal-label {
+  color: var(--color-text);
+  font-weight: 700;
+}
+
+.menu-save-modal-input {
+  width: 100%;
+  background: var(--color-panel-bg-alt);
+  color: var(--color-text-strong);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.menu-save-modal-cancel {
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  color: var(--color-text);
+}
+
+.menu-save-modal-confirm {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  color: var(--color-bg);
+}
+
+.menu-save-modal-confirm:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.menu-save-modal-cancel,
+.menu-save-modal-confirm {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.menu-save-modal-cancel:hover,
+.menu-save-modal-confirm:hover:not(:disabled) {
+  filter: brightness(1.1);
 }
 
 /* Save dropdown styles (used in MenuPanel) */
@@ -434,4 +482,10 @@
   height: 1px;
   background: var(--color-border);
   margin: 4px 0;
+}
+
+@media (max-width: 900px) {
+  .panel--menu {
+    padding-right: 4.75rem;
+  }
 }

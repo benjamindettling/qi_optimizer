@@ -1,19 +1,13 @@
 /* SaveConfigModal styling */
 
 .save-config-modal {
-  max-width: 450px;
+  max-width: 520px;
   display: flex;
   flex-direction: column;
 }
 
 .save-config-content {
-  padding: 16px 0;
-}
-
-.save-config-description {
-  margin-bottom: 16px;
-  color: var(--color-text-soft);
-  font-size: 0.9em;
+  padding: 8px 0 0;
 }
 
 .save-config-actions {
@@ -22,6 +16,23 @@
   justify-content: flex-end;
   padding-top: 16px;
   border-top: 1px solid var(--color-border);
+}
+
+.save-config-secondary-actions {
+  display: flex;
+  justify-content: flex-start;
+  padding-top: 16px;
+}
+
+.save-config-secondary-btn,
+.save-config-user-btn {
+  padding: 10px 14px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .save-config-save-btn {
@@ -35,6 +46,8 @@
   transition: all 0.2s ease;
 }
 
+.save-config-secondary-btn:hover,
+.save-config-user-btn:hover,
 .save-config-save-btn:hover {
   filter: brightness(1.1);
 }
@@ -51,4 +64,45 @@
 
 .save-config-cancel-btn:hover {
   filter: brightness(1.2);
+}
+
+.save-config-warning-modal {
+  max-width: 520px;
+}
+
+.save-config-warning-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.save-config-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.save-config-warning-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-panel-bg);
+}
+
+.save-config-danger-btn {
+  padding: 10px 20px;
+  background: var(--ui-error-red);
+  border: 1px solid var(--ui-error-red);
+  border-radius: var(--radius-sm);
+  color: var(--ui-white);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-config-danger-btn:hover {
+  filter: brightness(1.1);
 }

@@ -16,6 +16,7 @@ import { HappinessPanel } from "./HappinessPanel";
 import { ResourceStack } from "./ResourceStack";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import { getDisplayedShards, isShardLimitExceeded } from "../../utils/shards";
 
 export function StatsPanel({
   resources,
@@ -58,6 +59,10 @@ export function StatsPanel({
 
   const adminEnabled = adminMode && !editingLocked;
   const valueClassFor = (value) => ((value ?? 0) < 0 ? "text-negative" : "");
+  const displayedShards = getDisplayedShards(resources.shards, config);
+  const shardValueClass = isShardLimitExceeded(resources.shards)
+    ? "text-negative"
+    : "";
 
   const resourceEntries = [
     {
@@ -103,8 +108,8 @@ export function StatsPanel({
       key: "shards",
       label: t("resourceShards"),
       icon: shardsIcon,
-      value: resources.shards,
-      valueClass: valueClassFor(resources.shards),
+      value: displayedShards,
+      valueClass: shardValueClass,
       onEdit: () =>
         onEditResource?.({
           key: "shards",

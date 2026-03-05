@@ -67,7 +67,7 @@ function ConfigSetupModal({ config, onSave, onCancel, lang }) {
       "extraSupplies",
       "goodsStartBonus",
       "troopsStartBonus",
-      "shardsStart",
+      "shardsLimit",
       "coinBoost",
       "supplyBoost",
       "redAttackBoost",
@@ -168,9 +168,9 @@ function ConfigSetupModal({ config, onSave, onCancel, lang }) {
                 <Label icon={shardsIcon} text={t("configLabelShardsStart")} />
                 <input
                   {...NUMBER_PROPS}
-                  value={draft.shardsStart ?? 500}
+                  value={draft.shardsLimit ?? 500}
                   onChange={(e) =>
-                    updateField("shardsStart", Number(e.target.value) || 0)
+                    updateField("shardsLimit", Number(e.target.value) || 0)
                   }
                 />
               </label>

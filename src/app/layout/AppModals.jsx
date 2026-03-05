@@ -110,6 +110,7 @@ export function AppModals({
     handleEnableEditFromPast,
     closePastEditModal,
     hasUnsavedChanges,
+    userConfig,
   } = controller;
 
   const handleHarvestModalClose = (fn) => {
@@ -151,7 +152,7 @@ export function AppModals({
         }}
         onCancel={() => setUnlockChoice(null)}
         shards={resources?.shards ?? 0}
-        allowNegativeShards={!!config?.allowNegativeShards}
+        config={config}
       />
 
       <ChooseGoodModal
@@ -266,6 +267,7 @@ export function AppModals({
         onImport={handleImportSelected}
         onSaveConfig={handleUpdateSaveConfig}
         hasUnsavedChanges={hasUnsavedChanges}
+        userConfig={userConfig}
       />
       <WorstRemovalModal
         open={!!worstModal}

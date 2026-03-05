@@ -11,9 +11,15 @@ import { buildInitialGameState, buildLibrary } from "../../config/initialState";
 import { useResources } from "../useResources";
 import { useConfig } from "../useConfig";
 import { isAreaFree } from "../../utils/layoutUtils";
+import { extractSaveConfig } from "../../utils/saveConfig";
 import { isCellUnlocked as regionIsCellUnlocked } from "../../domain/regions/regionController";
 import { isTierLocked } from "../../config/buildingTiers";
 import { TOWNHALL_START_POSITION } from "../../config/gameDefaults";
+import {
+  allowShardLimitOverflow,
+  getShardLimit,
+  normalizeConfigWithShardSettings,
+} from "../../utils/shards";
 
 const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
 const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
@@ -45,19 +51,13 @@ export const useGameState = () => {
   // Effective config: merge userConfig with activeSaveConfig (save takes precedence for resource fields)
   const config = useMemo(() => {
     if (!activeSaveConfig) return userConfig;
-    // Merge: save config overrides user config for resource-related fields
-    return {
+    return normalizeConfigWithShardSettings({
       ...userConfig,
-      extraCoins: activeSaveConfig.extraCoins ?? userConfig.extraCoins,
-      extraSupplies: activeSaveConfig.extraSupplies ?? userConfig.extraSupplies,
-      goodsStartBonus: activeSaveConfig.goodsStartBonus ?? userConfig.goodsStartBonus,
-      troopsStartBonus: activeSaveConfig.troopsStartBonus ?? userConfig.troopsStartBonus,
-      coinBoost: activeSaveConfig.coinBoost ?? userConfig.coinBoost,
-      supplyBoost: activeSaveConfig.supplyBoost ?? userConfig.supplyBoost,
-    };
+      ...extractSaveConfig(activeSaveConfig),
+    });
   }, [userConfig, activeSaveConfig]);
   
-  const allowNegativeShards = !!config?.allowNegativeShards;
+  const allowOverflow = allowShardLimitOverflow(config);
 
   const initialState = useMemo(
     () => buildInitialGameState({ libraryMap, townhallDef }),
@@ -75,7 +75,7 @@ export const useGameState = () => {
       const goodsStart = Math.floor(Number(cfg?.goodsStartBonus ?? 0) / 5);
       // Divide by 5 and floor - adds to Katapult only (other 80% of units not tracked)
       const troopsStart = Math.floor(Number(cfg?.troopsStartBonus ?? 0) / 5);
-      const shardsStart = Number(cfg?.shardsStart ?? base.shards ?? 0);
+      const shardsStart = getShardLimit(cfg, base.shards ?? 0);
       return {
         ...base,
         coins: (base.coins ?? 0) + (cfg?.extraCoins ?? 0),
@@ -475,7 +475,8 @@ export const useGameState = () => {
     configStartResources,
     configRevision,
     updateConfig,
-    allowNegativeShards,
+    allowNegativeShards: allowOverflow,
+    allowShardLimitOverflow: allowOverflow,
     resources,
     setResources,
     spendResources,

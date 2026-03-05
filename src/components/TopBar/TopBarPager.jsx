@@ -1,11 +1,13 @@
 ﻿// TopBar with horizontal pager for responsive regions
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { StatsPanel } from "./StatsPanel";
 import { StepTracker } from "./StepTracker";
 import { MenuPanel } from "./MenuPanel";
+import { getSavefileStatusColor } from "../../config/colors";
 import { useLang } from "../../context/LanguageContext";
 import { useTutorialGate } from "../../hooks/useTutorialGate";
+import { getSavefileSyncState } from "../../utils/saveConfig";
 import "./TopBarPager.css";
 
 const PANEL_MIN_WIDTHS = {
@@ -34,6 +36,7 @@ export function TopBarPager({
   onSave,
   onLoad,
   saves,
+  userConfig,
   loadName,
   setLoadName,
   onDeleteSave,
@@ -116,6 +119,18 @@ export function TopBarPager({
     lang === "EN"
       ? "Show next topbar section"
       : "Nächsten TopBar-Bereich anzeigen";
+  const currentSaveStatus = useMemo(
+    () =>
+      !loadName
+        ? null
+        :
+      getSavefileSyncState({
+        saveEntry: loadName ? saves?.[loadName] : null,
+        userConfig,
+      }),
+    [loadName, saves, userConfig],
+  );
+  const currentSaveColor = getSavefileStatusColor(currentSaveStatus);
 
   return (
     <header className={`topbar-pager-container${topbarLocked ? " tutorial-zone-locked" : ""}`}>
@@ -149,6 +164,7 @@ export function TopBarPager({
             <StepTracker
               timeStep={timeStep}
               loadName={loadName}
+              saveNameColor={currentSaveColor}
               canStepBack={canStepBack}
               canStepForward={canStepForward}
               onJumpPrevCheckpoint={onJumpPrevCheckpoint}

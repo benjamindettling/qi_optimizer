@@ -586,6 +586,7 @@ export function AppLayout({
             onSave={wrappedTopBarSave}
             onLoad={wrappedTopBarLoad}
             saves={toolbarProps.saves}
+            userConfig={toolbarProps.userConfig}
             loadName={toolbarProps.loadName}
             setLoadName={toolbarProps.setLoadName}
             onDeleteSave={toolbarProps.onDeleteSave}
