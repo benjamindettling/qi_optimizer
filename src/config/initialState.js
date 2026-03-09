@@ -32,6 +32,7 @@ export const buildLibrary = () => {
 };
 
 export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
+  void libraryMap;
   const initialTownhall = townhallDef
     ? [
         {
@@ -74,7 +75,7 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     editGoodModal: null,
     unlockChoice: null,
     unlockGoodSelect: null,
-    viewMode: "down",
+    viewMode: "right",
     timeStep: 1,
     status: "",
     readyMap,

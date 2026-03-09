@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG = {
   qaHarvestHours: 12,
   allowShardLimitOverflow: true,
   // Preferences
-  viewMode: "diagonal",
+  viewMode: "right",
   skipToEnd: true,
   colorTheme: "dark",
   placementMode: "single",

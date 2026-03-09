@@ -17,21 +17,27 @@ export function useConfig() {
     }
   });
 
-  const updateConfig = (partial) => {
+  const updateConfig = (partial, options = {}) => {
+    const shouldPersist = options.persist !== false;
     setConfig((prev) => {
       const next = normalizeConfigWithShardSettings({ ...prev, ...partial });
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      if (shouldPersist) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      }
       return next;
     });
   };
 
-  const replaceConfig = (nextConfig) => {
+  const replaceConfig = (nextConfig, options = {}) => {
+    const shouldPersist = options.persist !== false;
     const normalized = normalizeConfigWithShardSettings({
       ...DEFAULT_CONFIG,
       ...(nextConfig || {}),
     });
     setConfig(normalized);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    if (shouldPersist) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+    }
   };
 
   return { config, updateConfig, replaceConfig };

@@ -5,6 +5,7 @@ import {
   aggregateHarvest,
   buildHarvestResult,
   finishProductionsReadyMap,
+  getLockedCultureAutoHarvest,
 } from "../../domain/production/productionController";
 
 // Harvesting and production flows.
@@ -148,16 +149,34 @@ export const useProductionHandlers = ({
     setCheckpointIndex(null);
     setEditUnlocked(false);
     const label = "Beende alle Prod.";
+    const { lockedCultureIds, qa: lockedCultureQa } =
+      getLockedCultureAutoHarvest(layout, libraryMap, buildLocks, {
+        qaHoursPerHarvest,
+      });
     setNotes("");
-    setReadyMap((prev) =>
-      finishProductionsReadyMap(layout, libraryMap, prev, buildLocks),
-    );
+    setReadyMap((prev) => {
+      const next = finishProductionsReadyMap(layout, libraryMap, prev, buildLocks);
+      lockedCultureIds.forEach((id) => {
+        next[id] = false;
+      });
+      return next;
+    });
+    if (lockedCultureIds.length) {
+      setBuildLocks((prev) => {
+        const next = { ...prev };
+        lockedCultureIds.forEach((id) => {
+          next[id] = false;
+        });
+        return next;
+      });
+    }
     if (!infiniteResources) {
       const baseQa = qaBasePerHour * qaHoursPerHarvest;
-      if (baseQa > 0) {
+      const totalQa = baseQa + lockedCultureQa;
+      if (totalQa > 0) {
         setResources((prev) => ({
           ...prev,
-          quantumActions: (prev.quantumActions ?? 0) + baseQa,
+          quantumActions: (prev.quantumActions ?? 0) + totalQa,
         }));
       }
     }
@@ -181,6 +200,7 @@ export const useProductionHandlers = ({
     setResources,
     setReadyMap,
     setTimeStep,
+    setBuildLocks,
     updateStatus,
     editingLocked,
     trimFutureCheckpoints,

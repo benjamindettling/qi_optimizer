@@ -107,6 +107,26 @@ export const finishProductionsReadyMap = (
     return acc;
   }, {});
 
+export const getLockedCultureAutoHarvest = (
+  layout,
+  libraryMap,
+  buildLocks = {},
+  { qaHoursPerHarvest = 0 } = {}
+) => {
+  const lockedCultureIds = [];
+  let qa = 0;
+
+  (layout ?? []).forEach((inst) => {
+    if (!buildLocks?.[inst.id]) return;
+    const def = libraryMap?.[inst.defId];
+    if (def?.category !== "culture") return;
+    lockedCultureIds.push(inst.id);
+    qa += (def.quantumActions ?? 0) * qaHoursPerHarvest;
+  });
+
+  return { lockedCultureIds, qa };
+};
+
 export const buildHarvestResult = ({ total, resources }) => ({
   coins: (resources.coins ?? 0) + total.coins,
   supplies: (resources.supplies ?? 0) + total.supplies,

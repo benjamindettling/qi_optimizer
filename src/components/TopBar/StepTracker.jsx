@@ -38,16 +38,20 @@ export function StepTracker({
 
   return (
     <div className="step-tracker-panel" data-tutorial-zone="topbar-steps">
-      <div className="step-display">
+      <div className="step-display" data-help-id="step-time-display">
         <span className="step-main">
           {t("stepLabel")} {stepVal}
         </span>
         <span className="step-day">{dayDisplay}</span>
-        <span className="step-savename" style={{ color: saveNameColor }}>
+        <span
+          className="step-savename"
+          style={{ color: saveNameColor }}
+          data-help-id="step-save-name"
+        >
           {loadName || "-"}
         </span>
       </div>
-      <div className="step-buttons">
+      <div className="step-buttons" data-help-id="step-skip-buttons">
         <button
           className="step-btn"
           onClick={onJumpPrevCheckpoint}

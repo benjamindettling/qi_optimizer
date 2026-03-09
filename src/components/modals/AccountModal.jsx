@@ -16,13 +16,10 @@ import suppliesIcon from "/supplies.webp";
 import goodsIcon from "/goods/Kupfer.webp";
 import troopIcon from "/troop.webp";
 import shardsIcon from "/shards.webp";
-import redAttackIcon from "/fight/red_attack.webp";
-import redDefenseIcon from "/fight/red_defense.webp";
-import blueAttackIcon from "/fight/blue_attack.webp";
-import blueDefenseIcon from "/fight/blue_defense.webp";
 import qaIcon from "/quantum_actions.webp";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import { DEFAULT_CONFIG } from "../../config/gameDefaults";
 import "./AccountModal.css";
 
 const TAB_KEYS = [
@@ -33,12 +30,23 @@ const TAB_KEYS = [
 ];
 
 const isValidTabKey = (tabKey) => TAB_KEYS.includes(tabKey);
+const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
+const CONFIG_KEY_SET = new Set(CONFIG_KEYS);
+
+const buildConfigPayload = (source = {}) =>
+  CONFIG_KEYS.reduce((acc, key) => {
+    if (source[key] !== undefined) {
+      acc[key] = source[key];
+    }
+    return acc;
+  }, {});
 
 export function AccountModal({
   open,
   onClose,
   config,
   onSave,
+  onPreviewConfig,
   onApplyStartBonus,
   viewMode,
   setViewMode,
@@ -57,6 +65,12 @@ export function AccountModal({
 }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
+  // Legacy preference hooks kept wired for future re-introduction.
+  void toolbarPosition;
+  void setToolbarPosition;
+  void boardScale;
+  void setBoardScale;
+  void onApplyStartBonus;
   const navigate = useNavigate();
   const location = useLocation();
   const mainTabs = [
@@ -71,6 +85,12 @@ export function AccountModal({
     { key: "privacy", label: t("accountTabPrivacy") },
   ];
   const allTabs = [...mainTabs, ...legalTabs];
+  const mainTabHelpIds = {
+    account: "profile-tab-account",
+    config: "profile-tab-config",
+    preferences: "profile-tab-preferences",
+    premium: "profile-tab-premium",
+  };
 
   const { user, authLoading, logout } = useAuth();
   const [activeTab, setActiveTab] = useState("account");
@@ -101,39 +121,35 @@ export function AccountModal({
     }
   }
 
-  // Initialize draft with config merged with current view preferences
-  const initialDraft = useMemo(
-    () => ({
+  const buildModalDraft = useMemo(
+    () => () => ({
       ...config,
-      viewMode: viewMode,
-      toolbarPosition: toolbarPosition,
-      boardScale: Math.round((boardScale ?? 1) * 100),
-      warnDeleteSingleAction: warnDeleteSingleAction,
-      warnDeleteSubtree: warnDeleteSubtree,
-    }),
-    [
-      config,
       viewMode,
-      toolbarPosition,
-      boardScale,
       warnDeleteSingleAction,
       warnDeleteSubtree,
-    ],
+    }),
+    [config, viewMode, warnDeleteSingleAction, warnDeleteSubtree],
   );
 
+  const buildPreviewSnapshot = useMemo(
+    () => () => ({
+      config: buildConfigPayload(config),
+      viewMode,
+      warnDeleteSingleAction,
+      warnDeleteSubtree,
+    }),
+    [config, viewMode, warnDeleteSingleAction, warnDeleteSubtree],
+  );
+
+  const initialDraft = useMemo(() => buildModalDraft(), [buildModalDraft]);
+  const [openSnapshot, setOpenSnapshot] = useState(buildPreviewSnapshot());
   const [draft, setDraft] = useState(initialDraft);
 
   // Reset draft when modal opens
   const [lastOpen, setLastOpen] = useState(open);
   if (open && !lastOpen) {
-    setDraft({
-      ...config,
-      viewMode: viewMode,
-      toolbarPosition: toolbarPosition,
-      boardScale: Math.round((boardScale ?? 1) * 100),
-      warnDeleteSingleAction: warnDeleteSingleAction,
-      warnDeleteSubtree: warnDeleteSubtree,
-    });
+    setDraft(buildModalDraft());
+    setOpenSnapshot(buildPreviewSnapshot());
   }
   if (open !== lastOpen) {
     setLastOpen(open);
@@ -149,6 +165,34 @@ export function AccountModal({
 
   const updateField = (key, val) => {
     setDraft((prev) => ({ ...prev, [key]: val }));
+
+    if (key === "viewMode") {
+      setViewMode(val, { persist: false });
+      return;
+    }
+    if (key === "warnDeleteSingleAction") {
+      setWarnDeleteSingleAction(val, { persist: false });
+      return;
+    }
+    if (key === "warnDeleteSubtree") {
+      setWarnDeleteSubtree(val, { persist: false });
+      return;
+    }
+    if (CONFIG_KEY_SET.has(key)) {
+      onPreviewConfig?.({ [key]: val }, { persist: false });
+    }
+  };
+
+  const restorePreviewSnapshot = () => {
+    onPreviewConfig?.(openSnapshot.config, { persist: false });
+    setViewMode(openSnapshot.viewMode, { persist: false });
+    setWarnDeleteSingleAction(openSnapshot.warnDeleteSingleAction, { persist: false });
+    setWarnDeleteSubtree(openSnapshot.warnDeleteSubtree, { persist: false });
+  };
+
+  const handleCancel = () => {
+    restorePreviewSnapshot();
+    onClose?.();
   };
 
   const openLegalPage = (tabKey) => {
@@ -159,52 +203,40 @@ export function AccountModal({
           ? "/imprint"
           : "/privacy";
     const from = location.pathname === "/simulator" ? "/simulator" : "/";
-    onClose?.();
+    handleCancel();
     navigate(route, { state: { from } });
   };
 
   const handleSave = async () => {
     setSaveError("");
 
-    // Compute final preference values
+    const finalConfig = buildConfigPayload(draft);
     const finalViewMode = draft.viewMode ?? viewMode;
-    const finalToolbarPosition = draft.toolbarPosition ?? toolbarPosition;
-    const finalBoardScale =
-      Math.max(1, Math.min(500, draft.boardScale ?? 100)) / 100;
     const finalWarnDeleteSingleAction =
       draft.warnDeleteSingleAction ?? warnDeleteSingleAction;
     const finalWarnDeleteSubtree =
       draft.warnDeleteSubtree ?? warnDeleteSubtree;
 
-    // Apply preference settings locally
-    if (viewMode !== finalViewMode) {
-      setViewMode(finalViewMode);
-    }
-    if (toolbarPosition !== finalToolbarPosition) {
-      setToolbarPosition(finalToolbarPosition);
-    }
-    if (boardScale !== finalBoardScale) {
-      setBoardScale(finalBoardScale);
-    }
-    if (warnDeleteSingleAction !== finalWarnDeleteSingleAction) {
-      setWarnDeleteSingleAction(finalWarnDeleteSingleAction);
-    }
-    if (warnDeleteSubtree !== finalWarnDeleteSubtree) {
-      setWarnDeleteSubtree(finalWarnDeleteSubtree);
-    }
+    // Commit preferences + config to local persistence.
+    setViewMode(finalViewMode, { persist: true });
+    setWarnDeleteSingleAction(finalWarnDeleteSingleAction, { persist: true });
+    setWarnDeleteSubtree(finalWarnDeleteSubtree, { persist: true });
 
-    // Save config locally
-    onSave(draft);
+    onSave(finalConfig, { persist: true });
+    setOpenSnapshot({
+      config: finalConfig,
+      viewMode: finalViewMode,
+      warnDeleteSingleAction: finalWarnDeleteSingleAction,
+      warnDeleteSubtree: finalWarnDeleteSubtree,
+    });
 
     // Save to cloud if user is logged in
     if (canCloudSave && saveAccountToCloud) {
       try {
         await saveAccountToCloud(
-          draft,
+          finalConfig,
           {
             viewMode: finalViewMode,
-            toolbarPosition: finalToolbarPosition,
-            boardScale: finalBoardScale,
             warnDeleteSingleAction: finalWarnDeleteSingleAction,
             warnDeleteSubtree: finalWarnDeleteSubtree,
           },
@@ -220,12 +252,6 @@ export function AccountModal({
     onClose();
   };
 
-  const handleApplyStartBonus = () => {
-    const coins = Number(draft.extraCoins ?? 0) || 0;
-    const supplies = Number(draft.extraSupplies ?? 0) || 0;
-    onApplyStartBonus?.(coins, supplies);
-  };
-
   const numberProps = {
     type: "number",
     inputMode: "numeric",
@@ -233,8 +259,11 @@ export function AccountModal({
     onFocus: (e) => e.target.select(),
   };
 
-  const Label = ({ icon, text }) => (
-    <span className="config-label">
+  const Label = ({ icon, text, helpId = null }) => (
+    <span
+      className="config-label"
+      data-help-id={helpId || undefined}
+    >
       {icon ? <img src={icon} alt={text} className="inline-icon" /> : null}
       <span>{text}</span>
     </span>
@@ -244,7 +273,7 @@ export function AccountModal({
     <div className="config-grid">
       {/* Extra flat bonuses */}
       <label className="config-row">
-        <Label icon={moneyIcon} text="Münzen Extra" />
+        <Label icon={moneyIcon} text={t("configLabelExtraCoins")} />
         <input
           {...numberProps}
           value={draft.extraCoins ?? 0}
@@ -254,7 +283,7 @@ export function AccountModal({
         />
       </label>
       <label className="config-row">
-        <Label icon={suppliesIcon} text="Vorräte Extra" />
+        <Label icon={suppliesIcon} text={t("configLabelExtraSupplies")} />
         <input
           {...numberProps}
           value={draft.extraSupplies ?? 0}
@@ -264,7 +293,7 @@ export function AccountModal({
         />
       </label>
       <label className="config-row">
-        <Label icon={goodsIcon} text="Güter Extra" />
+        <Label icon={goodsIcon} text={t("configLabelExtraGoods")} />
         <input
           {...numberProps}
           value={draft.goodsStartBonus ?? 0}
@@ -274,7 +303,7 @@ export function AccountModal({
         />
       </label>
       <label className="config-row">
-        <Label icon={troopIcon} text="Truppen Extra" />
+        <Label icon={troopIcon} text={t("configLabelExtraTroops")} />
         <input
           {...numberProps}
           value={draft.troopsStartBonus ?? 0}
@@ -283,20 +312,9 @@ export function AccountModal({
           }
         />
       </label>
-      <label className="config-row">
-        <Label icon={shardsIcon} text={t("configLabelShardsStart")} />
-        <input
-          {...numberProps}
-          value={draft.shardsLimit ?? 500}
-          onChange={(e) =>
-            updateField("shardsLimit", Number(e.target.value) || 0)
-          }
-        />
-      </label>
-
       {/* Percentage boosts */}
       <label className="config-row">
-        <Label icon={moneyIcon} text="Münzen % Boost" />
+        <Label icon={moneyIcon} text={t("configLabelCoinBoost")} />
         <input
           {...numberProps}
           value={draft.coinBoost ?? 0}
@@ -306,7 +324,7 @@ export function AccountModal({
         />
       </label>
       <label className="config-row">
-        <Label icon={suppliesIcon} text="Vorräte % Boost" />
+        <Label icon={suppliesIcon} text={t("configLabelSupplyBoost")} />
         <input
           {...numberProps}
           value={draft.supplyBoost ?? 0}
@@ -318,74 +336,90 @@ export function AccountModal({
 
       {/* Army boosts - Red Attack & Defense */}
       <div className="config-row army-row">
-        <Label icon={redAttackIcon} />
-        <input
-          {...numberProps}
-          value={draft.redAttackBoost ?? 0}
-          onChange={(e) =>
-            updateField("redAttackBoost", Number(e.target.value) || 0)
-          }
-          title={t("accountConfigRedAttack")}
-        />
-        <span className="army-unit">%</span>
-        <Label icon={redDefenseIcon} />
-        <input
-          {...numberProps}
-          value={draft.redDefenseBoost ?? 0}
-          onChange={(e) =>
-            updateField("redDefenseBoost", Number(e.target.value) || 0)
-          }
-          title={t("accountConfigRedDefense")}
-        />
-        <span className="army-unit">%</span>
+        <div className="army-row-fields">
+          <label className="army-field">
+            <span className="army-field-label">
+              {t("accountConfigRedAttack")} (%)
+            </span>
+            <input
+              {...numberProps}
+              value={draft.redAttackBoost ?? 0}
+              onChange={(e) =>
+                updateField("redAttackBoost", Number(e.target.value) || 0)
+              }
+              title={t("accountConfigRedAttack")}
+            />
+          </label>
+          <label className="army-field">
+            <span className="army-field-label">
+              {t("accountConfigRedDefense")} (%)
+            </span>
+            <input
+              {...numberProps}
+              value={draft.redDefenseBoost ?? 0}
+              onChange={(e) =>
+                updateField("redDefenseBoost", Number(e.target.value) || 0)
+              }
+              title={t("accountConfigRedDefense")}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Army boosts - Blue Attack & Defense */}
       <div className="config-row army-row">
-        <Label icon={blueAttackIcon} />
-        <input
-          {...numberProps}
-          value={draft.blueAttackBoost ?? 0}
-          onChange={(e) =>
-            updateField("blueAttackBoost", Number(e.target.value) || 0)
-          }
-          title={t("accountConfigBlueAttack")}
-        />
-        <span className="army-unit">%</span>
-        <Label icon={blueDefenseIcon} />
-        <input
-          {...numberProps}
-          value={draft.blueDefenseBoost ?? 0}
-          onChange={(e) =>
-            updateField("blueDefenseBoost", Number(e.target.value) || 0)
-          }
-          title={t("accountConfigBlueDefense")}
-        />
-        <span className="army-unit">%</span>
+        <div className="army-row-fields">
+          <label className="army-field">
+            <span className="army-field-label">
+              {t("accountConfigBlueAttack")} (%)
+            </span>
+            <input
+              {...numberProps}
+              value={draft.blueAttackBoost ?? 0}
+              onChange={(e) =>
+                updateField("blueAttackBoost", Number(e.target.value) || 0)
+              }
+              title={t("accountConfigBlueAttack")}
+            />
+          </label>
+          <label className="army-field">
+            <span className="army-field-label">
+              {t("accountConfigBlueDefense")} (%)
+            </span>
+            <input
+              {...numberProps}
+              value={draft.blueDefenseBoost ?? 0}
+              onChange={(e) =>
+                updateField("blueDefenseBoost", Number(e.target.value) || 0)
+              }
+              title={t("accountConfigBlueDefense")}
+            />
+          </label>
+        </div>
       </div>
 
       {/* Fight color selector */}
       <div className="config-row">
-        <Label text="Farbe zum Kämpfen" />
+        <Label text={t("configLabelFightColor")} />
         <div className="preference-buttons">
           <button
             className={draft.fightColor !== "blau" ? "active" : ""}
             onClick={() => updateField("fightColor", "rot")}
           >
-            Rot
+            {t("colorRed")}
           </button>
           <button
             className={draft.fightColor === "blau" ? "active" : ""}
             onClick={() => updateField("fightColor", "blau")}
           >
-            Blau
+            {t("colorBlue")}
           </button>
         </div>
       </div>
 
       {/* QA bonus */}
       <label className="config-row">
-        <Label icon={qaIcon} text="QA pro Stunde Extra" />
+        <Label icon={qaIcon} text={t("configLabelQaPerHour")} />
         <input
           {...numberProps}
           value={draft.qaBaseBonus ?? 0}
@@ -399,143 +433,32 @@ export function AccountModal({
 
   const renderPreferencesTab = () => (
     <div className="config-grid">
-      {/* Board Size */}
-      <label className="config-row">
-        <Label text="Board Größe (%)" />
+      <label className="config-row" data-help-id="profile-pref-shards-limit">
+        <Label icon={shardsIcon} text={t("accountPrefShardsLimit")} />
         <input
           {...numberProps}
-          value={draft.boardScale ?? 100}
-          min={1}
-          max={500}
+          value={draft.shardsLimit ?? 500}
           onChange={(e) =>
-            updateField("boardScale", Number(e.target.value) || 100)
+            updateField("shardsLimit", Number(e.target.value) || 0)
           }
         />
       </label>
 
-      {/* Board Orientation */}
       <div className="config-row">
-        <Label text="Board Orientation" />
+        <Label
+          text={t("accountPrefShardCountMode")}
+          helpId="profile-pref-shard-count-question"
+        />
         <div className="preference-buttons">
           <button
-            className={draft.viewMode === "down" ? "active" : ""}
-            onClick={() => updateField("viewMode", "down")}
-            title="Down view"
-          >
-            ↓
-          </button>
-          <button
-            className={draft.viewMode === "diagonal" ? "active" : ""}
-            onClick={() => updateField("viewMode", "diagonal")}
-            title="Diagonal view"
-          >
-            ↘
-          </button>
-          <button
-            className={draft.viewMode === "right" ? "active" : ""}
-            onClick={() => updateField("viewMode", "right")}
-            title="Right view"
-          >
-            →
-          </button>
-        </div>
-      </div>
-
-      {/* Toolbar Position */}
-      <div className="config-row">
-        <Label text="Board Toolbar Position" />
-        <div className="preference-buttons">
-          <button
-            className={draft.toolbarPosition !== "top" ? "active" : ""}
-            onClick={() => updateField("toolbarPosition", "left")}
-          >
-            Links
-          </button>
-          <button
-            className={draft.toolbarPosition === "top" ? "active" : ""}
-            onClick={() => updateField("toolbarPosition", "top")}
-          >
-            Oben
-          </button>
-        </div>
-      </div>
-
-      {/* Skip button behavior */}
-      <div className="config-row">
-        <Label text="Skip Buttons springen bis" />
-        <div className="preference-buttons wide">
-          <button
-            className={draft.skipToEnd !== false ? "active" : ""}
-            onClick={() => updateField("skipToEnd", true)}
-          >
-            Ende des Checkpoints
-          </button>
-          <button
-            className={draft.skipToEnd === false ? "active" : ""}
-            onClick={() => updateField("skipToEnd", false)}
-          >
-            Anfang des Checkpoints
-          </button>
-        </div>
-      </div>
-
-      {/* Color theme */}
-      <div className="config-row">
-        <Label text="Farbtheme" />
-        <div className="preference-buttons">
-          <button
-            className={draft.colorTheme === "light" ? "active" : ""}
-            onClick={() => updateField("colorTheme", "light")}
-          >
-            Hell
-          </button>
-          <button
-            className={draft.colorTheme !== "light" ? "active" : ""}
-            onClick={() => updateField("colorTheme", "dark")}
-          >
-            Dunkel
-          </button>
-        </div>
-      </div>
-
-      {/* Building placement behavior */}
-      <div className="config-row">
-        <Label text="Gebäude setzen" />
-        <div className="preference-buttons wide">
-          <button
-            className={draft.placementMode === "multi" ? "active" : ""}
-            onClick={() => updateField("placementMode", "multi")}
-          >
-            Mehrere hintereinander
-          </button>
-          <button
-            className={draft.placementMode === "reopen" ? "active" : ""}
-            onClick={() => updateField("placementMode", "reopen")}
-          >
-            Shop neu öffnen
-          </button>
-          <button
-            className={
-              !draft.placementMode || draft.placementMode === "single"
-                ? "active"
-                : ""
-            }
-            onClick={() => updateField("placementMode", "single")}
-          >
-            Modus beenden
-          </button>
-        </div>
-      </div>
-      <div className="config-row">
-        <Label text={t("accountPrefShardCountMode")} />
-        <div className="preference-buttons">
-          <button
+            data-help-id="profile-pref-shard-count-spent"
             className={draft.shardDisplayMode !== "stock" ? "active" : ""}
             onClick={() => updateField("shardDisplayMode", "spent")}
           >
             {t("accountPrefShardCountSpent")}
           </button>
           <button
+            data-help-id="profile-pref-shard-count-stock"
             className={draft.shardDisplayMode === "stock" ? "active" : ""}
             onClick={() => updateField("shardDisplayMode", "stock")}
           >
@@ -543,24 +466,31 @@ export function AccountModal({
           </button>
         </div>
       </div>
+
       <div className="config-row">
-        <Label text={t("accountPrefAllowShardLimitOverflow")} />
-        <div className="preference-buttons">
+        <Label
+          text={t("accountPrefAllowShardLimitOverflow")}
+          helpId="profile-pref-shard-limit-question"
+        />
+        <div className="preference-buttons wide preference-buttons--right">
           <button
+            data-help-id="profile-pref-shard-limit-overflow-yes"
             className={draft.allowShardLimitOverflow !== false ? "active" : ""}
             onClick={() => updateField("allowShardLimitOverflow", true)}
           >
-            {t("accountPrefYes")}
+            {t("accountPrefAllowShardLimitOverflowYes")}
           </button>
           <button
+            data-help-id="profile-pref-shard-limit-overflow-no"
             className={draft.allowShardLimitOverflow === false ? "active" : ""}
             onClick={() => updateField("allowShardLimitOverflow", false)}
           >
-            {t("accountPrefNo")}
+            {t("accountPrefAllowShardLimitOverflowNo")}
           </button>
         </div>
       </div>
-      <div className="config-row">
+
+      <div className="config-row" data-help-id="profile-pref-tree-delete-single">
         <Label text={t("accountPrefWarnDeleteSingle")} />
         <div className="preference-buttons">
           <button
@@ -577,7 +507,8 @@ export function AccountModal({
           </button>
         </div>
       </div>
-      <div className="config-row">
+
+      <div className="config-row" data-help-id="profile-pref-tree-delete-branch">
         <Label text={t("accountPrefWarnDeleteSubtree")} />
         <div className="preference-buttons">
           <button
@@ -591,6 +522,57 @@ export function AccountModal({
             onClick={() => updateField("warnDeleteSubtree", false)}
           >
             {t("accountPrefNo")}
+          </button>
+        </div>
+      </div>
+
+      <div className="config-row" data-help-id="profile-pref-outer-skip">
+        <Label text={t("accountPrefOuterSkipButtons")} />
+        <div className="preference-buttons wide preference-buttons--right">
+          <button
+            className={draft.skipToEnd !== false ? "active" : ""}
+            onClick={() => updateField("skipToEnd", true)}
+          >
+            {t("accountPrefOuterSkipCheckpointEnd")}
+          </button>
+          <button
+            className={draft.skipToEnd === false ? "active" : ""}
+            onClick={() => updateField("skipToEnd", false)}
+          >
+            {t("accountPrefOuterSkipTreeEnd")}
+          </button>
+        </div>
+      </div>
+
+      <div className="config-row" data-help-id="profile-pref-board-orientation">
+        <Label text={t("accountConfigBoardOrientation")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.viewMode === "down" ? "active" : ""}
+            onClick={() => updateField("viewMode", "down")}
+          >
+            &darr;
+          </button>
+          <button
+            className={draft.viewMode === "diagonal" ? "active" : ""}
+            onClick={() => updateField("viewMode", "diagonal")}
+          >
+            &#8600;
+          </button>
+          <button
+            className={draft.viewMode === "right" ? "active" : ""}
+            onClick={() => updateField("viewMode", "right")}
+          >
+            &rarr;
+          </button>
+        </div>
+      </div>
+
+      <div className="config-row" data-help-id="profile-pref-color-theme">
+        <Label text={t("accountConfigColorTheme")} />
+        <div className="preference-buttons">
+          <button className="active" disabled>
+            {t("accountPrefThemeComingSoon")}
           </button>
         </div>
       </div>
@@ -953,6 +935,7 @@ export function AccountModal({
                 <button
                   type="button"
                   key={tab.key}
+                  data-help-id={mainTabHelpIds[tab.key]}
                   className={`account-tab ${activeTab === tab.key ? "active" : ""}`}
                   onClick={() => setActiveTab(tab.key)}
                 >
@@ -976,21 +959,43 @@ export function AccountModal({
           <div className="account-content">
             <div className="account-header">
               <h3>{allTabs.find((entry) => entry.key === activeTab)?.label}</h3>
-              <button onClick={onClose}>×</button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                aria-label={t("accountHeaderClose")}
+              >
+                ×
+              </button>
             </div>
             <div className="account-body">
-              {activeTab === "account" && renderAccountTab()}
-              {activeTab === "config" && renderConfigTab()}
+              {activeTab === "account" && (
+                <div data-help-id="profile-window-account">
+                  {renderAccountTab()}
+                </div>
+              )}
+              {activeTab === "config" && (
+                <div data-help-id="profile-window-config">
+                  {renderConfigTab()}
+                </div>
+              )}
               {activeTab === "preferences" && renderPreferencesTab()}
-              {activeTab === "premium" && renderPremiumTab()}
+              {activeTab === "premium" && (
+                <div data-help-id="profile-window-premium">
+                  {renderPremiumTab()}
+                </div>
+              )}
               {activeTab === "contact" && renderContactTab()}
               {activeTab === "imprint" && renderImprintTab()}
               {activeTab === "privacy" && renderPrivacyTab()}
             </div>
             {saveError && <div className="save-error">{saveError}</div>}
             <div className="account-footer">
-              <button onClick={handleSave}>Speichern</button>
-              <button onClick={onClose}>Abbrechen</button>
+              <button type="button" onClick={handleSave}>
+                {t("accountBtnSave")}
+              </button>
+              <button type="button" onClick={handleCancel}>
+                {t("accountBtnCancel")}
+              </button>
             </div>
           </div>
         </div>
@@ -998,4 +1003,5 @@ export function AccountModal({
     </div>
   );
 }
+
 

@@ -64,6 +64,7 @@ export function HappinessPanel({ stats, happyInfo }) {
           className="resource-line"
           title={`Zufriedenheit: ${happyInfo.label}`}
           data-tutorial-zone="happiness-current"
+          data-help-id="stats-happiness-current"
         >
           <img src={happyInfo.icon} alt="happiness" />
           <span
@@ -75,25 +76,38 @@ export function HappinessPanel({ stats, happyInfo }) {
             {Math.round((happyInfo.ratio ?? stats.happyMulti) * 100)}%
           </span>
         </div>
-        <div className="resource-line" title="Totaler Muenzboost">
+        <div
+          className="resource-line"
+          title="Totaler Münzboost"
+          data-help-id="stats-multipliers"
+        >
           <img src={moneyIcon} alt="coins" />
           <span className="happy-boost">x{coinMult}</span>
         </div>
-        <div className="resource-line" title="Totaler Vorratsboost">
+        <div
+          className="resource-line"
+          title="Totaler Vorratsboost"
+          data-help-id="stats-multipliers"
+        >
           <img src={suppliesIcon} alt="supplies" />
           <span className="happy-boost">x{supplyMult}</span>
         </div>
-        <div className="resource-line" title="Totaler Chronosboost">
+        <div
+          className="resource-line"
+          title="Totaler Chronosboost"
+          data-help-id="stats-multipliers"
+        >
           <img src={chronosIcon} alt="chronos" />
           <span className="happy-boost">x{chronosMult}</span>
         </div>
-        <div className="resource-line population-line" title="Bevölkerung">
+        <div
+          className="resource-line population-line"
+          title="Bevölkerung"
+          data-help-id="stats-population"
+        >
           <img src={populationIcon} alt="population" />
           <div className="population-values">
-            <span
-              className={`pop-total ${totalClass}`}
-              title="Totale Bevölkerung"
-            >
+            <span className={`pop-total ${totalClass}`} title="Totale Bevölkerung">
               tot: {formatNumber(totalPeople)}
             </span>
             <span className={`pop-free ${freeClass}`} title="Freie Bevölkerung">
@@ -102,7 +116,11 @@ export function HappinessPanel({ stats, happyInfo }) {
           </div>
         </div>
       </div>
-      <div className="happy-tiers-column" data-tutorial-zone="happiness-tiers">
+      <div
+        className="happy-tiers-column"
+        data-tutorial-zone="happiness-tiers"
+        data-help-id="stats-happiness-tiers"
+      >
         {tierRows.map((row) => (
           <div className="happy-tier-row" key={row.labelPercent}>
             <span

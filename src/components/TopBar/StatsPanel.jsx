@@ -71,6 +71,7 @@ export function StatsPanel({
       icon: moneyIcon,
       value: resources.coins,
       valueClass: valueClassFor(resources.coins),
+      helpId: "stats-coins",
       onEdit: () =>
         onEditResource?.({
           key: "coins",
@@ -84,6 +85,7 @@ export function StatsPanel({
       icon: suppliesIcon,
       value: resources.supplies,
       valueClass: valueClassFor(resources.supplies),
+      helpId: "stats-supplies",
       onEdit: () =>
         onEditResource?.({
           key: "supplies",
@@ -97,6 +99,7 @@ export function StatsPanel({
       icon: chronosIcon,
       value: resources.chronos,
       valueClass: valueClassFor(resources.chronos),
+      helpId: "stats-chronos",
       onEdit: () =>
         onEditResource?.({
           key: "chronos",
@@ -110,6 +113,7 @@ export function StatsPanel({
       icon: shardsIcon,
       value: displayedShards,
       valueClass: shardValueClass,
+      helpId: "stats-shards",
       onEdit: () =>
         onEditResource?.({
           key: "shards",
@@ -123,6 +127,7 @@ export function StatsPanel({
       icon: qaIcon,
       value: resources.quantumActions,
       valueClass: valueClassFor(resources.quantumActions),
+      helpId: "stats-qa",
       title: `QA/h: ${formatNumber(stats.qaPerHour ?? 0)}`,
       onEdit: () =>
         onEditResource?.({
@@ -139,6 +144,7 @@ export function StatsPanel({
     icon: getGoodIconPath(g),
     value: resources.goods[g],
     valueClass: valueClassFor(resources.goods[g]),
+    helpId: "stats-goods-item",
     onEdit: () => onEditGood?.(g),
   }));
 
@@ -148,6 +154,7 @@ export function StatsPanel({
     icon: `/units/${u}.webp`,
     value: resources.units?.[u],
     valueClass: valueClassFor(resources.units?.[u]),
+    helpId: "stats-units-item",
     onEdit: () => onEditUnit?.(u),
   }));
 
@@ -187,11 +194,19 @@ export function StatsPanel({
         <ResourceStack items={resourceEntries} adminEnabled={adminEnabled} />
         <ResourceStack items={goodsEntries} adminEnabled={adminEnabled} />
         <ResourceStack items={unitEntries} adminEnabled={adminEnabled}>
-          <div className="resource-line" title={t("attackBoostLabel")}>
+          <div
+            className="resource-line"
+            title={t("attackBoostLabel")}
+            data-help-id="stats-army-boost"
+          >
             <img src={attackIcon} alt="attack boost" />
             <span>{formatNumber(attackPct)}%</span>
           </div>
-          <div className="resource-line" title={t("defenseBoostLabel")}>
+          <div
+            className="resource-line"
+            title={t("defenseBoostLabel")}
+            data-help-id="stats-army-boost"
+          >
             <img src={defenseIcon} alt="defense boost" />
             <span>{formatNumber(defensePct)}%</span>
           </div>

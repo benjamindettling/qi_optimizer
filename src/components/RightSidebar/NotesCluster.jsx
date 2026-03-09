@@ -54,7 +54,7 @@ export function NotesCluster({
   return (
     <div className={`notes-cluster${notesLocked ? " tutorial-zone-locked" : ""}`}>
       {/* Log Section */}
-      <div className="nc-section log-section">
+      <div className="nc-section log-section" data-help-id="notes-log">
         <ActionLog
           historyTree={historyTree}
           selectedNodeId={selectedNodeId}
@@ -65,7 +65,7 @@ export function NotesCluster({
 
       {/* Extra Tools Section */}
       <div className="nc-section">
-        <div className="nc-row section-header">
+        <div className="nc-row section-header" data-help-id="notes-tools-header">
           <span className="nc-section-title">Weitere Tools</span>
           <button
             className="nc-btn small"
@@ -83,6 +83,7 @@ export function NotesCluster({
               className={`nc-btn refund ${refundMode ? "active-mode" : ""}`}
               style={{ background: ACTION_COLORS.sell }}
               title="Erhalte den vollen Wert des Gebaeudes zurueck"
+              data-help-id="notes-tool-refund"
             >
               Volle Erstattung
             </button>
@@ -91,6 +92,7 @@ export function NotesCluster({
                 className={`nc-btn ${highlightMode ? "active-mode" : ""}`}
                 onClick={onToggleHighlightMode}
                 title="Hebt betroffene Gebaeude seit dem letzten Checkpoint hervor"
+                data-help-id="notes-tool-highlight"
               >
                 <span>Highlight</span>
               </button>
@@ -98,6 +100,7 @@ export function NotesCluster({
                 className="nc-btn"
                 onClick={onPrintBoard}
                 title="Screenshot des aktuellen Aufbaus herunterladen"
+                data-help-id="notes-tool-screenshot"
               >
                 Screenshot
               </button>
@@ -106,6 +109,7 @@ export function NotesCluster({
               className="nc-btn"
               onClick={onExportPdf}
               title="Aktuelle Datei als PDF exportieren"
+              data-help-id="notes-tool-pdf"
             >
               File -&gt; PDF
             </button>
@@ -113,6 +117,7 @@ export function NotesCluster({
               className="nc-btn"
               onClick={onFindWorst}
               title="Berechne, welche Gebaeude den geringsten Beitrag leisten"
+              data-help-id="notes-tool-find-worst"
             >
               Finde schlechtestes
             </button>

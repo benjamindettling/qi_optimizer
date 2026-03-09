@@ -19,7 +19,7 @@
       "red": 0,
       "blue": 0.1
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "zypresse",
@@ -41,7 +41,7 @@
       "red": 0.1,
       "blue": 0
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "teich",
@@ -63,7 +63,7 @@
       "red": 0.25,
       "blue": 0.25
     },
-    "tier": 3
+    "tier": 1
   },
   {
     "id": "wasserspeier",
@@ -85,7 +85,7 @@
       "red": 0,
       "blue": 0.15
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "wegweiser",
@@ -107,7 +107,7 @@
       "red": 0.15,
       "blue": 0
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "fahne",
@@ -129,7 +129,7 @@
       "red": 0.2,
       "blue": 0.2
     },
-    "tier": 3
+    "tier": 1
   },
   {
     "id": "baumgruppe",
@@ -151,7 +151,7 @@
       "red": 0,
       "blue": 0.45
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "turmruine",
@@ -173,7 +173,7 @@
       "red": 0.45,
       "blue": 0
     },
-    "tier": 2
+    "tier": 1
   },
   {
     "id": "seefahrerstatue",
@@ -195,6 +195,6 @@
       "red": 0.3,
       "blue": 0.3
     },
-    "tier": 3
+    "tier": 1
   }
 ]

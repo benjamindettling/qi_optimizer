@@ -19,10 +19,8 @@ import { TUTORIAL_STEPS } from "../../tutorial/tutorialSteps";
 import { T } from "../../i18n/translations";
 import { getBuildingName } from "../../utils/buildingName";
 import {
-  FoldVertical,
-  UnfoldVertical,
-  FoldHorizontal,
-  UnfoldHorizontal,
+  FolderTree,
+  SquareStack,
   ArrowUpFromLine,
   Trash2,
 } from "lucide-react";
@@ -42,7 +40,7 @@ export function AppLayout({
   boardClusterRef,
   boardContentRef,
   topBarRef,
-  toolbarPosition = "left",
+  toolbarPosition = "top",
   // Sync config props
   showSyncConfig,
   onSyncConfig,
@@ -70,13 +68,21 @@ export function AppLayout({
   const treeToolbarLocked = useTutorialGate("tree-toolbar");
   const { libraryMap, shortIdMap } = historyProps;
   const treeTutorialPreparedRef = useRef(false);
+  void toolbarPosition;
 
-  // Tree visualizer ref and state for toolbar
+  // Keep legacy left-toolbar rendering path in CSS/components for future re-activation.
+  // Current product decision: render toolbar on top only.
+  const effectiveToolbarPosition = "top";
+
+  // Tree visualizer ref and tree-toolbar state:
+  // - branch hider (show only main/current branch context)
+  // - action grouper (bundle consecutive same-action nodes)
+  // - top branch marker (whether current branch is already main)
   const treeRef = useRef(null);
   const [treeState, setTreeState] = useState({
-    focusMode: false,
-    horizontalCollapse: false,
-    currentOnMainBranch: true,
+    branchHiderMode: false,
+    actionGrouperMode: false,
+    currentOnTopBranch: true,
   });
 
   const [deleteMode, setDeleteMode] = useState(false);
@@ -92,9 +98,12 @@ export function AppLayout({
   const updateTreeState = useCallback(() => {
     if (treeRef.current) {
       setTreeState({
-        focusMode: treeRef.current.focusMode,
-        horizontalCollapse: treeRef.current.horizontalCollapse,
-        currentOnMainBranch: treeRef.current.currentOnMainBranch,
+        branchHiderMode:
+          treeRef.current.branchHiderMode ?? treeRef.current.focusMode,
+        actionGrouperMode:
+          treeRef.current.actionGrouperMode ?? treeRef.current.horizontalCollapse,
+        currentOnTopBranch:
+          treeRef.current.currentOnTopBranch ?? treeRef.current.currentOnMainBranch,
       });
     }
   }, []);
@@ -113,8 +122,8 @@ export function AppLayout({
     if (treeTutorialPreparedRef.current || !treeRef.current) return;
     setDeleteMode(false);
     onTutorialDeleteModeChanged?.(false);
-    treeRef.current.setFocusMode?.(false);
-    treeRef.current.setHorizontalCollapse?.(false);
+    treeRef.current.setBranchHiderMode?.(false);
+    treeRef.current.setActionGrouperMode?.(false);
     treeRef.current.setSelectionFocusMode?.(true);
     treeRef.current.zoomIn?.();
     treeTutorialPreparedRef.current = true;
@@ -126,7 +135,9 @@ export function AppLayout({
     updateTreeState,
   ]);
 
-  // Get skipToEnd preference from config (default true)
+  // Outer skip behavior preference:
+  // - true: checkpoint mode
+  // - false: tree mode (root/end of current first-child branch)
   const skipToEnd = config?.skipToEnd !== false;
 
   // Get tree nodes from history - uses the tree structure from historyNodes()
@@ -308,7 +319,7 @@ export function AppLayout({
     historyProps.historyIndex,
     historyProps.onJumpHistory,
     skipToEnd,
-    treeState.horizontalCollapse,
+    treeState.actionGrouperMode,
   );
 
   const wrappedJumpPrevCheckpoint = useCallback(() => {
@@ -621,7 +632,7 @@ export function AppLayout({
         <div className="workspace">
           {/* Board Cluster */}
           <div
-            className={`board-cluster board-cluster--toolbar-${toolbarPosition}`}
+            className={`board-cluster board-cluster--toolbar-${effectiveToolbarPosition}`}
             ref={boardClusterRef}
           >
             <MiniToolbar
@@ -640,7 +651,7 @@ export function AppLayout({
               isPast={toolbarProps.isPast}
               editUnlocked={toolbarProps.editUnlocked}
               onOpenPastEditWarning={toolbarProps.onOpenPastEditWarning}
-              position={toolbarPosition}
+              position={effectiveToolbarPosition}
             />
             <div
               className={`board-content${boardLocked ? " tutorial-zone-locked" : ""}`}
@@ -670,62 +681,57 @@ export function AppLayout({
             >
               <div className="tree-toolbar-group">
                 <button
-                  className={`mini-btn ${treeState.focusMode ? "active-mode" : ""}`}
+                  className={`mini-btn ${treeState.branchHiderMode ? "active-mode" : ""}`}
                   style={{ background: ACTION_COLORS.default }}
                   onClick={() => {
                     onTutorialTreeToggleFocus?.();
-                    treeRef.current?.toggleFocusMode();
+                    treeRef.current?.toggleBranchHiderMode?.();
                     setTimeout(updateTreeState, 50);
                   }}
                   data-tutorial-zone="tree-focus-btn"
+                  data-help-id="tree-toolbar-branch-hider"
                   title={
-                    treeState.focusMode
+                    treeState.branchHiderMode
                       ? "Branches sind eingeklappt"
                       : "Branches sind ausgeklappt"
                   }
                 >
-                  {treeState.focusMode ? (
-                    <FoldVertical size={20} />
-                  ) : (
-                    <UnfoldVertical size={20} />
-                  )}
+                  <FolderTree size={20} />
                 </button>
                 <button
-                  className={`mini-btn ${treeState.horizontalCollapse ? "active-mode" : ""}`}
+                  className={`mini-btn ${treeState.actionGrouperMode ? "active-mode" : ""}`}
                   style={{ background: ACTION_COLORS.default }}
                   onClick={() => {
                     onTutorialTreeToggleHorizontal?.();
-                    treeRef.current?.toggleHorizontalCollapse();
+                    treeRef.current?.toggleActionGrouperMode?.();
                     setTimeout(updateTreeState, 50);
                   }}
                   data-tutorial-zone="tree-collapse-btn"
+                  data-help-id="tree-toolbar-action-grouper"
                   title={
-                    treeState.horizontalCollapse
+                    treeState.actionGrouperMode
                       ? "Aktionen sind zusammengefasst"
                       : "Aktionen sind ausgeklappt"
                   }
                 >
-                  {treeState.horizontalCollapse ? (
-                    <FoldHorizontal size={20} />
-                  ) : (
-                    <UnfoldHorizontal size={20} />
-                  )}
+                  <SquareStack size={20} />
                 </button>
               </div>
               <div className="tree-toolbar-spacer" />
               <div className="tree-toolbar-group">
                 <button
                   className="mini-btn"
-                  style={{ background: ACTION_COLORS.regionUnlock }}
+                  style={{ background: "var(--ui-notes-turquoise)" }}
                   onClick={() => {
                     onTutorialMakeTop?.();
                     treeRef.current?.makeTop();
                     setTimeout(updateTreeState, 50);
                   }}
-                  disabled={treeState.currentOnMainBranch}
+                  disabled={treeState.currentOnTopBranch}
                   data-tutorial-zone="tree-main-btn"
+                  data-help-id="tree-toolbar-top-branch"
                   title={
-                    treeState.currentOnMainBranch
+                    treeState.currentOnTopBranch
                       ? "Bereits auf dem Hauptbranch"
                       : "Diesen Branch zum Hauptbranch machen"
                   }
@@ -747,6 +753,7 @@ export function AppLayout({
                   disabled={!hasDeletableNodes}
                   data-tree-delete-mode-toggle="true"
                   data-tutorial-zone="tree-delete-btn"
+                  data-help-id="tree-toolbar-delete"
                   title={
                     !hasDeletableNodes
                       ? t("treeDeleteModeDisabledTitle")

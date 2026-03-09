@@ -44,6 +44,7 @@ export function MiniToolbar({
           style={{ background: ACTION_COLORS.move }}
           title="Bewege oder tausche Gebäude"
           data-tutorial-zone="move-btn"
+          data-help-id="board-tool-move"
         >
           <Move size={20} />
         </button>
@@ -66,6 +67,7 @@ export function MiniToolbar({
         style={{ background: ACTION_COLORS.move }}
         title="Bewege oder tausche Gebäude"
         data-tutorial-zone="move-btn"
+        data-help-id="board-tool-move"
       >
         <Move size={20} />
       </button>
@@ -75,6 +77,7 @@ export function MiniToolbar({
         style={{ background: ACTION_COLORS.sell }}
         title="Verkaufe Gebäude (1/4 Erstattung)"
         data-tutorial-zone="sell-btn"
+        data-help-id="board-tool-sell"
       >
         <Trash2 size={20} />
       </button>
@@ -84,6 +87,7 @@ export function MiniToolbar({
         style={{ background: ACTION_COLORS.boostSingle }}
         title="Boost einzelne Gebäude"
         data-tutorial-zone="boost-btn"
+        data-help-id="board-tool-boost"
       >
         <ClockArrowUp size={20} />
       </button>
@@ -93,6 +97,7 @@ export function MiniToolbar({
         style={{ background: ACTION_COLORS.build }}
         title={isPlacementMode ? "Platziermodus beenden" : "Shop öffnen"}
         data-tutorial-zone="shop-btn"
+        data-help-id="board-tool-shop"
       >
         <Store size={20} />
       </button>
@@ -106,6 +111,7 @@ export function MiniToolbar({
         style={{ background: ACTION_COLORS.boostAll }}
         title="Beendet alle Produktionen"
         data-tutorial-zone="finish-btn"
+        data-help-id="board-tool-finish"
       >
         <FastForward size={25} />
       </button>
@@ -120,6 +126,7 @@ export function MiniToolbar({
             : "Keine fertigen Produktionen"
         }
         data-tutorial-zone="harvest-btn"
+        data-help-id="board-tool-harvest-all"
       >
         <PackageCheck size={20} />
       </button>

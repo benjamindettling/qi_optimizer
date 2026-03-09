@@ -165,10 +165,10 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
     onSelectNode?.(parent);
   }, [activeParentMap, activeSelectedId, onSelectNode]);
 
-  // Jump to previous checkpoint (or start of branch if none)
-  // skipToEnd=true (Ende des Checkpoints): Check current node first, if checkpoint go 1 left
-  // skipToEnd=false (Anfang des Checkpoints): Find next checkpoint that's not current, stay there
-  const jumpToPrevCheckpoint = useCallback(() => {
+// Outer left skip:
+// - skipToEnd=true: checkpoint mode (jump across checkpoints)
+// - skipToEnd=false: tree mode (jump to root)
+const jumpToPrevCheckpoint = useCallback(() => {
     // Build path from root to current node
     const pathToNode = [];
     let cur = activeSelectedId;
@@ -203,24 +203,15 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       // No checkpoint found - jump to start (root)
       onSelectNode?.(pathToNode[0] ?? activeRootId);
     } else {
-      // Strategy: "Anfang des Checkpoints"
-      // Find previous checkpoint that's not the current node, stay exactly there
-      for (let i = currentIndex - 1; i >= 0; i--) {
-        const n = nodeMap.get(pathToNode[i]);
-        if (isCheckpointAction(n)) {
-          onSelectNode?.(pathToNode[i]);
-          return;
-        }
-      }
-      
-      // No checkpoint found - jump to start (root)
+      // Strategy: "Ende des Baums"
+      // Always jump to the root of the current tree.
       onSelectNode?.(pathToNode[0] ?? activeRootId);
     }
   }, [activeSelectedId, activeParentMap, nodeMap, onSelectNode, skipToEnd, activeRootId]);
 
-  // Jump to next checkpoint (or end of branch if none)
-  // skipToEnd=true (Ende des Checkpoints): Move 2 nodes first, then check, land before checkpoint
-  // skipToEnd=false (Anfang des Checkpoints): Find next checkpoint that's not current, stay there
+  // Outer right skip:
+  // - skipToEnd=true: checkpoint mode (jump across checkpoints)
+  // - skipToEnd=false: tree mode (walk first-child chain to branch end)
   const jumpToNextCheckpoint = useCallback(() => {
     const firstKids = activeChildrenMap.get(activeSelectedId) ?? [];
     if (firstKids.length === 0) return; // Already at end
@@ -260,30 +251,21 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       // Fallback - jump to last valid position
       onSelectNode?.(prevId);
     } else {
-      // Strategy: "Anfang des Checkpoints"
-      // Find next checkpoint that's not the current node, stay exactly there
-      let cur = firstKids[0].id;
-      const visited = new Set([activeSelectedId]);
-      
+      // Strategy: "Ende des Baums"
+      let cur = activeSelectedId;
+      const visited = new Set();
+
       while (cur != null && !visited.has(cur)) {
         visited.add(cur);
-        const curNode = nodeMap.get(cur);
-        
-        if (isCheckpointAction(curNode)) {
-          // Found checkpoint - stay exactly there
-          onSelectNode?.(cur);
-          return;
-        }
-        
         const kids = activeChildrenMap.get(cur) ?? [];
         if (kids.length === 0) {
-          // Reached end of branch without finding checkpoint - stay here
           onSelectNode?.(cur);
           return;
         }
-        
         cur = kids[0].id;
       }
+
+      onSelectNode?.(activeSelectedId);
     }
   }, [activeSelectedId, activeChildrenMap, nodeMap, onSelectNode, skipToEnd]);
 

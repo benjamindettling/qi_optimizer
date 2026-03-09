@@ -11,6 +11,7 @@ import {
   aggregateHarvest,
   computeBuildingHarvest,
   finishProductionsReadyMap,
+  getLockedCultureAutoHarvest,
 } from "../domain/production/productionController";
 import { computeStats } from "./stateUtils";
 import { deserializeTree } from "./treeSerializer";
@@ -454,17 +455,26 @@ export const analyzeSmallestSaveConfig = ({
   };
 
   const applyFinishProductionsSim = () => {
+    const { lockedCultureIds, qa: lockedCultureQa } =
+      getLockedCultureAutoHarvest(layoutSim, BUILT_LIBRARY_MAP, buildLocksSim, {
+        qaHoursPerHarvest: Number(effectiveConfig?.qaHarvestHours ?? 12),
+      });
     readySim = finishProductionsReadyMap(
       layoutSim,
       BUILT_LIBRARY_MAP,
       readySim,
       buildLocksSim,
     );
+    lockedCultureIds.forEach((id) => {
+      readySim[id] = false;
+      buildLocksSim[id] = false;
+    });
     const baseQa =
       (QA_BASE_PER_HOUR + Number(effectiveConfig?.qaBaseBonus ?? 0)) *
       Number(effectiveConfig?.qaHarvestHours ?? 12);
-    if (baseQa > 0) {
-      applyResourceDeltaSim({ quantumActions: baseQa });
+    const totalQa = baseQa + lockedCultureQa;
+    if (totalQa > 0) {
+      applyResourceDeltaSim({ quantumActions: totalQa });
     }
     timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
   };

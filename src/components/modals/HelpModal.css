@@ -1,0 +1,119 @@
+.help-inspect-root {
+  position: fixed;
+  inset: 0;
+  z-index: 6500;
+  pointer-events: none;
+}
+
+.help-inspect-main {
+  position: fixed;
+  width: min(560px, calc(100vw - 32px));
+  background: var(--bg-surface, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-color, #45475a);
+  pointer-events: auto;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.48);
+}
+
+.help-inspect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  cursor: move;
+  user-select: none;
+  touch-action: none;
+}
+
+.help-inspect-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.help-inspect-close {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary, #cdd6f4);
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.help-inspect-close:hover {
+  opacity: 1;
+}
+
+.help-inspect-intro {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary, #cdd6f4);
+}
+
+.help-inspect-tutorial-btn {
+  border: none;
+  border-bottom: 1px solid currentColor;
+  background: transparent;
+  color: var(--color-accent, #cba6f7);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.help-inspect-highlight {
+  position: fixed;
+  border: 2px solid #f0c040;
+  border-radius: 8px;
+  box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.55);
+  animation: help-inspect-pulse 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes help-inspect-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(240, 192, 64, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(240, 192, 64, 0);
+  }
+}
+
+.help-inspect-info {
+  position: fixed;
+  width: min(440px, calc(100vw - 24px));
+  min-height: 180px;
+  background: var(--bg-surface, #1e1e2e);
+  color: var(--text-primary, #cdd6f4);
+  border: 1px solid var(--border-color, #45475a);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.48);
+  pointer-events: auto;
+}
+
+.help-inspect-info h4 {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  color: var(--color-accent, #cba6f7);
+}
+
+.help-inspect-info p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+@media (max-width: 860px) {
+  .help-inspect-info {
+    left: 12px !important;
+    top: auto !important;
+    bottom: 12px;
+    width: calc(100vw - 24px);
+  }
+}

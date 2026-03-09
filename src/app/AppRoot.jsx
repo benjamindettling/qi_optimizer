@@ -897,8 +897,11 @@ export function AppRoot() {
   };
 
   const handleOpenHelp = useCallback(() => {
-    controller.setHelpModal(true);
-    fireEvent("helpOpened");
+    const nextOpen = !controller.helpModal;
+    controller.setHelpModal(nextOpen);
+    if (nextOpen) {
+      fireEvent("helpOpened");
+    }
   }, [controller, fireEvent]);
 
   const sidebarProps = {
@@ -1077,6 +1080,7 @@ export function AppRoot() {
     moveMode: controller.moveMode,
     selectedBuildingId: controller.selectedBuildingId,
     carried: controller.carried,
+    helpMode: !!controller.helpModal,
   };
 
   const toolbarProps = {
@@ -1241,14 +1245,20 @@ export function AppRoot() {
       </Routes>
       {isSimulator && (
         <div className="floating-page-controls">
-          <LanguageToggle className="floating-page-btn floating-page-btn--lang" />
+          <LanguageToggle
+            className="floating-page-btn floating-page-btn--lang"
+            dataHelpId="btn-language"
+          />
           <button
             type="button"
-            className="floating-page-btn floating-page-btn--help"
+            className={`floating-page-btn floating-page-btn--help${
+              controller.helpModal ? " floating-page-btn--active" : ""
+            }`}
             title={t("btnHelpTitle")}
             aria-label={t("btnHelpLabel")}
             onClick={handleOpenHelp}
             data-tutorial-zone="help-btn"
+            data-help-toggle="true"
           >
             <CircleHelp size={18} />
           </button>

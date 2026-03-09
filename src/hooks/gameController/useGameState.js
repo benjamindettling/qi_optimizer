@@ -4,8 +4,6 @@ import {
   BOARD_WIDTH,
   GOODS_TYPES,
   BOARD_SCALE_DEFAULT,
-  BOARD_SCALE_MIN,
-  BOARD_SCALE_MAX,
 } from "../../config/boardConfig";
 import { buildInitialGameState, buildLibrary } from "../../config/initialState";
 import { useResources } from "../useResources";
@@ -28,6 +26,15 @@ const SHOP_TAB_STORAGE_KEY = "qi_shopTab";
 const TOOLBAR_POSITION_STORAGE_KEY = "qi_toolbarPosition";
 const WARN_DELETE_SINGLE_STORAGE_KEY = "qi_warnDeleteSingleAction";
 const WARN_DELETE_SUBTREE_STORAGE_KEY = "qi_warnDeleteSubtree";
+
+const persistPreferenceValue = (key, value) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (e) {
+    console.error(`Failed to persist ${key}`, e);
+  }
+};
 
 // Builds the core state tree and persists UI preferences.
 export const useGameState = () => {
@@ -234,19 +241,12 @@ export const useGameState = () => {
     try {
       const saved = localStorage.getItem(VIEW_MODE_STORAGE_KEY);
       const allowed = ["down", "diagonal", "right"];
-      return saved && allowed.includes(saved) ? saved : initialState.viewMode;
+      return saved && allowed.includes(saved) ? saved : "right";
     } catch {
-      return initialState.viewMode;
+      return "right";
     }
   });
-  const [boardScale, setBoardScale] = useState(() => {
-    if (typeof window === "undefined") return BOARD_SCALE_DEFAULT;
-    const raw = parseFloat(localStorage.getItem(BOARD_SCALE_STORAGE_KEY));
-    if (!Number.isNaN(raw) && raw >= BOARD_SCALE_MIN && raw <= BOARD_SCALE_MAX) {
-      return raw;
-    }
-    return BOARD_SCALE_DEFAULT;
-  });
+  const [boardScale, setBoardScale] = useState(BOARD_SCALE_DEFAULT);
   const [status, setStatus] = useState(initialState.status);
   const [readyMap, setReadyMap] = useState(initialState.readyMap);
   const [buildLocks, setBuildLocks] = useState(initialState.buildLocks || {});
@@ -265,14 +265,16 @@ export const useGameState = () => {
     return Math.min(600, window.innerWidth - 48);
   });
   
-  // Toolbar position: "left" (default) or "top"
+  // Toolbar position:
+  // - "top" is the active default
+  // - "left" stays as a legacy option in code for future re-activation
   const [toolbarPosition, setToolbarPosition] = useState(() => {
-    if (typeof window === "undefined") return "left";
+    if (typeof window === "undefined") return "top";
     try {
       const saved = localStorage.getItem(TOOLBAR_POSITION_STORAGE_KEY);
-      return saved === "top" ? "top" : "left";
+      return saved === "left" || saved === "top" ? saved : "top";
     } catch {
-      return "left";
+      return "top";
     }
   });
   const [warnDeleteSingleAction, setWarnDeleteSingleAction] = useState(() => {
@@ -298,6 +300,78 @@ export const useGameState = () => {
   
   const [debugRegions, setDebugRegions] = useState(false);
 
+  const setViewModeWithPersist = useCallback((nextValue, options = {}) => {
+    const shouldPersist = options.persist !== false;
+    setViewMode((prev) => {
+      const next =
+        typeof nextValue === "function" ? nextValue(prev) : nextValue;
+      if (shouldPersist) {
+        persistPreferenceValue(VIEW_MODE_STORAGE_KEY, next);
+      }
+      return next;
+    });
+  }, []);
+
+  const setBoardScaleWithPersist = useCallback((nextValue, options = {}) => {
+    const shouldPersist = options.persist !== false;
+    setBoardScale((prev) => {
+      const next =
+        typeof nextValue === "function" ? nextValue(prev) : nextValue;
+      if (shouldPersist) {
+        persistPreferenceValue(BOARD_SCALE_STORAGE_KEY, String(next));
+      }
+      return next;
+    });
+  }, []);
+
+  const setToolbarPositionWithPersist = useCallback((nextValue, options = {}) => {
+    const shouldPersist = options.persist !== false;
+    setToolbarPosition((prev) => {
+      const next =
+        typeof nextValue === "function" ? nextValue(prev) : nextValue;
+      if (shouldPersist) {
+        persistPreferenceValue(TOOLBAR_POSITION_STORAGE_KEY, next);
+      }
+      return next;
+    });
+  }, []);
+
+  const setWarnDeleteSingleActionWithPersist = useCallback(
+    (nextValue, options = {}) => {
+      const shouldPersist = options.persist !== false;
+      setWarnDeleteSingleAction((prev) => {
+        const next =
+          typeof nextValue === "function" ? nextValue(prev) : nextValue;
+        if (shouldPersist) {
+          persistPreferenceValue(
+            WARN_DELETE_SINGLE_STORAGE_KEY,
+            next ? "true" : "false",
+          );
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  const setWarnDeleteSubtreeWithPersist = useCallback(
+    (nextValue, options = {}) => {
+      const shouldPersist = options.persist !== false;
+      setWarnDeleteSubtree((prev) => {
+        const next =
+          typeof nextValue === "function" ? nextValue(prev) : nextValue;
+        if (shouldPersist) {
+          persistPreferenceValue(
+            WARN_DELETE_SUBTREE_STORAGE_KEY,
+            next ? "true" : "false",
+          );
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
   const lastStatusRef = useRef("");
   const updateStatus = useCallback((msg) => {
     setStatus(msg);
@@ -307,24 +381,6 @@ export const useGameState = () => {
   useEffect(() => {
     setDebugRegions(infiniteResources);
   }, [infiniteResources]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
-    } catch (e) {
-      console.error("Failed to persist view mode", e);
-    }
-  }, [viewMode]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(BOARD_SCALE_STORAGE_KEY, String(boardScale));
-    } catch (e) {
-      console.error("Failed to persist board scale", e);
-    }
-  }, [boardScale]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -346,37 +402,6 @@ export const useGameState = () => {
       console.error("Failed to persist shop tab", e);
     }
   }, [selectedCategory]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(TOOLBAR_POSITION_STORAGE_KEY, toolbarPosition);
-    } catch (e) {
-      console.error("Failed to persist toolbar position", e);
-    }
-  }, [toolbarPosition]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(
-        WARN_DELETE_SINGLE_STORAGE_KEY,
-        warnDeleteSingleAction ? "true" : "false",
-      );
-    } catch (e) {
-      console.error("Failed to persist single delete warning setting", e);
-    }
-  }, [warnDeleteSingleAction]);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem(
-        WARN_DELETE_SUBTREE_STORAGE_KEY,
-        warnDeleteSubtree ? "true" : "false",
-      );
-    } catch (e) {
-      console.error("Failed to persist subtree delete warning setting", e);
-    }
-  }, [warnDeleteSubtree]);
 
   useEffect(() => {
     if (!townhallDef) return;
@@ -564,9 +589,9 @@ export const useGameState = () => {
     unlockGoodSelect,
     setUnlockGoodSelect,
     viewMode,
-    setViewMode,
+    setViewMode: setViewModeWithPersist,
     boardScale,
-    setBoardScale,
+    setBoardScale: setBoardScaleWithPersist,
     containerHeight,
     setContainerHeight,
     containerWidth,
@@ -578,11 +603,11 @@ export const useGameState = () => {
     buildLocks,
     setBuildLocks,
     toolbarPosition,
-    setToolbarPosition,
+    setToolbarPosition: setToolbarPositionWithPersist,
     warnDeleteSingleAction,
-    setWarnDeleteSingleAction,
+    setWarnDeleteSingleAction: setWarnDeleteSingleActionWithPersist,
     warnDeleteSubtree,
-    setWarnDeleteSubtree,
+    setWarnDeleteSubtree: setWarnDeleteSubtreeWithPersist,
     replaceConfig,
     debugRegions,
     setDebugRegions,

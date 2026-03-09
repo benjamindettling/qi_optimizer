@@ -226,6 +226,7 @@ export function AppModals({
         onClose={() => setAccountModalOpen(false)}
         config={config}
         onSave={updateConfig}
+        onPreviewConfig={updateConfig}
         onApplyStartBonus={applyStartBonusToCheckpoints}
         viewMode={viewMode}
         setViewMode={setViewMode}

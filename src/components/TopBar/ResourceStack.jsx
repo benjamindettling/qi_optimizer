@@ -18,6 +18,7 @@ export function ResourceStack({
             className="resource-button"
             title={item.title || item.label}
             onClick={item.onEdit}
+            data-help-id={item.helpId || undefined}
           >
             <img src={item.icon} alt={item.label} />
             <span className={item.valueClass}>
@@ -29,6 +30,7 @@ export function ResourceStack({
             key={item.key}
             className="resource-line"
             title={item.title || item.label}
+            data-help-id={item.helpId || undefined}
           >
             <img src={item.icon} alt={item.label} />
             <span className={item.valueClass}>

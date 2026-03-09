@@ -6,7 +6,11 @@ import { solveTilingMask } from "../../utils/tilingSolver";
 import { applyTilingSolution, buildTilingGroups, buildTilingMask } from "../../utils/tilingTranslator";
 import { isTierLocked } from "../../config/buildingTiers";
 import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
-import { aggregateHarvest, finishProductionsReadyMap } from "../../domain/production/productionController";
+import {
+  aggregateHarvest,
+  finishProductionsReadyMap,
+  getLockedCultureAutoHarvest,
+} from "../../domain/production/productionController";
 import { formatNumber } from "../../utils/formatNumber";
 import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 
@@ -71,15 +75,24 @@ export const useSmartHarvest = ({
       let simTimeStep = startTimeStep;
 
       const baseQa = qaBasePerHour * qaHoursPerHarvest;
+      const { lockedCultureIds, qa: lockedCultureQa } =
+        getLockedCultureAutoHarvest(simLayout, libraryMap, simBuildLocks, {
+          qaHoursPerHarvest,
+        });
       simReadyMap = finishProductionsReadyMap(
         simLayout,
         libraryMap,
         simReadyMap,
         simBuildLocks,
       );
-      if (!infiniteResources && baseQa > 0) {
+      lockedCultureIds.forEach((id) => {
+        simReadyMap[id] = false;
+        simBuildLocks[id] = false;
+      });
+      const totalQa = baseQa + lockedCultureQa;
+      if (!infiniteResources && totalQa > 0) {
         simResources.quantumActions =
-          (simResources.quantumActions ?? 0) + baseQa;
+          (simResources.quantumActions ?? 0) + totalQa;
       }
       simTimeStep = Math.min(23, simTimeStep + 1);
 

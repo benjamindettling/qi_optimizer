@@ -15,6 +15,11 @@ export function useAccountCloudSync({
   warnDeleteSubtree,
   setWarnDeleteSubtree,
 }) {
+  // Board scale preference is intentionally kept as legacy wiring for future UI re-activation.
+  // It is currently not synced.
+  void boardScale;
+  void setBoardScale;
+
   const { user, authLoading } = useAuth();
   const [cloudLoading, setCloudLoading] = useState(false);
   const [profile, setProfile] = useState({ username: "", profileText: "" });
@@ -48,7 +53,6 @@ export function useAccountCloudSync({
             config,
             prefs: {
               viewMode,
-              boardScale,
               warnDeleteSingleAction,
               warnDeleteSubtree,
             },
@@ -63,8 +67,6 @@ export function useAccountCloudSync({
 
         if (remote.prefs) {
           if (remote.prefs.viewMode) setViewMode(remote.prefs.viewMode);
-          if (typeof remote.prefs.boardScale === "number")
-            setBoardScale(remote.prefs.boardScale);
           if (typeof remote.prefs.warnDeleteSingleAction === "boolean")
             setWarnDeleteSingleAction(remote.prefs.warnDeleteSingleAction);
           if (typeof remote.prefs.warnDeleteSubtree === "boolean")
@@ -89,7 +91,7 @@ export function useAccountCloudSync({
       setCloudLoading(false);
     });
 
-    // IMPORTANT: don’t depend on config/prefs here; we want one-time load
+    // IMPORTANT: don't depend on config/prefs here; we want one-time load
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 

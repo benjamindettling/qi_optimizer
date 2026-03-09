@@ -19,6 +19,7 @@ import {
   aggregateHarvest,
   computeBuildingHarvest,
   finishProductionsReadyMap,
+  getLockedCultureAutoHarvest,
 } from "../../domain/production/productionController";
 import { computeStats } from "../../utils/stateUtils";
 import { buildInitialGameState } from "../../config/initialState";
@@ -245,6 +246,14 @@ export const useActionHistory = ({
   useEffect(() => {
     selectedNodeIdRef.current = selectedNodeId;
   }, [selectedNodeId]);
+
+  // Safety guard: there must always be a selected node.
+  // If selection is missing/invalid after any tree mutation, fall back to root.
+  useEffect(() => {
+    if (selectedNodeId == null || !historyTree.nodes.has(selectedNodeId)) {
+      setSelectedNodeId(0);
+    }
+  }, [historyTree, selectedNodeId]);
 
   useEffect(() => {
     layoutRef.current = layout;
@@ -678,20 +687,47 @@ export const useActionHistory = ({
   );
 
   const applyFinishProductions = useCallback((skipResources = false) => {
+    const layoutList = layoutRef.current || [];
+    const buildLocksSnapshot = buildLocksRef.current || {};
+    const { lockedCultureIds, qa: lockedCultureQa } =
+      getLockedCultureAutoHarvest(layoutList, libraryMap, buildLocksSnapshot, {
+        qaHoursPerHarvest: qaHoursRef.current ?? 0,
+      });
     const nextReady = finishProductionsReadyMap(
-      layoutRef.current || [],
+      layoutList,
       libraryMap,
       readyMapRef.current || {},
-      buildLocksRef.current || {},
+      buildLocksSnapshot,
     );
+    lockedCultureIds.forEach((id) => {
+      nextReady[id] = false;
+    });
     readyMapRef.current = nextReady;
     setReadyMap(nextReady);
+    if (lockedCultureIds.length) {
+      setBuildLocks((prev) => {
+        const next = { ...prev };
+        lockedCultureIds.forEach((id) => {
+          next[id] = false;
+        });
+        buildLocksRef.current = next;
+        return next;
+      });
+    }
     const baseQa = qaBasePerHour * (qaHoursRef.current ?? 0);
-    if (baseQa > 0 && !skipResources) {
-      applyResourceDelta({ quantumActions: baseQa });
+    const totalQa = baseQa + lockedCultureQa;
+    if (totalQa > 0 && !skipResources) {
+      applyResourceDelta({ quantumActions: totalQa });
     }
     setTimeStep?.((prev) => Math.min(23, (prev ?? 1) + 1));
-  }, [applyResourceDelta, libraryMap, qaBasePerHour, setReadyMap, setTimeStep]);
+  }, [
+    applyResourceDelta,
+    libraryMap,
+    qaBasePerHour,
+    setBuildLocks,
+    setReadyMap,
+    setTimeStep,
+  ]);
 
   const applyHarvestAll = useCallback((skipResources = false) => {
     const layoutList = layoutRef.current || [];
@@ -1420,15 +1456,24 @@ export const useActionHistory = ({
     };
 
     const applyFinishProductionsSim = (skipResources = false) => {
+      const { lockedCultureIds, qa: lockedCultureQa } =
+        getLockedCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, {
+          qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
+        });
       readySim = finishProductionsReadyMap(
         layoutSim,
         libraryMap,
         readySim,
         buildLocksSim,
       );
+      lockedCultureIds.forEach((id) => {
+        readySim[id] = false;
+        buildLocksSim[id] = false;
+      });
       const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-      if (baseQa > 0 && !skipResources) {
-        applyResourceDeltaSim({ quantumActions: baseQa });
+      const totalQa = baseQa + lockedCultureQa;
+      if (totalQa > 0 && !skipResources) {
+        applyResourceDeltaSim({ quantumActions: totalQa });
       }
       timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
     };
@@ -1894,15 +1939,24 @@ export const useActionHistory = ({
       };
 
       const applyFinishProductionsSim = (skipResources = false) => {
+        const { lockedCultureIds, qa: lockedCultureQa } =
+          getLockedCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, {
+            qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
+          });
         readySim = finishProductionsReadyMap(
           layoutSim,
           libraryMap,
           readySim,
           buildLocksSim,
         );
+        lockedCultureIds.forEach((id) => {
+          readySim[id] = false;
+          buildLocksSim[id] = false;
+        });
         const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-        if (baseQa > 0 && !skipResources) {
-          applyResourceDeltaSim({ quantumActions: baseQa });
+        const totalQa = baseQa + lockedCultureQa;
+        if (totalQa > 0 && !skipResources) {
+          applyResourceDeltaSim({ quantumActions: totalQa });
         }
         timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
       };
@@ -2969,7 +3023,9 @@ export const useActionHistory = ({
   // Load a serialized tree (from saved data)
   const loadHistoryTree = useCallback((serializedTree, targetNodeId = 0) => {
     setHistoryTree(serializedTree);
-    setSelectedNodeId(targetNodeId);
+    const safeTargetId =
+      serializedTree?.nodes?.has?.(targetNodeId) ? targetNodeId : 0;
+    setSelectedNodeId(safeTargetId);
   }, []);
 
   // Copy a subtree from one node to another (used for drag-and-drop in tree visualizer)
@@ -3062,6 +3118,49 @@ export const useActionHistory = ({
   // If deleteSubtree is false: delete only the node, re-parent its children to node's parent
   const deleteNode = useCallback((nodeId, deleteSubtree = true) => {
     if (nodeId == null || nodeId === 0) return; // Can't delete root
+
+    const treeSnapshot = historyTreeRef.current;
+    const snapshotNodes = treeSnapshot.nodes;
+    const snapshotNodeToDelete = snapshotNodes.get(nodeId);
+    if (!snapshotNodeToDelete) return;
+
+    let nextSelectedId = null;
+    const selectedBeforeDelete = selectedNodeIdRef.current;
+    const parentIdForVerify = snapshotNodeToDelete.parentId ?? 0;
+
+    if (deleteSubtree) {
+      const toDelete = new Set();
+      const queue = [nodeId];
+      while (queue.length > 0) {
+        const id = queue.shift();
+        if (toDelete.has(id)) continue;
+        toDelete.add(id);
+        const node = snapshotNodes.get(id);
+        if (!node) continue;
+        for (const childId of node.childrenIds) {
+          queue.push(childId);
+        }
+      }
+
+      // If current selection is inside the deleted subtree,
+      // walk up until we find the first node that survives.
+      if (toDelete.has(selectedBeforeDelete)) {
+        let candidateId = selectedBeforeDelete;
+        while (
+          candidateId != null &&
+          toDelete.has(candidateId)
+        ) {
+          const candidateNode = snapshotNodes.get(candidateId);
+          candidateId = candidateNode?.parentId ?? null;
+        }
+        nextSelectedId =
+          candidateId != null && snapshotNodes.has(candidateId)
+            ? candidateId
+            : 0;
+      }
+    } else if (selectedBeforeDelete === nodeId) {
+      nextSelectedId = parentIdForVerify;
+    }
     
     setHistoryTree((prev) => {
       const nodes = new Map(prev.nodes);
@@ -3125,23 +3224,15 @@ export const useActionHistory = ({
       
       return { ...prev, nodes };
     });
-    
-    // Store parent before deleting for verification
-    const parentIdForVerify = historyTree.nodes.get(nodeId)?.parentId ?? 0;
-    
-    // Move selection to parent of deleted node
-    setSelectedNodeId((currentId) => {
-      if (currentId === nodeId) {
-        const node = historyTree.nodes.get(nodeId);
-        return node?.parentId ?? 0;
-      }
-      return currentId;
-    });
+
+    if (nextSelectedId != null) {
+      setSelectedNodeId(nextSelectedId);
+    }
     
     // Trigger verification for the affected subtree (children that got re-parented)
     // We verify from the parent node since the children are now attached there
     setPendingVerification(parentIdForVerify);
-  }, [historyTree]);
+  }, []);
 
   // Apply a layout fix for an order-fixable node.
   // Supports:

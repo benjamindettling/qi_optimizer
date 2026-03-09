@@ -76,9 +76,9 @@ const ZOOM_MAX_SCALE = 1;
 const TREE_SETTINGS_STORAGE_KEY = "qi_tree_visualizer_settings_v1";
 
 const DEFAULT_TREE_SETTINGS = {
-  branchFocusMode: false,
-  horizontalCollapse: false,
-  selectionFocusMode: false,
+  branchFocusMode: false, // Branch hider mode
+  horizontalCollapse: false, // Action grouper mode
+  selectionFocusMode: false, // Focus button mode
   relativeZoom: 1,
 };
 
@@ -175,13 +175,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   }
   const [branchFocusMode, setBranchFocusMode] = useState(
     initialTreeSettingsRef.current.branchFocusMode,
-  );
+  ); // Branch hider mode (first top toolbar button)
   const [horizontalCollapse, setHorizontalCollapse] = useState(
     initialTreeSettingsRef.current.horizontalCollapse,
-  ); // Bundle consecutive same-type actions
+  ); // Action grouper mode (second top toolbar button)
   const [selectionFocusMode, setSelectionFocusMode] = useState(
     initialTreeSettingsRef.current.selectionFocusMode,
-  );
+  ); // Focus button mode (bottom-right tree control)
   const [relativeZoom, setRelativeZoom] = useState(
     initialTreeSettingsRef.current.relativeZoom,
   ); // 0 = fit tree, 1 = selected-node zoom
@@ -578,16 +578,18 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     if (!horizontalCollapse || internalSelected == null) return;
     const resolved = resolveCollapsedSelection(internalSelected);
     if (resolved != null && resolved !== internalSelected) {
+      // Keep this remap local to the tree visualization.
+      // Do not emit onSelectNode here, otherwise external selection handlers
+      // run as if the user intentionally changed history node and may clear
+      // active board modes (build/sell/move) during grouped action updates.
       setInternalSelected(resolved);
       setSelectedEdge(null);
       setBranchPopup(null);
-      onSelectNode?.(resolved);
     }
   }, [
     horizontalCollapse,
     internalSelected,
     resolveCollapsedSelection,
-    onSelectNode,
   ]);
 
   // Compute checkpoint groups - which "wave" each node belongs to
@@ -835,7 +837,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     [activeChildrenMap, activeRootId],
   );
 
-  // Compute visibility (focus mode)
+  // Compute visibility for branch hider mode.
+  // Rules:
+  // 1. Always show the path from root to the selected node.
+  // 2. Always show all direct children of the selected node.
+  // 3. From every shown node, always show its first child (recursively).
   const computeVisibility = useCallback(() => {
     if (!branchFocusMode || internalSelected == null) {
       return { visibleNodes: new Set(), hiddenEdgeHints: [], showAll: true };
@@ -855,108 +861,71 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       pathToSelected.unshift(current);
       current = activeParentMap.get(current);
     }
-    const pathSet = new Set(pathToSelected);
 
-    // Path indices for hints
-    const pathIndices = [];
-    for (let i = 1; i < pathToSelected.length; i++) {
-      const pId = pathToSelected[i - 1];
-      const nodeId = pathToSelected[i];
-      const kids = activeChildrenMap.get(pId) ?? [];
-      const idx = kids.findIndex((k) => k.id === nodeId);
-      pathIndices.push({ nodeId, parentId: pId, childIndex: idx });
+    for (const nodeId of pathToSelected) {
+      visible.add(nodeId);
     }
 
-    // Main branch helper
-    const addMainBranch = (startId) => {
-      let cur = startId;
-      while (cur != null) {
-        visible.add(cur);
-        const kids = activeChildrenMap.get(cur) ?? [];
-        if (kids.length === 0) break;
-        cur = kids[0].id;
-      }
-    };
-
-    // Add main branch from root
-    if (activeRootId != null) addMainBranch(activeRootId);
-
-    // Add path to selected
-    for (const nodeId of pathToSelected) visible.add(nodeId);
-
-    // Add main branch from selected downward
-    addMainBranch(selectedNodeId);
-
-    // Add direct children of selected
+    // Show all direct children of selected.
     const selectedKids = activeChildrenMap.get(selectedNodeId) ?? [];
-    for (const kid of selectedKids) visible.add(kid.id);
+    for (const kid of selectedKids) {
+      visible.add(kid.id);
+    }
 
-    // Hints along path - check for hidden siblings
-    for (const step of pathIndices) {
-      const { parentId, childIndex } = step;
-      const kids = activeChildrenMap.get(parentId) ?? [];
-      // hasAbove: there are siblings above index 0 (index 0 is always visible as main branch)
-      // We show hint if childIndex > 0 AND there's a sibling between main branch and us
-      const hasAbove = childIndex > 1; // siblings between index 0 and childIndex
-      // hasBelow: siblings below our current index
-      const hasBelow = childIndex < kids.length - 1;
-      if (hasAbove || hasBelow) {
-        hiddenEdgeHints.push({
-          parentId,
-          targetChildIndex: childIndex,
-          hasAbove,
-          hasBelow,
-        });
+    // Expand via "first child of every shown node" rule.
+    const queue = Array.from(visible);
+    const expanded = new Set();
+    while (queue.length > 0) {
+      const nodeId = queue.shift();
+      if (nodeId == null || expanded.has(nodeId)) continue;
+      expanded.add(nodeId);
+
+      const kids = activeChildrenMap.get(nodeId) ?? [];
+      if (kids.length > 0) {
+        const firstChildId = kids[0].id;
+        if (!visible.has(firstChildId)) {
+          visible.add(firstChildId);
+          queue.push(firstChildId);
+        }
+      }
+
+      if (nodeId === selectedNodeId) {
+        for (const kid of kids) {
+          if (!visible.has(kid.id)) {
+            visible.add(kid.id);
+            queue.push(kid.id);
+          }
+        }
       }
     }
 
-    // Hints on main branch from root - for hidden branches off the main trunk
-    const addMainBranchHints = (startId) => {
-      let cur = startId;
-      while (cur != null) {
-        const kids = activeChildrenMap.get(cur) ?? [];
-        // Skip if this node is ON the path to selected (hints already handled above)
-        if (pathSet.has(cur)) {
-          cur = kids.length > 0 ? kids[0].id : null;
-          continue;
-        }
-        // On main branch but not on path: show hint if there are hidden branches
-        if (kids.length > 1) {
-          hiddenEdgeHints.push({
-            parentId: cur,
-            targetChildIndex: 0,
-            hasAbove: false,
-            hasBelow: true,
-          });
-        }
-        cur = kids.length > 0 ? kids[0].id : null;
-      }
-    };
-    if (activeRootId != null) addMainBranchHints(activeRootId);
+    // Build hidden-branch hints from final visibility.
+    for (const parentId of visible) {
+      const kids = activeChildrenMap.get(parentId) ?? [];
+      if (!kids.length) continue;
 
-    // Hints along the main branch DOWNWARD from selected node
-    // This catches hidden branches below the selected node (like K2 in R-S-C-K1/K2)
-    const addSelectedBranchHints = () => {
-      let cur = selectedNodeId;
-      while (cur != null) {
-        const kids = activeChildrenMap.get(cur) ?? [];
-        if (kids.length === 0) break;
+      const visibleChildIndices = kids
+        .map((kid, idx) => ({ idx, isVisible: visible.has(kid.id) }))
+        .filter((entry) => entry.isVisible)
+        .map((entry) => entry.idx);
+      if (!visibleChildIndices.length) continue;
 
-        // If there are multiple children, the ones after index 0 are hidden
-        if (kids.length > 1) {
-          hiddenEdgeHints.push({
-            parentId: cur,
-            targetChildIndex: 0,
-            hasAbove: false,
-            hasBelow: true,
-          });
-        }
+      const targetChildIndex = visibleChildIndices[0];
+      const hasAbove = kids
+        .slice(0, targetChildIndex)
+        .some((kid) => !visible.has(kid.id));
+      const hasBelow = kids
+        .slice(targetChildIndex + 1)
+        .some((kid) => !visible.has(kid.id));
+      if (!hasAbove && !hasBelow) continue;
 
-        // Move to first child (main branch continues)
-        cur = kids[0].id;
-      }
-    };
-    addSelectedBranchHints();
+      hiddenEdgeHints.push({
+        parentId,
+        targetChildIndex,
+        hasAbove,
+        hasBelow,
+      });
+    }
 
     return { visibleNodes: visible, hiddenEdgeHints, showAll: false };
   }, [
@@ -964,7 +933,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     internalSelected,
     activeParentMap,
     activeChildrenMap,
-    activeRootId,
     resolveCollapsedSelection,
   ]);
 
@@ -2616,15 +2584,25 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     setRelativeZoom(0);
   }, []);
 
-  // Expose control methods via ref
+  // Expose tree-control methods via ref.
+  // New naming convention:
+  // - branch hider
+  // - action grouper
+  // - focus button
+  // - top branch
+  // Legacy names are kept as aliases for compatibility.
   useImperativeHandle(
     ref,
     () => ({
       zoomIn: handleZoomIn,
       zoomOut: handleZoomOut,
+      setBranchHiderMode: (next) => setBranchFocusMode(!!next),
+      setActionGrouperMode: (next) => setHorizontalCollapse(!!next),
       setFocusMode: (next) => setBranchFocusMode(!!next),
       setHorizontalCollapse: (next) => setHorizontalCollapse(!!next),
       setSelectionFocusMode: (next) => setSelectionFocusMode(!!next),
+      toggleBranchHiderMode: () => setBranchFocusMode((f) => !f),
+      toggleActionGrouperMode: () => setHorizontalCollapse((h) => !h),
       toggleFocusMode: () => setBranchFocusMode((f) => !f),
       toggleHorizontalCollapse: () => setHorizontalCollapse((h) => !h),
       makeTop: () => onMakeTop?.(internalSelected),
@@ -2634,6 +2612,15 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       },
       get autoCenter() {
         return selectionFocusMode;
+      },
+      get branchHiderMode() {
+        return branchFocusMode;
+      },
+      get actionGrouperMode() {
+        return horizontalCollapse;
+      },
+      get currentOnTopBranch() {
+        return currentOnMainBranch;
       },
       get focusMode() {
         return branchFocusMode;
@@ -2710,7 +2697,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       className={`tree-visualizer${treeLocked ? " tutorial-zone-locked" : ""}${deleteMode ? " delete-mode" : ""}`}
     >
       {/* Tree canvas */}
-      <div className="tree-canvas-wrapper" ref={containerRef}>
+      <div
+        className="tree-canvas-wrapper"
+        ref={containerRef}
+        data-help-id="tree-canvas"
+      >
         <svg ref={svgRef} />
 
         {branchPopup && (
@@ -2784,7 +2775,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         )}
       </div>
 
-      <div className="tree-zoom-controls" data-tutorial-zone="tree-zoom-controls">
+      <div
+        className="tree-zoom-controls"
+        data-tutorial-zone="tree-zoom-controls"
+        data-help-id="tree-zoom-controls"
+      >
         <div className="tree-zoom-slider-row">
           <ZoomOut size={16} aria-hidden="true" />
           <input
@@ -2804,6 +2799,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         <button
           className={`tree-focus-toggle ${selectionFocusMode ? "active" : ""}`}
           data-tutorial-zone="tree-node-focus-btn"
+          data-help-id="tree-focus-button"
           onClick={handleToggleSelectionFocusMode}
           title={
             selectionFocusMode

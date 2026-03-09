@@ -101,6 +101,7 @@ export function MenuPanel({
               title={hasUnsavedChanges ? t("menuSaveUnsavedTitle") : t("btnSaveTitle")}
               aria-label={t("btnSaveTitle")}
               data-tutorial-zone="save-controls"
+              data-help-id="btn-save"
             >
               <Save size={18} />
               <span className="menu-btn-label">{t("btnSaveTitle")}</span>
@@ -111,6 +112,7 @@ export function MenuPanel({
               title={t("btnLoadTitle")}
               aria-label={t("btnLoadTitle")}
               data-tutorial-zone="load-open-btn"
+              data-help-id="btn-load"
             >
               <FolderOpen size={18} />
               <span className="menu-btn-label">{t("btnLoadTitle")}</span>
@@ -120,6 +122,7 @@ export function MenuPanel({
               onClick={() => {}}
               title={t("btnOnlineTitle")}
               aria-label={t("btnOnlineLabel")}
+              data-help-id="btn-online"
             >
               <Globe size={18} />
               <span className="menu-btn-label">{t("btnOnlineLabel")}</span>
@@ -132,6 +135,7 @@ export function MenuPanel({
               disabled={editingLocked}
               title={t("btnAdminTitle")}
               aria-label={t("btnAdminLabel")}
+              data-help-id="btn-admin"
             >
               <Sparkle size={18} />
               <span className="menu-btn-label">{t("btnAdminLabel")}</span>
@@ -141,6 +145,7 @@ export function MenuPanel({
               onClick={onOpenAccount}
               title={t("btnProfileTitle")}
               aria-label={t("btnProfileLabel")}
+              data-help-id="btn-profile"
             >
               <User size={18} />
               <span className="menu-btn-label">{t("btnProfileLabel")}</span>

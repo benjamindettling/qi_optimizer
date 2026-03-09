@@ -136,7 +136,32 @@
 }
 
 .account-modal .config-row.army-row {
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.account-modal .army-row-fields {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.account-modal .army-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.account-modal .army-field-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.account-modal .army-field .config-input {
+  width: 64px;
 }
 
 .account-modal .config-label {
@@ -249,6 +274,11 @@
 .preference-buttons.wide button {
   font-size: 11px;
   padding: 5px 8px;
+}
+
+.preference-buttons--right {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 /* Premium content */

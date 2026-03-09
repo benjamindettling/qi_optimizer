@@ -194,6 +194,7 @@ export function Board({
   moveMode = false,
   selectedBuildingId = null,
   carried = null,
+  helpMode = false,
 }) {
   const { lang } = useLang();
   const svgIdSeed = useId();
@@ -375,6 +376,36 @@ export function Board({
   const voidRegions = useMemo(
     () => visibleRegions.filter((region) => region.isVoid),
     [visibleRegions],
+  );
+  const helpUnlockableRegions = useMemo(
+    () =>
+      visibleRegions.filter(
+        (region) => !region.isVoid && !region.unlocked && region.isNeighbor,
+      ),
+    [visibleRegions],
+  );
+  const helpLockedRegions = useMemo(
+    () =>
+      visibleRegions.filter(
+        (region) => !region.isVoid && !region.unlocked && !region.isNeighbor,
+      ),
+    [visibleRegions],
+  );
+  const helpTownhallRects = useMemo(
+    () =>
+      (layout || [])
+        .filter((building) => {
+          const def = libraryMap?.[building.defId];
+          return def?.category === "townhall";
+        })
+        .map((building) => ({
+          id: building.id,
+          x: (building.x - viewColStart) * safeCellSize,
+          y: (building.y - viewRowStart) * safeCellSize,
+          width: building.width * safeCellSize,
+          height: building.height * safeCellSize,
+        })),
+    [layout, libraryMap, safeCellSize, viewColStart, viewRowStart],
   );
   const clipIdBase = `board-${sanitizeSvgId(svgIdSeed)}`;
   const unlockedClipId = `${clipIdBase}-unlocked`;
@@ -1345,6 +1376,47 @@ export function Board({
                         </rect>
                       ))}
                   </g>
+
+                  {helpMode ? (
+                    <g data-layer="help-interactions">
+                      {helpTownhallRects.map((rect) => (
+                        <rect
+                          key={`help-townhall-${rect.id}`}
+                          x={rect.x}
+                          y={rect.y}
+                          width={rect.width}
+                          height={rect.height}
+                          fill="transparent"
+                          style={{ cursor: "pointer" }}
+                          data-help-id="board-townhall"
+                        />
+                      ))}
+                      {helpUnlockableRegions.map((region) => (
+                        <rect
+                          key={`help-region-unlockable-${region.idx}`}
+                          x={region.x}
+                          y={region.y}
+                          width={region.width}
+                          height={region.height}
+                          fill="transparent"
+                          style={{ cursor: "pointer" }}
+                          data-help-id={`board-region-unlockable-${region.idx}`}
+                        />
+                      ))}
+                      {helpLockedRegions.map((region) => (
+                        <rect
+                          key={`help-region-locked-${region.idx}`}
+                          x={region.x}
+                          y={region.y}
+                          width={region.width}
+                          height={region.height}
+                          fill="transparent"
+                          style={{ cursor: "pointer" }}
+                          data-help-id={`board-region-locked-${region.idx}`}
+                        />
+                      ))}
+                    </g>
+                  ) : null}
 
                   {previewRect && touchActionButtons ? (
                     <g data-layer="touch-actions">
