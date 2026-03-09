@@ -18,6 +18,11 @@ import {
   getShardLimit,
   normalizeConfigWithShardSettings,
 } from "../../utils/shards";
+import {
+  getOutsideQaPerHour,
+  getOutsideQaTotalForStep,
+  getQaHoursPerStep,
+} from "../../utils/qaAccounting";
 
 const VIEW_MODE_STORAGE_KEY = "qi_viewMode";
 const BOARD_SCALE_STORAGE_KEY = "qi_boardScale";
@@ -26,6 +31,7 @@ const SHOP_TAB_STORAGE_KEY = "qi_shopTab";
 const TOOLBAR_POSITION_STORAGE_KEY = "qi_toolbarPosition";
 const WARN_DELETE_SINGLE_STORAGE_KEY = "qi_warnDeleteSingleAction";
 const WARN_DELETE_SUBTREE_STORAGE_KEY = "qi_warnDeleteSubtree";
+const INITIAL_TIME_STEP = 1;
 
 const persistPreferenceValue = (key, value) => {
   if (typeof window === "undefined") return;
@@ -83,10 +89,18 @@ export const useGameState = () => {
       // Divide by 5 and floor - adds to Katapult only (other 80% of units not tracked)
       const troopsStart = Math.floor(Number(cfg?.troopsStartBonus ?? 0) / 5);
       const shardsStart = getShardLimit(cfg, base.shards ?? 0);
+      const qaOutsidePerHour = getOutsideQaPerHour(cfg);
+      const qaHoursPerStep = getQaHoursPerStep(cfg, 12);
+      const qaOutsideStart = getOutsideQaTotalForStep({
+        step: INITIAL_TIME_STEP,
+        qaOutsidePerHour,
+        qaHoursPerStep,
+      });
       return {
         ...base,
         coins: (base.coins ?? 0) + (cfg?.extraCoins ?? 0),
         supplies: (base.supplies ?? 0) + (cfg?.extraSupplies ?? 0),
+        quantumActions: (base.quantumActions ?? 0) + qaOutsideStart,
         shards: shardsStart,
         goods: GOODS_TYPES.reduce(
           (acc, g) => ({ ...acc, [g]: (base.goods[g] ?? 0) + goodsStart }),
@@ -136,6 +150,8 @@ export const useGameState = () => {
     const coinDelta = (nextStart.coins ?? 0) - (prevStart.coins ?? 0);
     const supplyDelta =
       (nextStart.supplies ?? 0) - (prevStart.supplies ?? 0);
+    const qaDelta =
+      (nextStart.quantumActions ?? 0) - (prevStart.quantumActions ?? 0);
     const shardDelta = (nextStart.shards ?? 0) - (prevStart.shards ?? 0);
     const goodsDelta = GOODS_TYPES.reduce((acc, good) => {
       const diff =
@@ -146,6 +162,7 @@ export const useGameState = () => {
     const hasDelta =
       coinDelta !== 0 ||
       supplyDelta !== 0 ||
+      qaDelta !== 0 ||
       shardDelta !== 0 ||
       Object.keys(goodsDelta).length > 0;
     if (hasDelta) {
@@ -158,6 +175,7 @@ export const useGameState = () => {
           ...prev,
           coins: (prev.coins ?? 0) + coinDelta,
           supplies: (prev.supplies ?? 0) + supplyDelta,
+          quantumActions: (prev.quantumActions ?? 0) + qaDelta,
           shards: (prev.shards ?? 0) + shardDelta,
           goods: nextGoods,
         };

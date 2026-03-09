@@ -75,6 +75,7 @@ Pass `lang` from the nearest `useLang()` call or from `localStorage`.
 - **No TypeScript.** The project is plain JavaScript (.js / .jsx). Do not convert files or add `.ts` / `.tsx` files.
 - **Formatting:** 2-space indentation, double quotes for JSX attributes, single quotes in JS. Match the surrounding file's style.
 - **Imports:** Use relative imports. No path aliases (`@/`) unless one already exists in `vite.config.js`.
+- **Input fields:** Reuse the shared all-round input component (`src/components/common/QiInput.jsx`) for user-editable fields. Do not introduce one-off input behavior (formatting, empty-handling, focus-select, styling) in individual screens.
 
 ---
 

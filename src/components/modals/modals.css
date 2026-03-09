@@ -316,7 +316,7 @@
 
 .config-row input {
   width: 140px;
-  color: var(--ui-black);
+  color: var(--color-text-strong);
 }
 
 .config-label {

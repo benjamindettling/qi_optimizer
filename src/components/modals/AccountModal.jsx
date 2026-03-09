@@ -20,6 +20,7 @@ import qaIcon from "/quantum_actions.webp";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import { DEFAULT_CONFIG } from "../../config/gameDefaults";
+import { QiInput } from "../common/QiInput";
 import "./AccountModal.css";
 
 const TAB_KEYS = [
@@ -252,13 +253,6 @@ export function AccountModal({
     onClose();
   };
 
-  const numberProps = {
-    type: "number",
-    inputMode: "numeric",
-    className: "config-input",
-    onFocus: (e) => e.target.select(),
-  };
-
   const Label = ({ icon, text, helpId = null }) => (
     <span
       className="config-label"
@@ -274,63 +268,57 @@ export function AccountModal({
       {/* Extra flat bonuses */}
       <label className="config-row">
         <Label icon={moneyIcon} text={t("configLabelExtraCoins")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.extraCoins ?? 0}
-          onChange={(e) =>
-            updateField("extraCoins", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("extraCoins", nextValue)}
         />
       </label>
       <label className="config-row">
         <Label icon={suppliesIcon} text={t("configLabelExtraSupplies")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.extraSupplies ?? 0}
-          onChange={(e) =>
-            updateField("extraSupplies", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("extraSupplies", nextValue)}
         />
       </label>
       <label className="config-row">
         <Label icon={goodsIcon} text={t("configLabelExtraGoods")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.goodsStartBonus ?? 0}
-          onChange={(e) =>
-            updateField("goodsStartBonus", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("goodsStartBonus", nextValue)}
         />
       </label>
       <label className="config-row">
         <Label icon={troopIcon} text={t("configLabelExtraTroops")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.troopsStartBonus ?? 0}
-          onChange={(e) =>
-            updateField("troopsStartBonus", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("troopsStartBonus", nextValue)}
         />
       </label>
       {/* Percentage boosts */}
       <label className="config-row">
         <Label icon={moneyIcon} text={t("configLabelCoinBoost")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.coinBoost ?? 0}
-          onChange={(e) =>
-            updateField("coinBoost", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("coinBoost", nextValue)}
         />
       </label>
       <label className="config-row">
         <Label icon={suppliesIcon} text={t("configLabelSupplyBoost")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.supplyBoost ?? 0}
-          onChange={(e) =>
-            updateField("supplyBoost", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("supplyBoost", nextValue)}
         />
       </label>
 
@@ -341,12 +329,11 @@ export function AccountModal({
             <span className="army-field-label">
               {t("accountConfigRedAttack")} (%)
             </span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={draft.redAttackBoost ?? 0}
-              onChange={(e) =>
-                updateField("redAttackBoost", Number(e.target.value) || 0)
-              }
+              onChange={(nextValue) => updateField("redAttackBoost", nextValue)}
               title={t("accountConfigRedAttack")}
             />
           </label>
@@ -354,12 +341,11 @@ export function AccountModal({
             <span className="army-field-label">
               {t("accountConfigRedDefense")} (%)
             </span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={draft.redDefenseBoost ?? 0}
-              onChange={(e) =>
-                updateField("redDefenseBoost", Number(e.target.value) || 0)
-              }
+              onChange={(nextValue) => updateField("redDefenseBoost", nextValue)}
               title={t("accountConfigRedDefense")}
             />
           </label>
@@ -373,12 +359,11 @@ export function AccountModal({
             <span className="army-field-label">
               {t("accountConfigBlueAttack")} (%)
             </span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={draft.blueAttackBoost ?? 0}
-              onChange={(e) =>
-                updateField("blueAttackBoost", Number(e.target.value) || 0)
-              }
+              onChange={(nextValue) => updateField("blueAttackBoost", nextValue)}
               title={t("accountConfigBlueAttack")}
             />
           </label>
@@ -386,12 +371,11 @@ export function AccountModal({
             <span className="army-field-label">
               {t("accountConfigBlueDefense")} (%)
             </span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={draft.blueDefenseBoost ?? 0}
-              onChange={(e) =>
-                updateField("blueDefenseBoost", Number(e.target.value) || 0)
-              }
+              onChange={(nextValue) => updateField("blueDefenseBoost", nextValue)}
               title={t("accountConfigBlueDefense")}
             />
           </label>
@@ -420,12 +404,11 @@ export function AccountModal({
       {/* QA bonus */}
       <label className="config-row">
         <Label icon={qaIcon} text={t("configLabelQaPerHour")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.qaBaseBonus ?? 0}
-          onChange={(e) =>
-            updateField("qaBaseBonus", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("qaBaseBonus", nextValue)}
         />
       </label>
     </div>
@@ -435,12 +418,11 @@ export function AccountModal({
     <div className="config-grid">
       <label className="config-row" data-help-id="profile-pref-shards-limit">
         <Label icon={shardsIcon} text={t("accountPrefShardsLimit")} />
-        <input
-          {...numberProps}
+        <QiInput
+          mode="number"
+          className="config-input"
           value={draft.shardsLimit ?? 500}
-          onChange={(e) =>
-            updateField("shardsLimit", Number(e.target.value) || 0)
-          }
+          onChange={(nextValue) => updateField("shardsLimit", nextValue)}
         />
       </label>
 
@@ -540,6 +522,24 @@ export function AccountModal({
             onClick={() => updateField("skipToEnd", false)}
           >
             {t("accountPrefOuterSkipTreeEnd")}
+          </button>
+        </div>
+      </div>
+
+      <div className="config-row" data-help-id="profile-pref-qa-from-setup">
+        <Label text={t("accountPrefOnlyCountQaFromSetup")} />
+        <div className="preference-buttons">
+          <button
+            className={draft.onlyCountQaFromSetup !== false ? "active" : ""}
+            onClick={() => updateField("onlyCountQaFromSetup", true)}
+          >
+            {t("accountPrefYes")}
+          </button>
+          <button
+            className={draft.onlyCountQaFromSetup === false ? "active" : ""}
+            onClick={() => updateField("onlyCountQaFromSetup", false)}
+          >
+            {t("accountPrefNo")}
           </button>
         </div>
       </div>
@@ -752,11 +752,12 @@ export function AccountModal({
           <div className="account-profile-section">
             <label className="config-row">
               <span className="config-label">Benutzername</span>
-              <input
-                type="text"
+              <QiInput
+                mode="text"
                 className="config-input"
+                fullWidth
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(nextValue) => setUsername(nextValue)}
                 placeholder="Dein Benutzername"
                 maxLength={30}
               />
@@ -827,11 +828,12 @@ export function AccountModal({
             <>
               <div className="auth-field">
                 <label className="auth-label">Username</label>
-                <input
+                <QiInput
                   type="text"
+                  fullWidth
                   placeholder="ProGamer123"
                   value={registerUsername}
-                  onChange={(e) => setRegisterUsername(e.target.value)}
+                  onChange={(nextValue) => setRegisterUsername(nextValue)}
                   autoComplete="username"
                   maxLength={30}
                 />
@@ -840,11 +842,12 @@ export function AccountModal({
                 <label className="auth-label">
                   Email<span className="required-star">*</span>
                 </label>
-                <input
+                <QiInput
                   type="email"
+                  fullWidth
                   placeholder="ProGamer@gmail.com"
                   value={registerEmail}
-                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  onChange={(nextValue) => setRegisterEmail(nextValue)}
                   autoComplete="email"
                   required
                 />
@@ -853,11 +856,12 @@ export function AccountModal({
                 <label className="auth-label">
                   Passwort<span className="required-star">*</span>
                 </label>
-                <input
+                <QiInput
                   type="password"
+                  fullWidth
                   placeholder="12345678"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(nextValue) => setPassword(nextValue)}
                   autoComplete="new-password"
                   required
                 />
@@ -867,22 +871,24 @@ export function AccountModal({
             <>
               <div className="auth-field">
                 <label className="auth-label">Username oder Email</label>
-                <input
+                <QiInput
                   type="text"
+                  fullWidth
                   placeholder="ProGamer123 oder ProGamer@gmail.com"
                   value={emailOrUsername}
-                  onChange={(e) => setEmailOrUsername(e.target.value)}
+                  onChange={(nextValue) => setEmailOrUsername(nextValue)}
                   autoComplete="username"
                   required
                 />
               </div>
               <div className="auth-field">
                 <label className="auth-label">Passwort</label>
-                <input
+                <QiInput
                   type="password"
-                  placeholder="••••••••"
+                  fullWidth
+                  placeholder="********"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(nextValue) => setPassword(nextValue)}
                   autoComplete="current-password"
                   required
                 />
@@ -1003,5 +1009,3 @@ export function AccountModal({
     </div>
   );
 }
-
-

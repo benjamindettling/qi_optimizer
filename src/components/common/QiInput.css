@@ -1,0 +1,26 @@
+.qi-input {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-input-bg);
+  color: var(--color-text-strong);
+  font: inherit;
+}
+
+.qi-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.qi-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.qi-input--number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.qi-input--full {
+  width: 100%;
+}
+

@@ -448,10 +448,10 @@ function expandAction(compressed) {
  *   [L, [[N, M], [Q]]]            // Second child branch of R, L has children
  * ]
  */
-export function serializeTree(historyTree, config) {
+export function serializeTree(historyTree) {
   const { nodes } = historyTree;
   const rootNode = nodes.get(0);
-  if (!rootNode) return { config, tree: [] };
+  if (!rootNode) return { tree: [] };
   
   function serializeBranch(nodeId) {
     const node = nodes.get(nodeId);
@@ -488,7 +488,7 @@ export function serializeTree(historyTree, config) {
   // Serialize all children of root
   const tree = rootNode.childrenIds.map(childId => serializeBranch(childId));
   
-  return { config, tree };
+  return { tree };
 }
 
 /**

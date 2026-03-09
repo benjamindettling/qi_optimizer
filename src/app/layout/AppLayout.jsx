@@ -41,9 +41,6 @@ export function AppLayout({
   boardContentRef,
   topBarRef,
   toolbarPosition = "top",
-  // Sync config props
-  showSyncConfig,
-  onSyncConfig,
   onTutorialStepForward,
   onTutorialJumpHistory,
   onTutorialTreeToggleFocus,
@@ -493,11 +490,6 @@ export function AppLayout({
     topBarProps.onStartTutorial?.();
   }, [clearExclusiveModes, topBarProps]);
 
-  const wrappedTopBarSyncConfig = useCallback(() => {
-    clearExclusiveModes();
-    onSyncConfig?.();
-  }, [clearExclusiveModes, onSyncConfig]);
-
   const wrappedTopBarEditResource = useCallback(
     (...args) => {
       clearExclusiveModes();
@@ -608,8 +600,6 @@ export function AppLayout({
             onOpenHelp={wrappedTopBarOpenHelp}
             onOpenAccount={wrappedTopBarOpenAccount}
             onStartTutorial={wrappedTopBarStartTutorial}
-            showSyncConfig={showSyncConfig}
-            onSyncConfig={wrappedTopBarSyncConfig}
             hasUnsavedChanges={topBarProps.hasUnsavedChanges}
           />
         </div>

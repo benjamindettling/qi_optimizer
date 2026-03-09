@@ -128,6 +128,7 @@ export const useGameController = () => {
     configStartResources: state.configStartResources,
     configRevision: state.configRevision,
     townhallDef: state.townhallDef,
+    timeStep: state.timeStep,
     setTimeStep: state.setTimeStep,
   });
 
@@ -238,6 +239,7 @@ export const useGameController = () => {
     libraryMap: state.libraryMap,
     stats: statsApi.stats,
     resources: state.resources,
+    timeStep: state.timeStep,
     buildLocks: state.buildLocks,
     readyMap: state.readyMap,
     setResources: state.setResources,

@@ -15,6 +15,9 @@ export const DEFAULT_CONFIG = {
   fightColor: "rot", // "rot" or "blau"
   qaBaseBonus: 0,
   qaHarvestHours: 12,
+  // true => only QA from placed QI buildings is counted/displayed
+  // false => include global baseline (5000/h + qaBaseBonus)
+  onlyCountQaFromSetup: true,
   allowShardLimitOverflow: true,
   // Preferences
   viewMode: "right",

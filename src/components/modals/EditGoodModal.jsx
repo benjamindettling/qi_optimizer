@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QiInput } from "../common/QiInput";
 import { getGoodIconPath } from "../../utils/goodsIconPath";
 
 const goodsIcon = "/menu/goods.png";
@@ -14,13 +15,6 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
 
   const goodKey = modal.goodKey;
   const goodIcon = getGoodIconPath(goodKey);
-
-  const numberProps = {
-    type: "number",
-    inputMode: "numeric",
-    className: "config-input",
-    onFocus: (e) => e.target.select(),
-  };
 
   const saveSingle = () => {
     onSave?.(amount);
@@ -40,10 +34,11 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
         <div className="modal-body">
           <label className="config-row">
             <span>Menge</span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value) || 0)}
+              onChange={(nextValue) => setAmount(nextValue)}
             />
           </label>
         </div>
@@ -59,3 +54,4 @@ export function EditGoodModal({ modal, onSave, onSaveAll, onClose }) {
     </div>
   );
 }
+

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { QiInput } from "../common/QiInput";
 
 export function EditUnitModal({ modal, onSave, onClose }) {
   const [amount, setAmount] = useState(modal?.value ?? 0);
@@ -11,13 +12,6 @@ export function EditUnitModal({ modal, onSave, onClose }) {
 
   const unitKey = modal.unitKey;
   const unitIcon = `/units/${unitKey}.webp`;
-
-  const numberProps = {
-    type: "number",
-    inputMode: "numeric",
-    className: "config-input",
-    onFocus: (e) => e.target.select(),
-  };
 
   const save = () => {
     onSave?.(amount);
@@ -33,10 +27,11 @@ export function EditUnitModal({ modal, onSave, onClose }) {
         <div className="modal-body">
           <label className="config-row">
             <span>Menge</span>
-            <input
-              {...numberProps}
+            <QiInput
+              mode="number"
+              className="config-input"
               value={amount}
-              onChange={(e) => setAmount(Number(e.target.value) || 0)}
+              onChange={(nextValue) => setAmount(nextValue)}
             />
           </label>
         </div>

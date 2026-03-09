@@ -5,12 +5,12 @@ import {
   Globe,
   Sparkle,
   User,
-  RefreshCw,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import { QiInput } from "../common/QiInput";
 
 export function MenuPanel({
   onSave,
@@ -27,8 +27,6 @@ export function MenuPanel({
   onToggleAdmin,
   onOpenAccount,
   onStartTutorial,
-  showSyncConfig,
-  onSyncConfig,
   hasUnsavedChanges,
 }) {
   const { lang } = useLang();
@@ -153,17 +151,6 @@ export function MenuPanel({
           </div>
         </div>
 
-        {showSyncConfig && (
-          <button
-            className="menu-btn menu-btn--sync"
-            onClick={onSyncConfig}
-            title={t("menuSyncTitle")}
-            aria-label={t("menuSyncLabel")}
-          >
-            <RefreshCw size={18} />
-            <span className="menu-btn-label">{t("menuSyncLabel")}</span>
-          </button>
-        )}
       </div>
 
       {saveModalOpen && typeof document !== "undefined"
@@ -178,13 +165,14 @@ export function MenuPanel({
                   <label className="menu-save-modal-label" htmlFor="topbar-save-name">
                     {t("saveModalNameLabel")}
                   </label>
-                  <input
+                  <QiInput
                     id="topbar-save-name"
+                    mode="text"
+                    fullWidth
                     className="menu-save-modal-input"
-                    type="text"
                     value={saveNameDraft}
                     placeholder={t("saveModalNamePlaceholder")}
-                    onChange={(event) => setSaveNameDraft(event.target.value)}
+                    onChange={(nextValue) => setSaveNameDraft(nextValue)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" && trimmedSaveName) {
                         handleConfirmSave();

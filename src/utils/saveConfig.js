@@ -1,5 +1,5 @@
 import { REGION_GOODS_COSTS, REGION_SHARD_COSTS, GOODS_TYPES } from "../config/boardConfig";
-import { DEFAULT_CONFIG, QA_BASE_PER_HOUR } from "../config/gameDefaults";
+import { DEFAULT_CONFIG } from "../config/gameDefaults";
 import { buildInitialGameState, buildLibrary } from "../config/initialState";
 import {
   getBoostCostForTier,
@@ -11,36 +11,43 @@ import {
   aggregateHarvest,
   computeBuildingHarvest,
   finishProductionsReadyMap,
-  getLockedCultureAutoHarvest,
+  getCultureAutoHarvest,
 } from "../domain/production/productionController";
 import { computeStats } from "./stateUtils";
 import { deserializeTree } from "./treeSerializer";
 import { getShardLimit, normalizeConfigWithShardSettings } from "./shards";
+import {
+  getOutsideQaDeltaForStepChange,
+  getOutsideQaPerHour,
+  getOutsideQaTotalForStep,
+  getQaHoursPerStep,
+} from "./qaAccounting";
 
 export const DEFAULT_SAVE_CONFIG = {
   extraCoins: 0,
   extraSupplies: 0,
   goodsStartBonus: 0,
-  troopsStartBonus: 0,
   shardsLimit: 500,
   coinBoost: 0,
   supplyBoost: 0,
+  troopsStartBonus: 0,
 };
 
 export const SAVE_CONFIG_FIELDS = [
   "extraCoins",
   "extraSupplies",
   "goodsStartBonus",
-  "troopsStartBonus",
   "shardsLimit",
   "coinBoost",
   "supplyBoost",
+  "troopsStartBonus",
 ];
 
 export const MIN_SAFE_SAVE_CONFIG_FIELDS = [
   "extraCoins",
   "extraSupplies",
   "goodsStartBonus",
+  "shardsLimit",
 ];
 
 export const SAVEFILE_SYNC_STATES = {
@@ -59,6 +66,7 @@ const clampIndex = (value, max) =>
   Math.max(0, Math.min(max, Number(value) || 0));
 
 const toNumber = (value) => (Number.isFinite(value) ? value : 0);
+const INITIAL_TIME_STEP = 1;
 
 const isInfinityCost = (value) =>
   value === "Infinity" ||
@@ -186,10 +194,18 @@ export const computeStartResourcesFromConfig = (config, baseResources) => {
   const goodsStart = Math.floor(Number(config?.goodsStartBonus ?? 0) / 5);
   const troopsStart = Math.floor(Number(config?.troopsStartBonus ?? 0) / 5);
   const shardsStart = getShardLimit(config, base?.shards ?? 0);
+  const qaOutsidePerHour = getOutsideQaPerHour(config);
+  const qaHoursPerStep = getQaHoursPerStep(config, 12);
+  const qaOutsideStart = getOutsideQaTotalForStep({
+    step: INITIAL_TIME_STEP,
+    qaOutsidePerHour,
+    qaHoursPerStep,
+  });
   return {
     ...base,
     coins: (base?.coins ?? 0) + Number(config?.extraCoins ?? 0),
     supplies: (base?.supplies ?? 0) + Number(config?.extraSupplies ?? 0),
+    quantumActions: (base?.quantumActions ?? 0) + qaOutsideStart,
     shards: shardsStart,
     goods: GOODS_TYPES.reduce(
       (acc, key) => ({ ...acc, [key]: (base?.goods?.[key] ?? 0) + goodsStart }),
@@ -290,6 +306,7 @@ const computeStatsForLayout = (layoutSnapshot, locksSnapshot, config) => {
 const trackMinima = (resources, minima) => {
   minima.coins = Math.min(minima.coins, Number(resources?.coins ?? 0));
   minima.supplies = Math.min(minima.supplies, Number(resources?.supplies ?? 0));
+  minima.shards = Math.min(minima.shards, Number(resources?.shards ?? 0));
   const lowestGood = GOODS_TYPES.reduce(
     (min, key) => Math.min(min, Number(resources?.goods?.[key] ?? 0)),
     Infinity,
@@ -308,11 +325,11 @@ export const analyzeSmallestSaveConfig = ({
   if (!treeData?.tree) return null;
 
   const { historyTree } = deserializeTree(treeData);
+  const normalizedDraft = extractSaveConfig(draftConfig ?? treeData?.config);
   const effectiveConfig = buildEffectiveSaveConfig(
-    treeData?.config || fallbackConfig,
-    draftConfig,
+    fallbackConfig,
+    normalizedDraft,
   );
-  const normalizedDraft = extractSaveConfig(draftConfig);
   const base = buildInitialGameState({
     libraryMap: BUILT_LIBRARY_MAP,
     townhallDef: BUILT_TOWNHALL_DEF,
@@ -455,28 +472,46 @@ export const analyzeSmallestSaveConfig = ({
   };
 
   const applyFinishProductionsSim = () => {
-    const { lockedCultureIds, qa: lockedCultureQa } =
-      getLockedCultureAutoHarvest(layoutSim, BUILT_LIBRARY_MAP, buildLocksSim, {
-        qaHoursPerHarvest: Number(effectiveConfig?.qaHarvestHours ?? 12),
-      });
+    const finishStats = computeStatsForLayout(layoutSim, {}, effectiveConfig);
+    const qaHoursPerStep = getQaHoursPerStep(effectiveConfig, 12);
+    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+      getCultureAutoHarvest(
+        layoutSim,
+        BUILT_LIBRARY_MAP,
+        buildLocksSim,
+        finishStats,
+        {
+          qaHoursPerHarvest: qaHoursPerStep,
+        },
+      );
     readySim = finishProductionsReadyMap(
       layoutSim,
       BUILT_LIBRARY_MAP,
       readySim,
       buildLocksSim,
     );
-    lockedCultureIds.forEach((id) => {
+    cultureIds.forEach((id) => {
       readySim[id] = false;
+    });
+    lockedCultureIds.forEach((id) => {
       buildLocksSim[id] = false;
     });
-    const baseQa =
-      (QA_BASE_PER_HOUR + Number(effectiveConfig?.qaBaseBonus ?? 0)) *
-      Number(effectiveConfig?.qaHarvestHours ?? 12);
-    const totalQa = baseQa + lockedCultureQa;
-    if (totalQa > 0) {
-      applyResourceDeltaSim({ quantumActions: totalQa });
-    }
-    timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+    const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+    const outsideQaDelta = getOutsideQaDeltaForStepChange({
+      fromStep: timeStepSim ?? 1,
+      toStep: nextStep,
+      qaOutsidePerHour: getOutsideQaPerHour(effectiveConfig),
+      qaHoursPerStep,
+    });
+    const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+    applyResourceDeltaSim({
+      coins: cultureTotal.coins ?? 0,
+      supplies: cultureTotal.supplies ?? 0,
+      chronos: cultureTotal.chronos ?? 0,
+      quantumActions: totalQa,
+      goods: cultureTotal.goods ?? {},
+    });
+    timeStepSim = nextStep;
   };
 
   const applyHarvestAllSim = () => {
@@ -492,10 +527,7 @@ export const analyzeSmallestSaveConfig = ({
       buildLocksSim,
       effectiveConfig,
     );
-    const baseQa =
-      (QA_BASE_PER_HOUR + Number(effectiveConfig?.qaBaseBonus ?? 0)) *
-      Number(effectiveConfig?.qaHarvestHours ?? 12);
-    const extraQa = isFullHarvest ? baseQa : 0;
+    const qaHoursPerStep = getQaHoursPerStep(effectiveConfig, 12);
     const targets = isFullHarvest ? layoutSim : readyOnes;
 
     const lockedIds = [];
@@ -517,17 +549,27 @@ export const analyzeSmallestSaveConfig = ({
     const total =
       harvestable.length > 0
         ? aggregateHarvest(harvestable, BUILT_LIBRARY_MAP, effectiveStats, {
-            qaHoursPerHarvest: Number(effectiveConfig?.qaHarvestHours ?? 12),
+            qaHoursPerHarvest: qaHoursPerStep,
           })
         : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
     const qaFromLockedCulture = lockedCulture.reduce(
       (acc, inst) =>
         acc +
         (BUILT_LIBRARY_MAP[inst.defId]?.quantumActions ?? 0) *
-          Number(effectiveConfig?.qaHarvestHours ?? 12),
+          qaHoursPerStep,
       0,
     );
-    total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+    total.qa = (total.qa ?? 0) + qaFromLockedCulture;
+    if (isFullHarvest) {
+      const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+      const outsideQaDelta = getOutsideQaDeltaForStepChange({
+        fromStep: timeStepSim ?? 1,
+        toStep: nextStep,
+        qaOutsidePerHour: getOutsideQaPerHour(effectiveConfig),
+        qaHoursPerStep,
+      });
+      total.qa += outsideQaDelta;
+    }
 
     applyResourceDeltaSim({
       coins: total.coins ?? 0,
@@ -551,6 +593,7 @@ export const analyzeSmallestSaveConfig = ({
   const minima = {
     coins: Number(resources.coins ?? 0),
     supplies: Number(resources.supplies ?? 0),
+    shards: Number(resources.shards ?? 0),
     goods: GOODS_TYPES.reduce(
       (min, key) => Math.min(min, Number(resources.goods?.[key] ?? 0)),
       Infinity,
@@ -684,7 +727,7 @@ export const analyzeSmallestSaveConfig = ({
           { defId: target.defId },
           BUILT_LIBRARY_MAP,
           statsSnapshot,
-          { qaHoursPerHarvest: Number(effectiveConfig?.qaHarvestHours ?? 12) },
+          { qaHoursPerHarvest: getQaHoursPerStep(effectiveConfig, 12) },
         );
         applyResourceDeltaSim({
           coins: delta.coins ?? 0,
@@ -743,13 +786,110 @@ export const analyzeSmallestSaveConfig = ({
     trackMinima(resources, minima);
   }
 
+  const shardsUsed = Math.max(
+    0,
+    Number(seedResources.shards ?? 0) - Number(resources.shards ?? 0),
+  );
+
   return {
     minima,
+    shardsUsed,
     adjustedConfig: {
       ...normalizedDraft,
       extraCoins: Math.max(0, normalizedDraft.extraCoins - minima.coins),
       extraSupplies: Math.max(0, normalizedDraft.extraSupplies - minima.supplies),
       goodsStartBonus: Math.max(0, normalizedDraft.goodsStartBonus - minima.goods * 5),
+      shardsLimit: Math.max(0, Math.round(shardsUsed)),
+    },
+    simulation: {
+      resources: {
+        ...resources,
+        goods: { ...(resources.goods ?? {}) },
+        units: { ...(resources.units ?? {}) },
+      },
+      seedResources: {
+        ...seedResources,
+        goods: { ...(seedResources.goods ?? {}) },
+        units: { ...(seedResources.units ?? {}) },
+      },
+      layout: [...layoutSim],
+      buildLocks: { ...buildLocksSim },
+      timeStep: timeStepSim ?? 1,
+      effectiveConfig: { ...effectiveConfig },
+    },
+  };
+};
+
+const FINAL_STEP = 23;
+const QA_HOURS_PER_STEP = 12;
+
+const computeSetupQaPerHour = (layoutSnapshot) =>
+  (layoutSnapshot || []).reduce((acc, inst) => {
+    const def = BUILT_LIBRARY_MAP?.[inst.defId];
+    if (!def) return acc;
+    const qaPerHour = Number(def?.quantumActions ?? 0);
+    if (!Number.isFinite(qaPerHour) || qaPerHour <= 0) return acc;
+    // Lock state does not reduce QA: locked cultural buildings still produce QA.
+    return acc + qaPerHour;
+  }, 0);
+
+export const computeSavefileTreeStats = ({
+  treeData,
+  saveConfig,
+  fallbackConfig,
+}) => {
+  if (!treeData?.tree) return null;
+
+  const analysis = analyzeSmallestSaveConfig({
+    treeData,
+    draftConfig: saveConfig ?? treeData?.config,
+    fallbackConfig: {
+      ...(fallbackConfig || {}),
+      onlyCountQaFromSetup: true,
+    },
+  });
+  if (!analysis?.simulation) return null;
+
+  const sim = analysis.simulation;
+  const finalStats = computeStatsForLayout(
+    sim.layout,
+    sim.buildLocks,
+    sim.effectiveConfig,
+  );
+  const decorationBoostRed = finalStats.armyBoostRed ?? 0;
+  const decorationBoostBlue = finalStats.armyBoostBlue ?? 0;
+  const redAttackCfg = Number(sim.effectiveConfig?.redAttackBoost ?? 0) / 100;
+  const redDefenseCfg = Number(sim.effectiveConfig?.redDefenseBoost ?? 0) / 100;
+  const blueAttackCfg = Number(sim.effectiveConfig?.blueAttackBoost ?? 0) / 100;
+  const blueDefenseCfg = Number(sim.effectiveConfig?.blueDefenseBoost ?? 0) / 100;
+
+  const redAttack = decorationBoostRed + redAttackCfg;
+  const redDefense = decorationBoostRed + redDefenseCfg;
+  const blueAttack = decorationBoostBlue + blueAttackCfg;
+  const blueDefense = decorationBoostBlue + blueDefenseCfg;
+  const attack = Math.round(Math.max(redAttack, blueAttack) * 100);
+  const defense = Math.round(Math.max(redDefense, blueDefense) * 100);
+
+  const setupQaPerHour = computeSetupQaPerHour(sim.layout);
+  const stepVal = Math.max(1, Math.min(FINAL_STEP, Number(sim.timeStep ?? 1)));
+  const remainingSteps = Math.max(0, FINAL_STEP - stepVal);
+  const totalQaSetup = Math.round(
+    Number(sim.resources.quantumActions ?? 0) +
+      remainingSteps * QA_HOURS_PER_STEP * setupQaPerHour,
+  );
+
+  return {
+    minimum: {
+      money: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraCoins ?? 0))),
+      supplies: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraSupplies ?? 0))),
+      goods: Math.max(0, Math.round(Number(analysis.adjustedConfig?.goodsStartBonus ?? 0))),
+      shardsUsed: Math.max(0, Math.round(analysis.shardsUsed ?? 0)),
+    },
+    final: {
+      attack,
+      defense,
+      totalQaSetup,
+      finalStep: stepVal,
     },
   };
 };
@@ -759,7 +899,7 @@ export const getSavefileSyncState = ({ saveEntry, userConfig }) => {
 
   const analysis = analyzeSmallestSaveConfig({
     treeData: saveEntry?.tree,
-    draftConfig: saveEntry?.saveConfig,
+    draftConfig: saveEntry?.saveConfig ?? saveEntry?.tree?.config,
     fallbackConfig: userConfig,
   });
 

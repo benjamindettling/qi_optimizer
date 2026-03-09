@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from "react";
-import { QA_BASE_PER_HOUR } from "../../config/gameDefaults";
 import { happinessTier } from "../../utils/gameMath";
 import { computeStats } from "../../utils/stateUtils";
 import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
+import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
 // Derives stats, boosts, and helper computations from the current layout.
 export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstModal }) => {
@@ -50,7 +50,7 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
     [coinBoostCfg, supplyBoostCfg],
   );
 
-  const qaBasePerHour = QA_BASE_PER_HOUR + Number(config?.qaBaseBonus ?? 0);
+  const qaBasePerHour = getOutsideQaPerHour(config);
   const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);
   const qaRateFromBuildings = useMemo(
     () =>

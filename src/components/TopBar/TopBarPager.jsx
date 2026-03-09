@@ -47,8 +47,6 @@ export function TopBarPager({
   onOpenHelp,
   onOpenAccount,
   onStartTutorial,
-  showSyncConfig,
-  onSyncConfig,
   hasUnsavedChanges,
 }) {
   const { lang } = useLang();
@@ -191,8 +189,6 @@ export function TopBarPager({
               onOpenHelp={onOpenHelp}
               onOpenAccount={onOpenAccount}
               onStartTutorial={onStartTutorial}
-              showSyncConfig={showSyncConfig}
-              onSyncConfig={onSyncConfig}
               hasUnsavedChanges={hasUnsavedChanges}
             />
           </section>

@@ -5,8 +5,9 @@ import {
   aggregateHarvest,
   buildHarvestResult,
   finishProductionsReadyMap,
-  getLockedCultureAutoHarvest,
+  getCultureAutoHarvest,
 } from "../../domain/production/productionController";
+import { getOutsideQaDeltaForStepChange } from "../../utils/qaAccounting";
 
 // Harvesting and production flows.
 export const useProductionHandlers = ({
@@ -16,6 +17,7 @@ export const useProductionHandlers = ({
   resources,
   buildLocks,
   readyMap,
+  timeStep,
   setResources,
   setReadyMap,
   setBuildLocks,
@@ -75,9 +77,6 @@ export const useProductionHandlers = ({
         0,
       );
       total.qa = (total.qa ?? 0) + qaFromLockedCulture;
-
-      const extraQa = options.extraQa ?? 0;
-      total.qa += extraQa;
 
       if (!infiniteResources) {
         setResources((prev) => ({
@@ -149,14 +148,25 @@ export const useProductionHandlers = ({
     setCheckpointIndex(null);
     setEditUnlocked(false);
     const label = "Beende alle Prod.";
-    const { lockedCultureIds, qa: lockedCultureQa } =
-      getLockedCultureAutoHarvest(layout, libraryMap, buildLocks, {
+    const finishStats = applyConfigBoosts(computeStats(layout, libraryMap));
+    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+      getCultureAutoHarvest(layout, libraryMap, buildLocks, finishStats, {
         qaHoursPerHarvest,
       });
+    const currentStep = Number.isFinite(Number(timeStep))
+      ? Number(timeStep)
+      : 1;
+    const nextStep = Math.min(23, currentStep + 1);
+    const outsideQaDelta = getOutsideQaDeltaForStepChange({
+      fromStep: currentStep,
+      toStep: nextStep,
+      qaOutsidePerHour: qaBasePerHour,
+      qaHoursPerStep: qaHoursPerHarvest,
+    });
     setNotes("");
     setReadyMap((prev) => {
       const next = finishProductionsReadyMap(layout, libraryMap, prev, buildLocks);
-      lockedCultureIds.forEach((id) => {
+      cultureIds.forEach((id) => {
         next[id] = false;
       });
       return next;
@@ -171,16 +181,30 @@ export const useProductionHandlers = ({
       });
     }
     if (!infiniteResources) {
-      const baseQa = qaBasePerHour * qaHoursPerHarvest;
-      const totalQa = baseQa + lockedCultureQa;
-      if (totalQa > 0) {
+      const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+      const hasCultureDelta =
+        (cultureTotal.coins ?? 0) !== 0 ||
+        (cultureTotal.supplies ?? 0) !== 0 ||
+        (cultureTotal.chronos ?? 0) !== 0 ||
+        Object.values(cultureTotal.goods ?? {}).some((v) => (v ?? 0) !== 0);
+      if (totalQa !== 0 || hasCultureDelta) {
         setResources((prev) => ({
           ...prev,
+          coins: (prev.coins ?? 0) + (cultureTotal.coins ?? 0),
+          supplies: (prev.supplies ?? 0) + (cultureTotal.supplies ?? 0),
+          chronos: (prev.chronos ?? 0) + (cultureTotal.chronos ?? 0),
           quantumActions: (prev.quantumActions ?? 0) + totalQa,
+          goods: GOODS_TYPES.reduce(
+            (acc, g) => ({
+              ...acc,
+              [g]: (prev.goods?.[g] ?? 0) + (cultureTotal.goods?.[g] ?? 0),
+            }),
+            {},
+          ),
         }));
       }
     }
-    setTimeStep((prev) => Math.min(23, prev + 1));
+    setTimeStep(() => nextStep);
     setBoostMode(false);
     updateStatus(label);
     setSelectedIds(new Set());
@@ -194,6 +218,7 @@ export const useProductionHandlers = ({
     layout,
     libraryMap,
     buildLocks,
+    timeStep,
     infiniteResources,
     qaBasePerHour,
     qaHoursPerHarvest,
@@ -201,6 +226,7 @@ export const useProductionHandlers = ({
     setReadyMap,
     setTimeStep,
     setBuildLocks,
+    applyConfigBoosts,
     updateStatus,
     editingLocked,
     trimFutureCheckpoints,
@@ -241,17 +267,30 @@ export const useProductionHandlers = ({
     if (unlockedAny) setBuildLocks(buildLocksAfter);
 
     const effectiveStats = applyConfigBoosts(computeStats(layout, libraryMap));
-    const baseQa = qaBasePerHour * qaHoursPerHarvest;
-    const extraQa = isFullHarvest ? baseQa : 0;
     const targets = isFullHarvest ? layout : readyOnes;
     harvestBuildings(targets, label, true, true, {
       statsOverride: effectiveStats,
       buildLocksOverride: locksBefore,
-      extraQa,
       logStatus: false,
     });
     if (isFullHarvest) {
-      setTimeStep((prev) => Math.min(23, prev + 1));
+      const currentStep = Number.isFinite(Number(timeStep))
+        ? Number(timeStep)
+        : 1;
+      const nextStep = Math.min(23, currentStep + 1);
+      const outsideQaDelta = getOutsideQaDeltaForStepChange({
+        fromStep: currentStep,
+        toStep: nextStep,
+        qaOutsidePerHour: qaBasePerHour,
+        qaHoursPerStep: qaHoursPerHarvest,
+      });
+      if (!infiniteResources && outsideQaDelta !== 0) {
+        setResources((prev) => ({
+          ...prev,
+          quantumActions: (prev.quantumActions ?? 0) + outsideQaDelta,
+        }));
+      }
+      setTimeStep(() => nextStep);
     }
     updateStatus(label);
     if (isFullHarvest) {
@@ -266,11 +305,13 @@ export const useProductionHandlers = ({
   }, [
     layout,
     readyMap,
+    timeStep,
     harvestBuildings,
     buildLocks,
     setBuildLocks,
     applyConfigBoosts,
     libraryMap,
+    setResources,
     qaBasePerHour,
     qaHoursPerHarvest,
     infiniteResources,
@@ -315,7 +356,6 @@ export const useProductionHandlers = ({
     harvestBuildings(readyOnes, label, true, true, {
       statsOverride: effectiveStats,
       buildLocksOverride: locksBefore,
-      extraQa: 0,
       logStatus: false,
     });
     
@@ -358,12 +398,10 @@ export const useProductionHandlers = ({
       const effectiveStats = applyConfigBoosts(
         computeStats(effectiveLayout, libraryMap),
       );
-      const baseQa = qaBasePerHour * qaHoursPerHarvest;
 
       harvestBuildings(effectiveLayout, "Volle Ernte", true, true, {
         statsOverride: effectiveStats,
         buildLocksOverride: locksBefore,
-        extraQa: baseQa,
         logStatus: false,
       });
     },
@@ -373,8 +411,6 @@ export const useProductionHandlers = ({
       libraryMap,
       harvestBuildings,
       layout,
-      qaBasePerHour,
-      qaHoursPerHarvest,
     ],
   );
 

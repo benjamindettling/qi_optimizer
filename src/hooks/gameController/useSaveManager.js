@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSaves } from "../useSaves";
 import { useSnapshotHistory } from "./useSnapshotHistory";
 import { serializeTree, deserializeTree, getMainBranchEndNodeId } from "../../utils/treeSerializer";
-import { extractSaveConfig } from "../../utils/saveConfig";
+import {
+  computeSavefileTreeStats,
+  extractSaveConfig,
+  SAVE_CONFIG_FIELDS,
+} from "../../utils/saveConfig";
 
 // Manages save/load flows and snapshot history.
 export const useSaveManager = ({
@@ -99,6 +103,7 @@ export const useSaveManager = ({
 
   const [pendingAutoSnapshot, setPendingAutoSnapshot] = useState(null);
   const prevUserConfigSignatureRef = useRef(null);
+  const allowedSaveConfigKeys = useMemo(() => new Set(SAVE_CONFIG_FIELDS), []);
   
   // Track last saved node count for computing unsaved changes
   const [lastSavedNodeCount, setLastSavedNodeCount] = useState(null);
@@ -149,8 +154,15 @@ export const useSaveManager = ({
       const next = { ...prev };
       Object.entries(prev || {}).forEach(([name, entry]) => {
         if (entry?.syncUser !== true) return;
-        const currentConfig = extractSaveConfig(entry?.saveConfig);
-        if (JSON.stringify(currentConfig) === signature) return;
+        const sourceConfig = entry?.saveConfig ?? entry?.tree?.config;
+        const currentConfig = extractSaveConfig(sourceConfig);
+        const rawConfig = sourceConfig ?? {};
+        const hasOnlyAllowedKeys =
+          rawConfig &&
+          typeof rawConfig === "object" &&
+          !Array.isArray(rawConfig) &&
+          Object.keys(rawConfig).every((key) => allowedSaveConfigKeys.has(key));
+        if (JSON.stringify(currentConfig) === signature && hasOnlyAllowedKeys) return;
         next[name] = {
           ...entry,
           saveConfig: syncedConfig,
@@ -171,7 +183,54 @@ export const useSaveManager = ({
     loadName,
     saves,
     setActiveSaveConfig,
+    allowedSaveConfigKeys,
   ]);
+
+  // One-pass sanitization: keep savefile config payload minimal for all existing saves.
+  useEffect(() => {
+    if (!savesLoaded) return;
+    setAllSaves((prev) => {
+      let changed = false;
+      const next = { ...(prev || {}) };
+      Object.entries(prev || {}).forEach(([name, entry]) => {
+        if (!entry || typeof entry !== "object") return;
+        let nextEntry = entry;
+        const legacyTreeConfig = entry?.tree?.config;
+
+        if (entry.saveConfig && typeof entry.saveConfig === "object") {
+          const sanitizedSaveConfig = extractSaveConfig(entry.saveConfig);
+          if (JSON.stringify(entry.saveConfig) !== JSON.stringify(sanitizedSaveConfig)) {
+            nextEntry = { ...nextEntry, saveConfig: sanitizedSaveConfig };
+          }
+        } else if (legacyTreeConfig && typeof legacyTreeConfig === "object") {
+          // Migrate legacy tree.config to top-level saveConfig once.
+          nextEntry = {
+            ...nextEntry,
+            saveConfig: extractSaveConfig(legacyTreeConfig),
+          };
+        }
+
+        if (
+          entry.tree &&
+          typeof entry.tree === "object" &&
+          Object.prototype.hasOwnProperty.call(entry.tree, "config")
+        ) {
+          const treeWithoutConfig = { ...entry.tree };
+          delete treeWithoutConfig.config;
+          nextEntry = {
+            ...nextEntry,
+            tree: treeWithoutConfig,
+          };
+        }
+
+        if (nextEntry !== entry) {
+          next[name] = nextEntry;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [savesLoaded, setAllSaves]);
 
   // Version 2 save: Only tree + name, no snapshots/checkpoints
   const handleSaveState = useCallback(
@@ -182,8 +241,8 @@ export const useSaveManager = ({
       
       // Serialize the history tree (using ref)
       const historyTree = historyTreeRef?.current;
-      const serializedTree = historyTree && config 
-        ? serializeTree(historyTree, config)
+      const serializedTree = historyTree && config
+        ? serializeTree(historyTree)
         : null;
       
       if (!serializedTree) {
@@ -192,17 +251,29 @@ export const useSaveManager = ({
       }
       
       // Determine saveConfig to use:
-      // 1. If overwriting an existing save, preserve its saveConfig as-is.
-      // 2. If creating a new save, copy the current user config into saveConfig.
+      // 1. If overwriting an existing save, keep its values but sanitize to the
+      //    savefile-only config subset.
+      // 2. If creating a new save, copy the current user config subset.
       let saveConfigToUse = null;
       let syncUserToUse = false;
       const existingSave = saves[targetName];
       if (Object.prototype.hasOwnProperty.call(saves, targetName)) {
-        saveConfigToUse = existingSave.saveConfig;
+        saveConfigToUse = extractSaveConfig(
+          existingSave?.saveConfig ?? existingSave?.tree?.config,
+        );
         syncUserToUse = existingSave?.syncUser === true;
       } else {
         saveConfigToUse = extractSaveConfig(userConfig);
         syncUserToUse = true;
+      }
+
+      const computedTreeStats = computeSavefileTreeStats({
+        treeData: serializedTree,
+        saveConfig: saveConfigToUse,
+        fallbackConfig: config,
+      });
+      if (computedTreeStats) {
+        serializedTree.stats = computedTreeStats;
       }
       
       // Version 2 format: only tree and name
@@ -247,9 +318,15 @@ export const useSaveManager = ({
       
       const loadHistoryTree = loadHistoryTreeRef?.current;
       
-      // Apply savefile config if present
-      if (saved.saveConfig) {
-        setActiveSaveConfig?.(saved.saveConfig);
+      // Apply savefile config if present (only if at least one savefile key exists)
+      const sourceSaveConfig = saved.saveConfig ?? saved?.tree?.config;
+      const hasSavefileConfigKeys =
+        sourceSaveConfig &&
+        typeof sourceSaveConfig === "object" &&
+        !Array.isArray(sourceSaveConfig) &&
+        Object.keys(sourceSaveConfig).some((key) => allowedSaveConfigKeys.has(key));
+      if (hasSavefileConfigKeys) {
+        setActiveSaveConfig?.(extractSaveConfig(sourceSaveConfig));
       } else {
         setActiveSaveConfig?.(null);
       }
@@ -364,6 +441,7 @@ export const useSaveManager = ({
       setSelectedSnapshotName,
       loadHistoryTreeRef,
       setActiveSnapshotName,
+      allowedSaveConfigKeys,
     ],
   );
 

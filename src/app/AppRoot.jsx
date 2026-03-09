@@ -866,31 +866,6 @@ export function AppRoot() {
   // Check if we're in placement mode (a building is selected for placement)
   const isPlacementMode = controller.selectedBuildingId !== null;
 
-  // Calculate if we should show the Sync Config button
-  // Show when: savefile is loaded AND its config differs from user config
-  const showSyncConfig = (() => {
-    if (!controller.loadName || !controller.activeSaveConfig) return false;
-    const fields = [
-      "extraCoins",
-      "extraSupplies",
-      "goodsStartBonus",
-      "troopsStartBonus",
-      "shardsLimit",
-      "coinBoost",
-      "supplyBoost",
-    ];
-    return fields.some(
-      (f) =>
-        (controller.activeSaveConfig[f] ?? 0) !==
-        (controller.userConfig?.[f] ?? 0),
-    );
-  })();
-
-  // Handler to sync config - creates new savefile with user's config
-  const handleSyncConfig = () => {
-    controller.handleSyncConfig?.(controller.userConfig);
-  };
-
   const openAccountModal = (tabKey = "account") => {
     setAccountInitialTab(tabKey);
     setAccountModalOpen(true);
@@ -1195,8 +1170,6 @@ export function AppRoot() {
                 config={controller.config}
                 updateConfig={controller.updateConfig}
                 toolbarPosition={controller.toolbarPosition}
-                showSyncConfig={showSyncConfig}
-                onSyncConfig={handleSyncConfig}
                 onTutorialStepForward={handleTutorialStepForward}
                 onTutorialJumpHistory={handleTutorialJumpHistory}
                 onTutorialTreeToggleFocus={handleTutorialTreeToggleFocus}

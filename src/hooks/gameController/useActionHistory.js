@@ -13,13 +13,12 @@ import {
   getUnlockCostForTier,
   isTierLocked,
 } from "../../config/buildingTiers";
-import { QA_BASE_PER_HOUR } from "../../config/gameDefaults";
 import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
 import {
   aggregateHarvest,
   computeBuildingHarvest,
   finishProductionsReadyMap,
-  getLockedCultureAutoHarvest,
+  getCultureAutoHarvest,
 } from "../../domain/production/productionController";
 import { computeStats } from "../../utils/stateUtils";
 import { buildInitialGameState } from "../../config/initialState";
@@ -27,6 +26,10 @@ import { computePurchasePlans } from "../../utils/gameMath";
 import { solveTilingMask } from "../../utils/tilingSolver";
 import { buildTilingMask, buildTilingGroups, applyTilingSolution } from "../../utils/tilingTranslator";
 import { allowShardLimitOverflow } from "../../utils/shards";
+import {
+  getOutsideQaDeltaForStepChange,
+  getOutsideQaPerHour,
+} from "../../utils/qaAccounting";
 
 const ACTION_BUILD = "build";
 const ACTION_BUILD_ADMIN = "buildAdmin";
@@ -193,6 +196,7 @@ export const useActionHistory = ({
   configStartResources,
   configRevision,
   townhallDef,
+  timeStep,
   setTimeStep,
 }) => {
   // ============ TREE-BASED HISTORY STATE ============
@@ -219,6 +223,7 @@ export const useActionHistory = ({
   const buildLocksRef = useRef(buildLocks);
   const goodsUnlocksRef = useRef(goodsUnlocks);
   const shardUnlocksRef = useRef(shardUnlocks);
+  const timeStepRef = useRef(timeStep ?? 1);
   const statsRef = useRef(stats);
   const qaHoursRef = useRef(qaHoursPerHarvest);
   const producerMap = useMemo(() => {
@@ -274,6 +279,10 @@ export const useActionHistory = ({
   useEffect(() => {
     shardUnlocksRef.current = shardUnlocks;
   }, [shardUnlocks]);
+
+  useEffect(() => {
+    timeStepRef.current = timeStep ?? 1;
+  }, [timeStep]);
 
   useEffect(() => {
     statsRef.current = stats;
@@ -668,7 +677,7 @@ export const useActionHistory = ({
     [applyResourceDelta],
   );
 
-  const qaBasePerHour = QA_BASE_PER_HOUR + Number(config?.qaBaseBonus ?? 0);
+  const qaBasePerHour = getOutsideQaPerHour(config);
   const applyConfigBoosts = useCallback(
     (base) => {
       const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
@@ -689,8 +698,11 @@ export const useActionHistory = ({
   const applyFinishProductions = useCallback((skipResources = false) => {
     const layoutList = layoutRef.current || [];
     const buildLocksSnapshot = buildLocksRef.current || {};
-    const { lockedCultureIds, qa: lockedCultureQa } =
-      getLockedCultureAutoHarvest(layoutList, libraryMap, buildLocksSnapshot, {
+    const finishStats = applyConfigBoosts(
+      computeStats(layoutList, libraryMap),
+    );
+    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+      getCultureAutoHarvest(layoutList, libraryMap, buildLocksSnapshot, finishStats, {
         qaHoursPerHarvest: qaHoursRef.current ?? 0,
       });
     const nextReady = finishProductionsReadyMap(
@@ -699,7 +711,7 @@ export const useActionHistory = ({
       readyMapRef.current || {},
       buildLocksSnapshot,
     );
-    lockedCultureIds.forEach((id) => {
+    cultureIds.forEach((id) => {
       nextReady[id] = false;
     });
     readyMapRef.current = nextReady;
@@ -714,13 +726,28 @@ export const useActionHistory = ({
         return next;
       });
     }
-    const baseQa = qaBasePerHour * (qaHoursRef.current ?? 0);
-    const totalQa = baseQa + lockedCultureQa;
-    if (totalQa > 0 && !skipResources) {
-      applyResourceDelta({ quantumActions: totalQa });
+    const currentStep = timeStepRef.current ?? 1;
+    const nextStep = Math.min(23, currentStep + 1);
+    const outsideQaDelta = getOutsideQaDeltaForStepChange({
+      fromStep: currentStep,
+      toStep: nextStep,
+      qaOutsidePerHour: qaBasePerHour,
+      qaHoursPerStep: qaHoursRef.current ?? 0,
+    });
+    const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+    if (!skipResources) {
+      applyResourceDelta({
+        coins: cultureTotal.coins ?? 0,
+        supplies: cultureTotal.supplies ?? 0,
+        chronos: cultureTotal.chronos ?? 0,
+        quantumActions: totalQa,
+        goods: cultureTotal.goods ?? {},
+      });
     }
-    setTimeStep?.((prev) => Math.min(23, (prev ?? 1) + 1));
+    timeStepRef.current = nextStep;
+    setTimeStep?.(() => nextStep);
   }, [
+    applyConfigBoosts,
     applyResourceDelta,
     libraryMap,
     qaBasePerHour,
@@ -752,8 +779,6 @@ export const useActionHistory = ({
     const effectiveStats = applyConfigBoosts(
       computeStats(layoutList, libraryMap),
     );
-    const baseQa = qaBasePerHour * (qaHoursRef.current ?? 0);
-    const extraQa = isFullHarvest ? baseQa : 0;
     const targets = isFullHarvest ? layoutList : readyOnes;
 
     const lockedIds = [];
@@ -785,7 +810,19 @@ export const useActionHistory = ({
           (qaHoursRef.current ?? 0),
       0,
     );
-    total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+    total.qa = (total.qa ?? 0) + qaFromLockedCulture;
+    if (isFullHarvest) {
+      const currentStep = timeStepRef.current ?? 1;
+      const nextStep = Math.min(23, currentStep + 1);
+      const outsideQaDelta = getOutsideQaDeltaForStepChange({
+        fromStep: currentStep,
+        toStep: nextStep,
+        qaOutsidePerHour: qaBasePerHour,
+        qaHoursPerStep: qaHoursRef.current ?? 0,
+      });
+      total.qa += outsideQaDelta;
+      timeStepRef.current = nextStep;
+    }
 
     if (!skipResources) {
       applyResourceDelta({
@@ -820,7 +857,7 @@ export const useActionHistory = ({
     }
 
     if (isFullHarvest) {
-      setTimeStep?.((prev) => Math.min(23, (prev ?? 1) + 1));
+      setTimeStep?.(() => timeStepRef.current ?? 1);
     }
   }, [
     applyConfigBoosts,
@@ -1456,8 +1493,16 @@ export const useActionHistory = ({
     };
 
     const applyFinishProductionsSim = (skipResources = false) => {
-      const { lockedCultureIds, qa: lockedCultureQa } =
-        getLockedCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, {
+      const finishStats = applyConfigBoosts(computeStats(layoutSim, libraryMap));
+      const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+      const outsideQaDelta = getOutsideQaDeltaForStepChange({
+        fromStep: timeStepSim ?? 1,
+        toStep: nextStep,
+        qaOutsidePerHour: qaBasePerHour,
+        qaHoursPerStep: qaHoursPerHarvest ?? 0,
+      });
+      const { cultureIds, lockedCultureIds, total: cultureTotal } =
+        getCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, finishStats, {
           qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
         });
       readySim = finishProductionsReadyMap(
@@ -1466,16 +1511,23 @@ export const useActionHistory = ({
         readySim,
         buildLocksSim,
       );
-      lockedCultureIds.forEach((id) => {
+      cultureIds.forEach((id) => {
         readySim[id] = false;
+      });
+      lockedCultureIds.forEach((id) => {
         buildLocksSim[id] = false;
       });
-      const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-      const totalQa = baseQa + lockedCultureQa;
-      if (totalQa > 0 && !skipResources) {
-        applyResourceDeltaSim({ quantumActions: totalQa });
+      const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+      if (!skipResources) {
+        applyResourceDeltaSim({
+          coins: cultureTotal.coins ?? 0,
+          supplies: cultureTotal.supplies ?? 0,
+          chronos: cultureTotal.chronos ?? 0,
+          quantumActions: totalQa,
+          goods: cultureTotal.goods ?? {},
+        });
       }
-      timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+      timeStepSim = nextStep;
     };
 
     const applyHarvestAllSim = (skipResources = false) => {
@@ -1489,8 +1541,6 @@ export const useActionHistory = ({
       const effectiveStats = applyConfigBoosts(
         computeStats(layoutSim, libraryMap),
       );
-      const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-      const extraQa = isFullHarvest ? baseQa : 0;
       const targets = isFullHarvest ? layoutSim : readyOnes;
 
       const lockedIds = [];
@@ -1522,7 +1572,17 @@ export const useActionHistory = ({
             (qaHoursPerHarvest ?? 0),
         0,
       );
-      total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+      total.qa = (total.qa ?? 0) + qaFromLockedCulture;
+      if (isFullHarvest) {
+        const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+        const outsideQaDelta = getOutsideQaDeltaForStepChange({
+          fromStep: timeStepSim ?? 1,
+          toStep: nextStep,
+          qaOutsidePerHour: qaBasePerHour,
+          qaHoursPerStep: qaHoursPerHarvest ?? 0,
+        });
+        total.qa += outsideQaDelta;
+      }
 
       if (!skipResources) {
         applyResourceDeltaSim({
@@ -1939,8 +1999,18 @@ export const useActionHistory = ({
       };
 
       const applyFinishProductionsSim = (skipResources = false) => {
-        const { lockedCultureIds, qa: lockedCultureQa } =
-          getLockedCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, {
+        const finishStats = applyConfigBoosts(
+          computeStats(layoutSim, libraryMap),
+        );
+        const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+        const outsideQaDelta = getOutsideQaDeltaForStepChange({
+          fromStep: timeStepSim ?? 1,
+          toStep: nextStep,
+          qaOutsidePerHour: qaBasePerHour,
+          qaHoursPerStep: qaHoursPerHarvest ?? 0,
+        });
+        const { cultureIds, lockedCultureIds, total: cultureTotal } =
+          getCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, finishStats, {
             qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
           });
         readySim = finishProductionsReadyMap(
@@ -1949,16 +2019,23 @@ export const useActionHistory = ({
           readySim,
           buildLocksSim,
         );
-        lockedCultureIds.forEach((id) => {
+        cultureIds.forEach((id) => {
           readySim[id] = false;
+        });
+        lockedCultureIds.forEach((id) => {
           buildLocksSim[id] = false;
         });
-        const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-        const totalQa = baseQa + lockedCultureQa;
-        if (totalQa > 0 && !skipResources) {
-          applyResourceDeltaSim({ quantumActions: totalQa });
+        const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+        if (!skipResources) {
+          applyResourceDeltaSim({
+            coins: cultureTotal.coins ?? 0,
+            supplies: cultureTotal.supplies ?? 0,
+            chronos: cultureTotal.chronos ?? 0,
+            quantumActions: totalQa,
+            goods: cultureTotal.goods ?? {},
+          });
         }
-        timeStepSim = Math.min(23, (timeStepSim ?? 1) + 1);
+        timeStepSim = nextStep;
       };
 
       const applyHarvestAllSim = (skipResources = false) => {
@@ -1972,8 +2049,6 @@ export const useActionHistory = ({
         const effectiveStats = applyConfigBoosts(
           computeStats(layoutSim, libraryMap),
         );
-        const baseQa = qaBasePerHour * (qaHoursPerHarvest ?? 0);
-        const extraQa = isFullHarvest ? baseQa : 0;
         const targets = isFullHarvest ? layoutSim : readyOnes;
 
         const lockedIds = [];
@@ -2005,7 +2080,17 @@ export const useActionHistory = ({
               (qaHoursPerHarvest ?? 0),
           0,
         );
-        total.qa = (total.qa ?? 0) + qaFromLockedCulture + extraQa;
+        total.qa = (total.qa ?? 0) + qaFromLockedCulture;
+        if (isFullHarvest) {
+          const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
+          const outsideQaDelta = getOutsideQaDeltaForStepChange({
+            fromStep: timeStepSim ?? 1,
+            toStep: nextStep,
+            qaOutsidePerHour: qaBasePerHour,
+            qaHoursPerStep: qaHoursPerHarvest ?? 0,
+          });
+          total.qa += outsideQaDelta;
+        }
 
         if (!skipResources) {
           applyResourceDeltaSim({

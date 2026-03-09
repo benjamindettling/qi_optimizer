@@ -127,6 +127,37 @@ export const getLockedCultureAutoHarvest = (
   return { lockedCultureIds, qa };
 };
 
+export const getCultureAutoHarvest = (
+  layout,
+  libraryMap,
+  buildLocks = {},
+  stats = {},
+  { qaHoursPerHarvest = 0 } = {}
+) => {
+  const cultureInstances = [];
+  const cultureIds = [];
+  const lockedCultureIds = [];
+
+  (layout ?? []).forEach((inst) => {
+    const def = libraryMap?.[inst.defId];
+    if (def?.category !== "culture") return;
+    cultureInstances.push(inst);
+    cultureIds.push(inst.id);
+    if (buildLocks?.[inst.id]) {
+      lockedCultureIds.push(inst.id);
+    }
+  });
+
+  const total =
+    cultureInstances.length > 0
+      ? aggregateHarvest(cultureInstances, libraryMap, stats, {
+          qaHoursPerHarvest,
+        })
+      : { coins: 0, supplies: 0, chronos: 0, goods: {}, qa: 0 };
+
+  return { cultureIds, lockedCultureIds, total };
+};
+
 export const buildHarvestResult = ({ total, resources }) => ({
   coins: (resources.coins ?? 0) + total.coins,
   supplies: (resources.supplies ?? 0) + total.supplies,

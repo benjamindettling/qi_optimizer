@@ -1,5 +1,4 @@
-﻿// Main top bar showing resources, boosts, and view controls.
-import { RefreshCw } from "lucide-react";
+// Main top bar showing resources, boosts, and view controls.
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
@@ -36,9 +35,6 @@ export function TopBar({
   onOpenAccount,
   editingLocked = false,
   config,
-  userConfig,
-  activeSaveConfig,
-  onSyncConfig,
   onSave,
   onLoad,
   saves,
@@ -182,28 +178,6 @@ export function TopBar({
 
       <HappinessPanel stats={stats} happyInfo={happyInfo} />
 
-      {activeSaveConfig &&
-        loadName &&
-        (() => {
-          const fields = [
-            "extraCoins",
-            "extraSupplies",
-            "goodsStartBonus",
-            "troopsStartBonus",
-            "coinBoost",
-            "supplyBoost",
-          ];
-          const differs = fields.some(
-            (f) => (activeSaveConfig[f] ?? 0) !== (userConfig?.[f] ?? 0),
-          );
-          return differs ? (
-            <button className="sync-config-btn" onClick={onSyncConfig} title={t("syncConfigTitle")}>
-              <RefreshCw size={16} />
-              <span>Sync Config</span>
-            </button>
-          ) : null;
-        })()}
-
       <SaveControls
         onSave={onSave}
         onLoad={onLoad}
@@ -226,4 +200,5 @@ export function TopBar({
     </header>
   );
 }
+
 

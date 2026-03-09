@@ -303,12 +303,13 @@
 }
 
 .menu-panel .menu-btn--unsaved {
-  background: var(--color-teal-dark);
-  color: var(--color-text-strong);
+  background: var(--ui-notes-turquoise);
+  color: var(--color-bg);
+  border-color: var(--ui-notes-turquoise);
 }
 
 .menu-panel .menu-btn--unsaved:hover {
-  filter: brightness(1.3) !important;
+  filter: brightness(1.15) !important;
 }
 
 .menu-panel .menu-btn:hover:not(:disabled) {

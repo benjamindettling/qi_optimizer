@@ -9,10 +9,11 @@ import { computeSaleOrRefund } from "../../domain/economy/resourceTransactions";
 import {
   aggregateHarvest,
   finishProductionsReadyMap,
-  getLockedCultureAutoHarvest,
+  getCultureAutoHarvest,
 } from "../../domain/production/productionController";
 import { formatNumber } from "../../utils/formatNumber";
 import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
+import { getOutsideQaDeltaForStepChange } from "../../utils/qaAccounting";
 
 // Smart harvest simulation and apply flow.
 export const useSmartHarvest = ({
@@ -74,9 +75,9 @@ export const useSmartHarvest = ({
       let simNextId = startNextId;
       let simTimeStep = startTimeStep;
 
-      const baseQa = qaBasePerHour * qaHoursPerHarvest;
-      const { lockedCultureIds, qa: lockedCultureQa } =
-        getLockedCultureAutoHarvest(simLayout, libraryMap, simBuildLocks, {
+      const finishStats = applyConfigBoosts(computeStats(simLayout, libraryMap));
+      const { cultureIds, lockedCultureIds, total: cultureTotal } =
+        getCultureAutoHarvest(simLayout, libraryMap, simBuildLocks, finishStats, {
           qaHoursPerHarvest,
         });
       simReadyMap = finishProductionsReadyMap(
@@ -85,16 +86,36 @@ export const useSmartHarvest = ({
         simReadyMap,
         simBuildLocks,
       );
-      lockedCultureIds.forEach((id) => {
+      cultureIds.forEach((id) => {
         simReadyMap[id] = false;
+      });
+      lockedCultureIds.forEach((id) => {
         simBuildLocks[id] = false;
       });
-      const totalQa = baseQa + lockedCultureQa;
-      if (!infiniteResources && totalQa > 0) {
+      const nextTimeStep = Math.min(23, simTimeStep + 1);
+      const outsideQaDelta = getOutsideQaDeltaForStepChange({
+        fromStep: simTimeStep,
+        toStep: nextTimeStep,
+        qaOutsidePerHour: qaBasePerHour,
+        qaHoursPerStep: qaHoursPerHarvest,
+      });
+      const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+      if (!infiniteResources) {
+        simResources.coins =
+          (simResources.coins ?? 0) + (cultureTotal.coins ?? 0);
+        simResources.supplies =
+          (simResources.supplies ?? 0) + (cultureTotal.supplies ?? 0);
+        simResources.chronos =
+          (simResources.chronos ?? 0) + (cultureTotal.chronos ?? 0);
         simResources.quantumActions =
           (simResources.quantumActions ?? 0) + totalQa;
+        simResources.goods = simResources.goods ?? {};
+        GOODS_TYPES.forEach((g) => {
+          simResources.goods[g] =
+            (simResources.goods[g] ?? 0) + (cultureTotal.goods?.[g] ?? 0);
+        });
       }
-      simTimeStep = Math.min(23, simTimeStep + 1);
+      simTimeStep = nextTimeStep;
 
       const mask =
         maskOverride ??
@@ -133,7 +154,7 @@ export const useSmartHarvest = ({
       const simulateHarvest = (
         instances,
         stats,
-        options = { extraQa: 0, buildLocksOverride: null },
+        options = { buildLocksOverride: null },
       ) => {
         if (!instances.length) return;
         const locks = options.buildLocksOverride ?? simBuildLocks;
@@ -166,8 +187,7 @@ export const useSmartHarvest = ({
             (libraryMap[inst.defId]?.quantumActions ?? 0) * qaHoursPerHarvest,
           0,
         );
-        total.qa =
-          (total.qa ?? 0) + qaFromLockedCulture + (options.extraQa ?? 0);
+        total.qa = (total.qa ?? 0) + qaFromLockedCulture;
 
         if (!infiniteResources) {
           simResources.coins = (simResources.coins ?? 0) + (total.coins ?? 0);
@@ -294,7 +314,7 @@ export const useSmartHarvest = ({
       addLog("150% erreicht -> Ernte Rest");
       const harvestTargets = simLayout.filter((b) => simReadyMap[b.id] === true);
       const finalHarvestStats = buildHarvestStats(true);
-      simulateHarvest(harvestTargets, finalHarvestStats, { extraQa: baseQa });
+      simulateHarvest(harvestTargets, finalHarvestStats);
 
       addLog(
         `Neuer Stand: ${formatNumber(simResources.coins ?? 0)} Münzen, ${formatNumber(

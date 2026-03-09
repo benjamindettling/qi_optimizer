@@ -910,6 +910,14 @@
     DE: "Hier stellst du ein, ob die äußeren Skip-Buttons eher feingranular über Step-Grenzen springen oder direkt große Sprünge von einem Ende zum anderen machen.",
     EN: "Here you can set whether the outer skip buttons jump across step boundaries or make large jumps from one end to the other.",
   },
+  helpTopicProfilePrefQaFromSetupTitle: {
+    DE: "Präferenz: Zähle nur QA vom Setup",
+    EN: "Preference: Only count QA from setup",
+  },
+  helpTopicProfilePrefQaFromSetupBody: {
+    DE: "Diese Einstellung begrenzt die angezeigten gesammelten QA darauf, nur Gewinne aus deiner tatsächlichen QI-Stadt zu zeigen. Die 5000 QA/h plus alles aus der Hauptstadt bekommst du auch ohne QI-Stadt-Spielweise. Wenn du lieber die komplette Übersicht sehen möchtest, setze die Option auf \"Nein\".",
+    EN: "This setting limits the displayed collected QA to only show gains from the actual QI city, as the 5000 QA/h + everything from your main city you get even if you fully ignore the QI city. If you prefer to see the full overview thou, set this flag to 'No'.",
+  },
   helpTopicProfilePrefBoardOrientationTitle: {
     DE: "Präferenz: Board Orientation",
     EN: "Preference: Board Orientation",
@@ -1227,6 +1235,18 @@
   loadSavesBtnRename: { DE: "Umbenennen", EN: "Rename" },
   loadSavesBtnExport: { DE: "Exportieren", EN: "Export" },
   loadSavesBtnDelete: { DE: "Löschen", EN: "Delete" },
+  loadSavesShowStats: { DE: "Stats anzeigen", EN: "Show Stats" },
+  loadSavesSearchPlaceholder: { DE: "Spielstand suchen...", EN: "Search save..." },
+  loadSavesSearchAria: { DE: "Spielstand suchen", EN: "Search save" },
+  loadSavesStatsMinimum: { DE: "Minimum", EN: "Minimum" },
+  loadSavesStatsFinal: { DE: "Final", EN: "Final" },
+  loadSavesStatsMoney: { DE: "Münzen", EN: "Money" },
+  loadSavesStatsSupplies: { DE: "Vorräte", EN: "Supplies" },
+  loadSavesStatsGoods: { DE: "Güter", EN: "Goods" },
+  loadSavesStatsShardsUsed: { DE: "Scherben verbraucht", EN: "Shards used" },
+  loadSavesStatsAttack: { DE: "Angriff", EN: "Attack" },
+  loadSavesStatsDefense: { DE: "Verteidigung", EN: "Defense" },
+  loadSavesStatsTotalQa: { DE: "QA gesamt", EN: "Total QA" },
 
   // === ACCOUNT / PROFILE MODAL ===
   accountTabAccount: { DE: "Account", EN: "Account" },
@@ -1385,6 +1405,10 @@
   accountPrefAllowShardLimitOverflowNo: {
     DE: "Nein nur bis zum Limit ausgeben",
     EN: "No only allow spending till limit",
+  },
+  accountPrefOnlyCountQaFromSetup: {
+    DE: "Zähle nur QA vom Setup",
+    EN: "Only count QA from setup",
   },
   accountPrefOuterSkipButtons: {
     DE: "Äussere Skip Buttons springen bis...",

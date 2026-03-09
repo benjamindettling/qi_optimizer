@@ -6,6 +6,7 @@ import troopIcon from "/troop.webp";
 import shardsIcon from "/shards.webp";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
+import { QiInput } from "../common/QiInput";
 import {
   analyzeSmallestSaveConfig,
   extractSaveConfig,
@@ -26,6 +27,7 @@ const SAFE_COMPARE_FIELDS = [
   "extraCoins",
   "extraSupplies",
   "goodsStartBonus",
+  "shardsLimit",
 ];
 
 const Label = ({ icon, text }) => (
@@ -148,12 +150,6 @@ export function SaveConfigModal({
     setWarningItems([]);
   };
 
-  const numberProps = {
-    type: "number",
-    min: 0,
-    step: 1,
-  };
-
   if (!open) return null;
 
   return (
@@ -170,72 +166,72 @@ export function SaveConfigModal({
           <div className="config-grid">
             <label className="config-row">
               <Label icon={moneyIcon} text={t("saveConfigExtraCoins")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.extraCoins ?? 0}
-                onChange={(e) =>
-                  updateField("extraCoins", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("extraCoins", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={suppliesIcon} text={t("saveConfigExtraSupplies")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.extraSupplies ?? 0}
-                onChange={(e) =>
-                  updateField("extraSupplies", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("extraSupplies", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={goodsIcon} text={t("saveConfigExtraGoods")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.goodsStartBonus ?? 0}
-                onChange={(e) =>
-                  updateField("goodsStartBonus", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("goodsStartBonus", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={troopIcon} text={t("saveConfigExtraTroops")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.troopsStartBonus ?? 0}
-                onChange={(e) =>
-                  updateField("troopsStartBonus", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("troopsStartBonus", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={shardsIcon} text={t("saveConfigStartShards")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.shardsLimit ?? 500}
-                onChange={(e) =>
-                  updateField("shardsLimit", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("shardsLimit", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={moneyIcon} text={t("saveConfigCoinBoost")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.coinBoost ?? 0}
-                onChange={(e) =>
-                  updateField("coinBoost", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("coinBoost", nextValue)}
               />
             </label>
             <label className="config-row">
               <Label icon={suppliesIcon} text={t("saveConfigSupplyBoost")} />
-              <input
-                {...numberProps}
+              <QiInput
+                mode="number"
+                className="config-input"
                 value={draft.supplyBoost ?? 0}
-                onChange={(e) =>
-                  updateField("supplyBoost", Number(e.target.value) || 0)
-                }
+                min={0}
+                onChange={(nextValue) => updateField("supplyBoost", nextValue)}
               />
             </label>
           </div>

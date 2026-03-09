@@ -221,6 +221,13 @@ const HELP_TOPICS = [
     mode: "union",
   },
   {
+    id: "profile-pref-qa-from-setup",
+    titleKey: "helpTopicProfilePrefQaFromSetupTitle",
+    bodyKey: "helpTopicProfilePrefQaFromSetupBody",
+    targetIds: ["profile-pref-qa-from-setup"],
+    mode: "union",
+  },
+  {
     id: "profile-pref-board-orientation",
     titleKey: "helpTopicProfilePrefBoardOrientationTitle",
     bodyKey: "helpTopicProfilePrefBoardOrientationBody",

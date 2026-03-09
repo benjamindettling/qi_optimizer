@@ -1,6 +1,10 @@
 import { useCallback } from "react";
 import { serializeTree, deserializeTree, getMainBranchEndNodeId } from "../../utils/treeSerializer";
-import { extractSaveConfig } from "../../utils/saveConfig";
+import {
+  computeSavefileTreeStats,
+  extractSaveConfig,
+  SAVE_CONFIG_FIELDS,
+} from "../../utils/saveConfig";
 
 // Export/import save files to JSON.
 // Version 2: Only exports the history tree (no snapshots/checkpoints)
@@ -35,15 +39,23 @@ export const useSaveTransfer = ({
       // For v2, we ignore the names and just export the tree
       // The names parameter is kept for backwards compatibility with the modal
       
-      // Serialize the history tree with config
-      const serializedTree = historyTree && config 
-        ? serializeTree(historyTree, config)
+      // Serialize the history tree
+      const serializedTree = historyTree && config
+        ? serializeTree(historyTree)
         : null;
 
       if (!serializedTree) {
         console.error("No history tree to export");
         setExportModal(false);
         return;
+      }
+      const computedTreeStats = computeSavefileTreeStats({
+        treeData: serializedTree,
+        saveConfig: extractSaveConfig(config),
+        fallbackConfig: config,
+      });
+      if (computedTreeStats) {
+        serializedTree.stats = computedTreeStats;
       }
 
       // Version 2: Minimal payload with tree and name
@@ -52,6 +64,7 @@ export const useSaveTransfer = ({
         name: loadName || undefined,
         savedAt: new Date().toISOString(),
         tree: serializedTree,
+        saveConfig: extractSaveConfig(config),
       };
       
       const now = new Date();
@@ -81,8 +94,18 @@ export const useSaveTransfer = ({
       const save = saves?.[name];
       if (!save) return;
 
-      // Export the entire save entry
-      const payload = save;
+      const payload = {
+        ...save,
+      };
+      if (save?.tree && typeof save.tree === "object") {
+        const treeWithoutConfig = { ...save.tree };
+        delete treeWithoutConfig.config;
+        payload.tree = treeWithoutConfig;
+      }
+      const sourceConfig = save?.saveConfig ?? save?.tree?.config;
+      if (sourceConfig) {
+        payload.saveConfig = extractSaveConfig(sourceConfig);
+      }
       
       // Use the save name as filename
       const fileName = `${name}.json`;
@@ -162,12 +185,31 @@ export const useSaveTransfer = ({
           
           // Create a save entry with the imported name and tree
           const saveName = importData.name || "Import";
+          const importedSaveConfig =
+            importData?.saveConfig ?? importData?.tree?.config;
+          const hasImportedSaveConfig =
+            importedSaveConfig &&
+            typeof importedSaveConfig === "object" &&
+            !Array.isArray(importedSaveConfig) &&
+            SAVE_CONFIG_FIELDS.some((key) =>
+              Object.prototype.hasOwnProperty.call(importedSaveConfig, key),
+            );
+          const importedTree = importData.tree && typeof importData.tree === "object"
+            ? (() => {
+                const treeWithoutConfig = { ...importData.tree };
+                delete treeWithoutConfig.config;
+                return treeWithoutConfig;
+              })()
+            : importData.tree;
           setAllSaves((prev) => ({
             ...(prev || {}),
             [saveName]: {
               version: 2,
               name: saveName,
-              tree: importData.tree,
+              tree: importedTree,
+              ...(hasImportedSaveConfig
+                ? { saveConfig: extractSaveConfig(importedSaveConfig) }
+                : {}),
             },
           }));
           setLoadName?.(saveName);
@@ -225,7 +267,7 @@ export const useSaveTransfer = ({
           ...prev,
           [name]: {
             ...save,
-            saveConfig: newConfig,
+            saveConfig: extractSaveConfig(newConfig),
             syncUser: nextSyncUser,
           },
         };
@@ -233,7 +275,7 @@ export const useSaveTransfer = ({
       // If editing the currently loaded save, also update activeSaveConfig
       // so the board recalculates immediately
       if (name === loadName) {
-        setActiveSaveConfig?.(newConfig);
+        setActiveSaveConfig?.(extractSaveConfig(newConfig));
       }
     },
     [setAllSaves, loadName, setActiveSaveConfig],
