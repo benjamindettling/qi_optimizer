@@ -1,4 +1,4 @@
-// Hook for tree navigation logic shared between TreeVisualizer and NavigationPanel
+// Hook for tree navigation logic used by TreeVisualizer
 import { useCallback, useMemo } from "react";
 
 // Check if a node is a checkpoint (boostAll = "Ernte" action)

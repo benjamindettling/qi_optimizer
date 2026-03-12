@@ -155,8 +155,11 @@ export function ImportSavesModal({ open, onClose, onImport }) {
             <div className="import-v2-info">
               <strong>Version 2 Datei erkannt</strong>
               <p>
-                Tree mit {importData?.tree?.tree?.length ?? 0} Branches wird
-                importiert.
+                Tree mit{" "}
+                {Array.isArray(importData?.tree)
+                  ? importData.tree.length
+                  : (importData?.tree?.tree?.length ?? 0)}{" "}
+                Branches wird importiert.
               </p>
               <p>Der Zustand wird aus dem Aktions-Baum rekonstruiert.</p>
             </div>

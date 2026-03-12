@@ -5,8 +5,27 @@ import { serializeTree, deserializeTree, getMainBranchEndNodeId } from "../../ut
 import {
   computeSavefileTreeStats,
   extractSaveConfig,
+  extractSaveConfigFromStats,
   SAVE_CONFIG_FIELDS,
 } from "../../utils/saveConfig";
+
+const sanitizeSaveStats = (stats) => {
+  if (!stats || typeof stats !== "object" || Array.isArray(stats)) return null;
+  if (
+    !stats.final ||
+    typeof stats.final !== "object" ||
+    Array.isArray(stats.final) ||
+    !Object.prototype.hasOwnProperty.call(stats.final, "finalStep")
+  ) {
+    return stats;
+  }
+  const nextFinal = { ...stats.final };
+  delete nextFinal.finalStep;
+  return {
+    ...stats,
+    final: nextFinal,
+  };
+};
 
 // Manages save/load flows and snapshot history.
 export const useSaveManager = ({
@@ -41,7 +60,6 @@ export const useSaveManager = ({
   historyTreeRef,
   config,
   userConfig,
-  activeSaveConfig,
   setActiveSaveConfig,
 }) => {
   const {
@@ -196,6 +214,7 @@ export const useSaveManager = ({
         if (!entry || typeof entry !== "object") return;
         let nextEntry = entry;
         const legacyTreeConfig = entry?.tree?.config;
+        const legacyTreeStats = entry?.tree?.stats;
 
         if (entry.saveConfig && typeof entry.saveConfig === "object") {
           const sanitizedSaveConfig = extractSaveConfig(entry.saveConfig);
@@ -213,13 +232,62 @@ export const useSaveManager = ({
         if (
           entry.tree &&
           typeof entry.tree === "object" &&
-          Object.prototype.hasOwnProperty.call(entry.tree, "config")
+          !Array.isArray(entry.tree)
         ) {
-          const treeWithoutConfig = { ...entry.tree };
-          delete treeWithoutConfig.config;
+          const treeObject = entry.tree;
+          let normalizedTree = treeObject;
+          if (Array.isArray(treeObject.tree)) {
+            normalizedTree = treeObject.tree;
+          } else if (Object.prototype.hasOwnProperty.call(treeObject, "config")) {
+            const treeWithoutConfig = { ...treeObject };
+            delete treeWithoutConfig.config;
+            normalizedTree = treeWithoutConfig;
+          }
+
+          if (normalizedTree !== entry.tree) {
+            nextEntry = {
+              ...nextEntry,
+              tree: normalizedTree,
+            };
+          }
+        }
+
+        if (
+          !nextEntry?.stats &&
+          legacyTreeStats &&
+          typeof legacyTreeStats === "object" &&
+          !Array.isArray(legacyTreeStats)
+        ) {
           nextEntry = {
             ...nextEntry,
-            tree: treeWithoutConfig,
+            stats: sanitizeSaveStats(legacyTreeStats),
+          };
+        }
+
+        if (!nextEntry?.saveConfig && nextEntry?.stats) {
+          nextEntry = {
+            ...nextEntry,
+            saveConfig: extractSaveConfigFromStats(
+              nextEntry.stats,
+              legacyTreeConfig,
+            ),
+          };
+        }
+
+        const currentStats = nextEntry?.stats;
+        const sanitizedStats = sanitizeSaveStats(currentStats);
+        if (currentStats !== undefined && !sanitizedStats) {
+          nextEntry = {
+            ...nextEntry,
+          };
+          delete nextEntry.stats;
+        } else if (
+          sanitizedStats &&
+          JSON.stringify(currentStats) !== JSON.stringify(sanitizedStats)
+        ) {
+          nextEntry = {
+            ...nextEntry,
+            stats: sanitizedStats,
           };
         }
 
@@ -242,10 +310,10 @@ export const useSaveManager = ({
       // Serialize the history tree (using ref)
       const historyTree = historyTreeRef?.current;
       const serializedTree = historyTree && config
-        ? serializeTree(historyTree)
+        ? serializeTree(historyTree)?.tree
         : null;
       
-      if (!serializedTree) {
+      if (!Array.isArray(serializedTree)) {
         updateStatus("Error: No history tree to save");
         return;
       }
@@ -267,20 +335,20 @@ export const useSaveManager = ({
         syncUserToUse = true;
       }
 
-      const computedTreeStats = computeSavefileTreeStats({
-        treeData: serializedTree,
-        saveConfig: saveConfigToUse,
-        fallbackConfig: config,
-      });
-      if (computedTreeStats) {
-        serializedTree.stats = computedTreeStats;
-      }
+      const computedTreeStats = sanitizeSaveStats(
+        computeSavefileTreeStats({
+          treeData: serializedTree,
+          saveConfig: saveConfigToUse,
+          fallbackConfig: config,
+        }),
+      );
       
       // Version 2 format: only tree and name
       saveSnapshot(targetName, {
         version: 2,
         name: targetName,
         tree: serializedTree,
+        ...(computedTreeStats ? { stats: computedTreeStats } : {}),
         saveConfig: saveConfigToUse,
         syncUser: syncUserToUse,
         // No snapshot, no checkpoints - state is reconstructed from tree
@@ -442,6 +510,7 @@ export const useSaveManager = ({
       loadHistoryTreeRef,
       setActiveSnapshotName,
       allowedSaveConfigKeys,
+      setActiveSaveConfig,
     ],
   );
 

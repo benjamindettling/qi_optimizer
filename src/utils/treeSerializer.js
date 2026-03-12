@@ -495,7 +495,13 @@ export function serializeTree(historyTree) {
  * Deserialize minimal format back to full tree structure
  */
 export function deserializeTree(data) {
-  const { config, tree } = data;
+  const normalizedData = Array.isArray(data)
+    ? { tree: data }
+    : (data && typeof data === "object"
+      ? data
+      : { tree: [] });
+  const { config, tree } = normalizedData;
+  const safeTree = Array.isArray(tree) ? tree : [];
   
   const nodes = new Map();
   let nextNodeId = 1;
@@ -542,7 +548,7 @@ export function deserializeTree(data) {
   }
   
   // Deserialize all branches from root
-  for (const branch of tree) {
+  for (const branch of safeTree) {
     deserializeBranch(branch, 0);
   }
   

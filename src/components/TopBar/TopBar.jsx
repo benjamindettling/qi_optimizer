@@ -1,204 +1,221 @@
-// Main top bar showing resources, boosts, and view controls.
-import moneyIcon from "/money.webp";
-import suppliesIcon from "/supplies.webp";
-import chronosIcon from "/chronos.webp";
-import shardsIcon from "/shards.webp";
-import qaIcon from "/quantum_actions.webp";
-import redAttackIcon from "/fight/red_attack.webp";
-import redDefenseIcon from "/fight/red_defense.webp";
-import blueAttackIcon from "/fight/blue_attack.webp";
-import blueDefenseIcon from "/fight/blue_defense.webp";
-import { GOODS_TYPES, UNIT_TYPES } from "../../config/boardConfig";
-import { formatNumber } from "../../utils/formatNumber";
-import { getGoodIconPath } from "../../utils/goodsIconPath";
-import { HappinessPanel } from "./HappinessPanel";
-import { ResourceStack } from "./ResourceStack";
-import { ViewControls } from "./ViewControls";
-import { SaveControls } from "./SaveControls";
+﻿// TopBar with horizontal pager for responsive regions
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { StatsPanel } from "./StatsPanel";
+import { StepTracker } from "./StepTracker";
+import { MenuPanel } from "./MenuPanel";
+import { getSavefileStatusColor } from "../../config/colors";
 import { useLang } from "../../context/LanguageContext";
-import { T } from "../../i18n/translations";
 import { useTutorialGate } from "../../hooks/useTutorialGate";
+import { getSavefileSyncState } from "../../utils/saveConfig";
 import "./TopBar.css";
+
+const PANEL_MIN_WIDTHS = {
+  stats: 420,
+  steps: 280,
+  menu: 200,
+};
 
 export function TopBar({
   resources,
   stats,
   happyInfo,
-  viewMode,
-  setViewMode,
   adminMode,
-  onToggleAdmin,
+  editingLocked,
   onEditResource,
   onEditGood,
   onEditUnit,
-  onOpenHelp,
-  onOpenAccount,
-  editingLocked = false,
   config,
+  timeStep,
+  canStepBack,
+  canStepForward,
+  onJumpPrevCheckpoint,
+  onStepBack,
+  onStepForward,
+  onJumpNextCheckpoint,
   onSave,
   onLoad,
   saves,
+  userConfig,
   loadName,
   setLoadName,
   onDeleteSave,
   onOpenExport,
   onOpenImport,
   onOpenLoadSaves,
+  onOpenOnlineLibrary,
+  onToggleAdmin,
+  onOpenHelp,
+  onOpenAccount,
+  onStartTutorial,
+  hasUnsavedChanges,
 }) {
-  void viewMode;
-  void setViewMode;
-
   const { lang } = useLang();
-  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
   const topbarLocked = useTutorialGate("topbar");
+  const pagerRef = useRef(null);
+  const [visiblePanels, setVisiblePanels] = useState(3);
+  const [pageIndex, setPageIndex] = useState(0);
 
-  const adminEnabled = adminMode && !editingLocked;
-  const valueClassFor = (value) => ((value ?? 0) < 0 ? "text-negative" : "");
+  const calculateVisiblePanels = useCallback(() => {
+    if (!pagerRef.current) return 3;
+    const width = pagerRef.current.offsetWidth;
+    const totalMin =
+      PANEL_MIN_WIDTHS.stats + PANEL_MIN_WIDTHS.steps + PANEL_MIN_WIDTHS.menu;
+    const twoMin = PANEL_MIN_WIDTHS.stats + PANEL_MIN_WIDTHS.steps;
 
-  const resourceEntries = [
-    {
-      key: "coins",
-      label: t("resourceCoins"),
-      icon: moneyIcon,
-      value: resources.coins,
-      valueClass: valueClassFor(resources.coins),
-      onEdit: () =>
-        onEditResource?.({ key: "coins", label: t("resourceCoins"), icon: moneyIcon }),
-    },
-    {
-      key: "supplies",
-      label: t("resourceSupplies"),
-      icon: suppliesIcon,
-      value: resources.supplies,
-      valueClass: valueClassFor(resources.supplies),
-      onEdit: () =>
-        onEditResource?.({
-          key: "supplies",
-          label: t("resourceSupplies"),
-          icon: suppliesIcon,
-        }),
-    },
-    {
-      key: "chronos",
-      label: t("resourceChronos"),
-      icon: chronosIcon,
-      value: resources.chronos,
-      valueClass: valueClassFor(resources.chronos),
-      onEdit: () =>
-        onEditResource?.({
-          key: "chronos",
-          label: t("resourceChronos"),
-          icon: chronosIcon,
-        }),
-    },
-    {
-      key: "shards",
-      label: t("resourceShards"),
-      icon: shardsIcon,
-      value: resources.shards,
-      valueClass: valueClassFor(resources.shards),
-      onEdit: () =>
-        onEditResource?.({
-          key: "shards",
-          label: t("resourceShards"),
-          icon: shardsIcon,
-        }),
-    },
-    {
-      key: "quantumActions",
-      label: t("resourceQA"),
-      icon: qaIcon,
-      value: resources.quantumActions,
-      valueClass: valueClassFor(resources.quantumActions),
-      title: `QA/h: ${formatNumber(stats.qaPerHour ?? 0)}`,
-      onEdit: () =>
-        onEditResource?.({
-          key: "quantumActions",
-          label: t("resourceQA"),
-          icon: qaIcon,
-        }),
-    },
-  ];
+    if (width >= totalMin) return 3;
+    if (width >= twoMin) return 2;
+    return 1;
+  }, []);
 
-  const goodsEntries = GOODS_TYPES.map((g) => ({
-    key: g,
-    label: g,
-    icon: getGoodIconPath(g),
-    value: resources.goods[g],
-    valueClass: valueClassFor(resources.goods[g]),
-    onEdit: () => onEditGood?.(g),
-  }));
+  useEffect(() => {
+    const updateLayout = () => {
+      const newVisible = calculateVisiblePanels();
+      setVisiblePanels(newVisible);
+      setPageIndex((prev) => Math.min(prev, 3 - newVisible));
+    };
 
-  const unitEntries = UNIT_TYPES.map((u) => ({
-    key: u,
-    label: u,
-    icon: `/units/${u}.webp`,
-    value: resources.units?.[u],
-    valueClass: valueClassFor(resources.units?.[u]),
-    onEdit: () => onEditUnit?.(u),
-  }));
+    updateLayout();
 
-  const fightColor = config?.fightColor ?? "rot";
-  const isBlue = fightColor === "blau";
+    if (!pagerRef.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(updateLayout);
+    observer.observe(pagerRef.current);
+    return () => observer.disconnect();
+  }, [calculateVisiblePanels]);
 
-  const decorationBoostRed = stats.armyBoostRed ?? 0;
-  const decorationBoostBlue = stats.armyBoostBlue ?? 0;
+  const maxPage = 3 - visiblePanels;
+  const canGoLeft = pageIndex > 0;
+  const canGoRight = pageIndex < maxPage;
 
-  const redAttackCfg = Number(config?.redAttackBoost ?? 0) / 100;
-  const redDefenseCfg = Number(config?.redDefenseBoost ?? 0) / 100;
-  const blueAttackCfg = Number(config?.blueAttackBoost ?? 0) / 100;
-  const blueDefenseCfg = Number(config?.blueDefenseBoost ?? 0) / 100;
+  const goLeft = () => {
+    if (canGoLeft) setPageIndex((p) => p - 1);
+  };
 
-  const redAttackTotal = decorationBoostRed + redAttackCfg;
-  const redDefenseTotal = decorationBoostRed + redDefenseCfg;
-  const blueAttackTotal = decorationBoostBlue + blueAttackCfg;
-  const blueDefenseTotal = decorationBoostBlue + blueDefenseCfg;
+  const goRight = () => {
+    if (canGoRight) setPageIndex((p) => p + 1);
+  };
 
-  const attackPct = Math.round((isBlue ? blueAttackTotal : redAttackTotal) * 100);
-  const defensePct = Math.round(
-    (isBlue ? blueDefenseTotal : redDefenseTotal) * 100,
+  const getTrackTransform = () => {
+    if (visiblePanels === 3) return "translateX(0)";
+    if (visiblePanels === 2) {
+      return `translateX(-${pageIndex * 50}%)`;
+    }
+    return `translateX(-${pageIndex * 100}%)`;
+  };
+
+  const getPanelStyle = () => {
+    if (visiblePanels === 3) return { flex: "0 0 33.333%" };
+    if (visiblePanels === 2) return { flex: "0 0 50%" };
+    return { flex: "0 0 100%" };
+  };
+
+  const showArrows = visiblePanels < 3;
+  const prevLabel =
+    lang === "EN"
+      ? "Show previous topbar section"
+      : "Vorherigen TopBar-Bereich anzeigen";
+  const nextLabel =
+    lang === "EN"
+      ? "Show next topbar section"
+      : "Nächsten TopBar-Bereich anzeigen";
+  const currentSaveStatus = useMemo(
+    () =>
+      !loadName
+        ? null
+        : getSavefileSyncState({
+            saveEntry: loadName ? saves?.[loadName] : null,
+            userConfig,
+          }),
+    [loadName, saves, userConfig],
   );
-  const attackIcon = isBlue ? blueAttackIcon : redAttackIcon;
-  const defenseIcon = isBlue ? blueDefenseIcon : redDefenseIcon;
+  const currentSaveColor = getSavefileStatusColor(currentSaveStatus);
 
   return (
-    <header className={`topbar${topbarLocked ? " tutorial-zone-locked" : ""}`}>
-      <ResourceStack items={resourceEntries} adminEnabled={adminEnabled} />
-      <ResourceStack items={goodsEntries} adminEnabled={adminEnabled} />
-      <ResourceStack items={unitEntries} adminEnabled={adminEnabled}>
-        <div className="resource-line" title={t("attackBoostLabel")}>
-          <img src={attackIcon} alt="attack boost" />
-          <span>{formatNumber(attackPct)}%</span>
+    <header
+      className={`topbar-pager-container${topbarLocked ? " tutorial-zone-locked" : ""}`}
+    >
+      {showArrows && canGoLeft && (
+        <button
+          className="topbar-nav-arrow topbar-nav-arrow--left"
+          onClick={goLeft}
+          aria-label={prevLabel}
+        >
+          <ChevronLeft size={24} />
+        </button>
+      )}
+
+      <div className="topbar-pager" ref={pagerRef}>
+        <div
+          className="topbar-track"
+          style={{ transform: getTrackTransform() }}
+        >
+          <section
+            className="topbar-panel panel--stats"
+            style={getPanelStyle()}
+          >
+            <StatsPanel
+              resources={resources}
+              stats={stats}
+              happyInfo={happyInfo}
+              adminMode={adminMode}
+              editingLocked={editingLocked}
+              onEditResource={onEditResource}
+              onEditGood={onEditGood}
+              onEditUnit={onEditUnit}
+              config={config}
+            />
+          </section>
+
+          <section
+            className="topbar-panel panel--steps"
+            style={getPanelStyle()}
+          >
+            <StepTracker
+              timeStep={timeStep}
+              loadName={loadName}
+              saveNameColor={currentSaveColor}
+              canStepBack={canStepBack}
+              canStepForward={canStepForward}
+              onJumpPrevCheckpoint={onJumpPrevCheckpoint}
+              onStepBack={onStepBack}
+              onStepForward={onStepForward}
+              onJumpNextCheckpoint={onJumpNextCheckpoint}
+            />
+          </section>
+
+          <section className="topbar-panel panel--menu" style={getPanelStyle()}>
+            <MenuPanel
+              onSave={onSave}
+              onLoad={onLoad}
+              saves={saves}
+              loadName={loadName}
+              setLoadName={setLoadName}
+              onDeleteSave={onDeleteSave}
+              onOpenExport={onOpenExport}
+              onOpenImport={onOpenImport}
+              onOpenLoadSaves={onOpenLoadSaves}
+              onOpenOnlineLibrary={onOpenOnlineLibrary}
+              adminMode={adminMode}
+              editingLocked={editingLocked}
+              onToggleAdmin={onToggleAdmin}
+              onOpenHelp={onOpenHelp}
+              onOpenAccount={onOpenAccount}
+              onStartTutorial={onStartTutorial}
+              hasUnsavedChanges={hasUnsavedChanges}
+            />
+          </section>
         </div>
-        <div className="resource-line" title={t("defenseBoostLabel")}>
-          <img src={defenseIcon} alt="defense boost" />
-          <span>{formatNumber(defensePct)}%</span>
-        </div>
-      </ResourceStack>
+      </div>
 
-      <HappinessPanel stats={stats} happyInfo={happyInfo} />
-
-      <SaveControls
-        onSave={onSave}
-        onLoad={onLoad}
-        saves={saves}
-        loadName={loadName}
-        setLoadName={setLoadName}
-        onDeleteSave={onDeleteSave}
-        onOpenExport={onOpenExport}
-        onOpenImport={onOpenImport}
-        onOpenLoadSaves={onOpenLoadSaves}
-      />
-
-      <ViewControls
-        adminMode={adminMode}
-        onToggleAdmin={onToggleAdmin}
-        editingLocked={editingLocked}
-        onOpenHelp={onOpenHelp}
-        onOpenAccount={onOpenAccount}
-      />
+      {showArrows && canGoRight && (
+        <button
+          className="topbar-nav-arrow topbar-nav-arrow--right"
+          onClick={goRight}
+          aria-label={nextLabel}
+        >
+          <ChevronRight size={24} />
+        </button>
+      )}
     </header>
   );
 }
-
-

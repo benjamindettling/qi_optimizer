@@ -1,0 +1,315 @@
+/* OnlineLibraryModal styling */
+
+.online-library-modal {
+  max-width: 850px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  width: 95vw;
+}
+
+/* Toolbar: search + sort + filter toggle */
+.online-library-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 10px;
+  flex-wrap: wrap;
+}
+
+.online-library-search {
+  flex: 1;
+  min-width: 160px;
+  padding: 7px 10px;
+  font-size: 0.85rem;
+}
+
+.online-library-sort-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.online-library-sort-label {
+  font-size: 0.8rem;
+  color: var(--color-text-soft);
+  white-space: nowrap;
+}
+
+.online-library-sort-select {
+  padding: 6px 8px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.online-library-sort-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.online-library-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.online-library-filter-toggle.active {
+  color: var(--ui-info-blue);
+  border-color: var(--ui-info-blue);
+}
+
+.online-library-filter-toggle:hover {
+  filter: brightness(1.2);
+}
+
+.online-library-refresh-btn {
+  padding: 6px 8px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.online-library-refresh-btn:hover {
+  filter: brightness(1.2);
+}
+
+.online-library-refresh-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.online-library-refresh-btn .spinning {
+  animation: ol-spin 0.8s linear infinite;
+}
+
+@keyframes ol-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Filter section */
+.online-library-filters {
+  display: flex;
+  gap: 16px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--color-panel-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  flex-wrap: wrap;
+}
+
+.online-library-filter-group {
+  flex: 1;
+  min-width: 200px;
+}
+
+.online-library-filter-group-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-soft);
+  margin-bottom: 6px;
+}
+
+.online-library-filter-group:first-child .online-library-filter-group-title {
+  color: var(--ui-warning-amber);
+}
+
+.online-library-filter-group:last-child .online-library-filter-group-title {
+  color: var(--ui-notes-turquoise);
+}
+
+.online-library-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 6px;
+}
+
+.online-library-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.online-library-filter-label {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.online-library-filter-input {
+  padding: 4px 6px;
+  font-size: 0.82rem;
+  max-width: 140px;
+}
+
+/* Save list */
+.online-library-list {
+  flex: 1;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  padding: 2px 2px 6px;
+  background: transparent;
+}
+
+.online-library-status {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.95em;
+}
+
+.online-library-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-error-red);
+}
+
+.online-library-retry-btn {
+  padding: 6px 14px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+}
+
+.online-library-retry-btn:hover {
+  filter: brightness(1.2);
+}
+
+/* Card */
+.online-library-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg-alt);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.online-library-card:last-child {
+  margin-bottom: 0;
+}
+
+.online-library-card:hover {
+  filter: brightness(1.05);
+}
+
+.online-library-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.online-library-card-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.online-library-card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.online-library-card-meta {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.online-library-card-meta strong {
+  color: var(--color-text-soft);
+  font-weight: 600;
+}
+
+.online-library-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Scrollbar styling — matches load saves modal */
+.online-library-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.online-library-list::-webkit-scrollbar-track {
+  background: var(--color-panel-bg);
+  border-radius: var(--radius-md);
+}
+
+.online-library-list::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 4px;
+}
+
+.online-library-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .online-library-modal {
+    max-width: 100vw;
+  }
+
+  .online-library-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .online-library-sort-group {
+    justify-content: space-between;
+  }
+
+  .online-library-filters {
+    flex-direction: column;
+  }
+
+  .online-library-filter-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Boost icon indicator — slightly smaller to differentiate from resource icons */
+.load-saves-stat-icon.boost-icon {
+  opacity: 0.7;
+}

@@ -363,7 +363,7 @@ export const usePlacementHandlers = ({
         readyMap[target.id] === true
       ) {
         recordHistoryAction?.({
-          type: infiniteResources ? "harvestAdmin" : "harvest",
+          type: "harvest",
           defId: target.defId,
           x: target.x,
           y: target.y,

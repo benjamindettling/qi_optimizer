@@ -278,6 +278,11 @@
   filter: brightness(1.2);
 }
 
+.load-saves-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .load-saves-action-btn.settings-btn:hover {
   color: var(--ui-warning-yellow);
 }

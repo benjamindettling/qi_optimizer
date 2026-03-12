@@ -595,8 +595,8 @@
     EN: "Online",
   },
   helpTopicBtnOnlineBody: {
-    DE: "Hier kannst du Setups anderer Spieler durchstöbern und auch dein eigenes hochladen. (Coming soon)",
-    EN: "Here you can browse other peoples setup, and even upload your own. (Coming soon)",
+    DE: "Hier kannst du Setups anderer Spieler durchstöbern und auch dein eigenes hochladen.",
+    EN: "Here you can browse other players' setups, and even upload your own.",
   },
   helpTopicBtnAdminTitle: {
     DE: "Admin",
@@ -1338,6 +1338,84 @@
     DE: "Datei konnte nicht importiert werden",
     EN: "Could not import file",
   },
+  loadSavesBtnUpload: {
+    DE: "In die Online-Bibliothek hochladen",
+    EN: "Upload to online library",
+  },
+  loadSavesBtnUploadDisabled: {
+    DE: "Anmelden und Benutzernamen setzen zum Hochladen",
+    EN: "Login and set a username to upload",
+  },
+  loadSavesStatsTroops: { DE: "Truppen", EN: "Troops" },
+  loadSavesStatsCoinBoost: { DE: "Münzboost", EN: "Coin Boost" },
+  loadSavesStatsSupplyBoost: { DE: "Vorratsboost", EN: "Supply Boost" },
+
+  /* ---- Online Library ---- */
+  onlineLibraryTitle: { DE: "Online-Bibliothek", EN: "Online Library" },
+  onlineLibraryClose: { DE: "Schliessen", EN: "Close" },
+  onlineLibraryEmpty: {
+    DE: "Keine Online-Setups gefunden",
+    EN: "No online setups found",
+  },
+  onlineLibraryLoading: { DE: "Lade Setups...", EN: "Loading setups..." },
+  onlineLibraryError: {
+    DE: "Fehler beim Laden der Online-Bibliothek",
+    EN: "Failed to load online library",
+  },
+  onlineLibraryBtnDownload: { DE: "Herunterladen", EN: "Download" },
+  onlineLibraryBtnRename: { DE: "Umbenennen", EN: "Rename" },
+  onlineLibraryBtnDelete: { DE: "Löschen", EN: "Delete" },
+  onlineLibraryDeletePrompt: {
+    DE: "Wirklich \"{name}\" aus der Online-Bibliothek löschen?",
+    EN: "Really delete \"{name}\" from the online library?",
+  },
+  onlineLibraryRenameExists: {
+    DE: "Du hast bereits ein Setup mit diesem Titel online. Bitte wähle einen anderen Namen.",
+    EN: "You already have an online setup with this title. Please choose a different name.",
+  },
+  onlineLibrarySortLabel: { DE: "Sortierung", EN: "Sort by" },
+  onlineLibrarySortNewest: { DE: "Neueste", EN: "Newest" },
+  onlineLibrarySortHighestQa: { DE: "Höchste QA", EN: "Highest QA" },
+  onlineLibrarySortLowestShards: {
+    DE: "Wenigste Scherben",
+    EN: "Lowest Shards",
+  },
+  onlineLibrarySortHighestAttack: {
+    DE: "Höchster Angriff",
+    EN: "Highest Attack",
+  },
+  onlineLibrarySortHighestDefense: {
+    DE: "Höchste Verteidigung",
+    EN: "Highest Defense",
+  },
+  onlineLibraryFilterTitle: { DE: "Filter", EN: "Filters" },
+  onlineLibraryFilterMinLabel: {
+    DE: "Max. Anforderungen",
+    EN: "Max Requirements",
+  },
+  onlineLibraryFilterFinalLabel: {
+    DE: "Min. Endwerte",
+    EN: "Min Final Stats",
+  },
+  onlineLibraryUploadedBy: { DE: "von", EN: "by" },
+  onlineLibrarySearchPlaceholder: {
+    DE: "Setup suchen...",
+    EN: "Search setup...",
+  },
+  onlineLibraryDownloading: { DE: "Wird heruntergeladen...", EN: "Downloading..." },
+  onlineLibraryDownloadError: {
+    DE: "Download fehlgeschlagen",
+    EN: "Download failed",
+  },
+  onlineLibraryRenameError: {
+    DE: "Umbenennen fehlgeschlagen",
+    EN: "Rename failed",
+  },
+  onlineLibraryDeleteError: {
+    DE: "Löschen fehlgeschlagen",
+    EN: "Delete failed",
+  },
+  onlineLibraryRetry: { DE: "Erneut versuchen", EN: "Retry" },
 
   accountSaveFailed: { DE: "Speichern fehlgeschlagen", EN: "Saving failed" },
   accountBtnSave: { DE: "Speichern", EN: "Save" },

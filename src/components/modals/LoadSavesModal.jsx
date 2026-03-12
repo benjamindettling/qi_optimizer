@@ -4,25 +4,19 @@ import {
   Share2,
   Trash2,
   Download,
+  Upload,
   Check,
   X,
   Settings,
 } from "lucide-react";
-import moneyIcon from "/money.webp";
-import suppliesIcon from "/supplies.webp";
-import goodsIcon from "/goods/Kupfer.webp";
-import shardsIcon from "/shards.webp";
-import attackIcon from "/fight/red_attack.webp";
-import defenseIcon from "/fight/red_defense.webp";
-import qaIcon from "/quantum_actions.webp";
 import { useMemo } from "react";
 import { SaveConfigModal } from "./SaveConfigModal";
 import { QiInput } from "../common/QiInput";
+import { SaveStatsDisplay } from "../common/SaveStatsDisplay";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import { getSavefileStatusColor } from "../../config/colors";
 import { getSavefileSyncState } from "../../utils/saveConfig";
-import { formatNumber } from "../../utils/formatNumber";
 import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
 export function LoadSavesModal({
@@ -33,6 +27,8 @@ export function LoadSavesModal({
   onRename,
   onDelete,
   onExport,
+  onUploadShared,
+  canUploadShared = false,
   onImport,
   onSaveConfig,
   loadName = "",
@@ -81,13 +77,8 @@ export function LoadSavesModal({
     return FINAL_STEP * QA_HOURS_PER_STEP * outsidePerHour;
   }, [userConfig]);
 
-  const valueOrDash = (value, suffix = "") => {
-    if (!Number.isFinite(Number(value))) return "-";
-    return `${formatNumber(Number(value))}${suffix}`;
-  };
-
   const getCardDisplayStats = (name) => {
-    const stats = saves?.[name]?.tree?.stats;
+    const stats = saves?.[name]?.stats ?? saves?.[name]?.tree?.stats;
     if (!stats || typeof stats !== "object") return null;
     const minimum = stats.minimum ?? {};
     const final = stats.final ?? {};
@@ -210,6 +201,10 @@ export function LoadSavesModal({
     onExport?.(name);
   };
 
+  const handleUploadShared = async (name) => {
+    await onUploadShared?.(name);
+  };
+
   const handleCardClick = (name, event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
@@ -274,7 +269,9 @@ export function LoadSavesModal({
                       name === loadName ? "active" : ""
                     }`}
                     onClick={() => handleLoad(name)}
-                    data-tutorial-zone={name === loadName ? "load-main-btn" : undefined}
+                    data-tutorial-zone={
+                      name === loadName ? "load-main-btn" : undefined
+                    }
                   >
                     {editingId === name ? (
                       <div
@@ -314,7 +311,9 @@ export function LoadSavesModal({
                     ) : (
                       <span
                         className="load-saves-name"
-                        style={{ color: getSavefileStatusColor(saveStatuses[name]) }}
+                        style={{
+                          color: getSavefileStatusColor(saveStatuses[name]),
+                        }}
                       >
                         {name}
                       </span>
@@ -327,7 +326,9 @@ export function LoadSavesModal({
                         className="load-saves-action-btn settings-btn"
                         onClick={() => setConfigEditingName(name)}
                         title={t("loadSavesBtnSaveConfig")}
-                        data-tutorial-zone={name === loadName ? "load-config-btn" : undefined}
+                        data-tutorial-zone={
+                          name === loadName ? "load-config-btn" : undefined
+                        }
                       >
                         <Settings size={16} />
                       </button>
@@ -335,7 +336,9 @@ export function LoadSavesModal({
                         className="load-saves-action-btn edit-btn"
                         onClick={() => handleStartEdit(name)}
                         title={t("loadSavesBtnRename")}
-                        data-tutorial-zone={name === loadName ? "load-rename-btn" : undefined}
+                        data-tutorial-zone={
+                          name === loadName ? "load-rename-btn" : undefined
+                        }
                       >
                         <Edit2 size={16} />
                       </button>
@@ -343,72 +346,47 @@ export function LoadSavesModal({
                         className="load-saves-action-btn export-btn"
                         onClick={() => handleExport(name)}
                         title={t("loadSavesBtnExport")}
-                        data-tutorial-zone={name === loadName ? "load-export-btn" : undefined}
+                        data-tutorial-zone={
+                          name === loadName ? "load-export-btn" : undefined
+                        }
                       >
                         <Share2 size={16} />
+                      </button>
+                      <button
+                        className="load-saves-action-btn upload-btn"
+                        onClick={() => handleUploadShared(name)}
+                        title={
+                          canUploadShared
+                            ? t("loadSavesBtnUpload")
+                            : t("loadSavesBtnUploadDisabled")
+                        }
+                        disabled={!canUploadShared}
+                      >
+                        <Upload size={16} />
                       </button>
                       <button
                         className="load-saves-action-btn delete-btn"
                         onClick={() => setDeletingId(name)}
                         title={t("loadSavesBtnDelete")}
-                        data-tutorial-zone={name === loadName ? "load-delete-btn" : undefined}
+                        data-tutorial-zone={
+                          name === loadName ? "load-delete-btn" : undefined
+                        }
                       >
                         <Trash2 size={16} />
                       </button>
                     </div>
                   )}
                 </div>
-                {isCardStatsVisible(name) && (
-                  <div className="load-saves-stats">
-                    {(() => {
-                      const cardStats = getCardDisplayStats(name);
-                      const minimum = cardStats?.minimum ?? {};
-                      const final = cardStats?.final ?? {};
-                      return (
-                        <>
-                          <div className="load-saves-stats-col">
-                            <div className="load-saves-stats-title minimum">
-                              {t("loadSavesStatsMinimum")}
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsMoney")}>
-                              <img src={moneyIcon} alt={t("loadSavesStatsMoney")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(minimum.money)}</strong>
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsSupplies")}>
-                              <img src={suppliesIcon} alt={t("loadSavesStatsSupplies")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(minimum.supplies)}</strong>
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsGoods")}>
-                              <img src={goodsIcon} alt={t("loadSavesStatsGoods")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(minimum.goods)}</strong>
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsShardsUsed")}>
-                              <img src={shardsIcon} alt={t("loadSavesStatsShardsUsed")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(minimum.shardsUsed)}</strong>
-                            </div>
-                          </div>
-                          <div className="load-saves-stats-col">
-                            <div className="load-saves-stats-title final">
-                              {t("loadSavesStatsFinal")}
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsAttack")}>
-                              <img src={attackIcon} alt={t("loadSavesStatsAttack")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(final.attack, "%")}</strong>
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsDefense")}>
-                              <img src={defenseIcon} alt={t("loadSavesStatsDefense")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(final.defense, "%")}</strong>
-                            </div>
-                            <div className="load-saves-stats-line" title={t("loadSavesStatsTotalQa")}>
-                              <img src={qaIcon} alt={t("loadSavesStatsTotalQa")} className="load-saves-stat-icon" />
-                              <strong>{valueOrDash(final.qaTotalDisplay)}</strong>
-                            </div>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                )}
+                {isCardStatsVisible(name) &&
+                  (() => {
+                    const cardStats = getCardDisplayStats(name);
+                    return (
+                      <SaveStatsDisplay
+                        minimum={cardStats?.minimum ?? {}}
+                        final={cardStats?.final ?? {}}
+                      />
+                    );
+                  })()}
               </div>
             ))
           )}
@@ -468,7 +446,9 @@ export function LoadSavesModal({
               <h3>{t("loadSavesUnsavedTitle")}</h3>
             </div>
             <div className="modal-body">
-              <p>{t("loadSavesUnsavedPrompt").replace("{name}", pendingLoadName)}</p>
+              <p>
+                {t("loadSavesUnsavedPrompt").replace("{name}", pendingLoadName)}
+              </p>
             </div>
             <div className="modal-actions">
               <button className="btn-confirm-delete" onClick={confirmLoad}>
@@ -500,4 +480,3 @@ export function LoadSavesModal({
     </div>
   );
 }
-

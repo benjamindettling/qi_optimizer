@@ -238,7 +238,6 @@ export const useGameState = () => {
     initialState.fastBuyTarget,
   );
   const [helpModal, setHelpModal] = useState(initialState.helpModal);
-  const [configModal, setConfigModal] = useState(initialState.configModal);
   const [editResourceModal, setEditResourceModal] = useState(null);
   const [editGoodModal, setEditGoodModal] = useState(initialState.editGoodModal);
   const [editUnitModal, setEditUnitModal] = useState(null);
@@ -247,6 +246,7 @@ export const useGameState = () => {
   const [exportModal, setExportModal] = useState(false);
   const [importModal, setImportModal] = useState(false);
   const [loadSavesModal, setLoadSavesModal] = useState(false);
+  const [onlineLibraryModal, setOnlineLibraryModal] = useState(false);
   const [pastEditModal, setPastEditModal] = useState(false);
   const [timeStep, setTimeStep] = useState(initialState.timeStep ?? 1);
   const [loadName, setLoadName] = useState("");
@@ -578,8 +578,6 @@ export const useGameState = () => {
     setFastBuyTarget,
     helpModal,
     setHelpModal,
-    configModal,
-    setConfigModal,
     editResourceModal,
     setEditResourceModal,
     editGoodModal,
@@ -596,6 +594,8 @@ export const useGameState = () => {
     setImportModal,
     loadSavesModal,
     setLoadSavesModal,
+    onlineLibraryModal,
+    setOnlineLibraryModal,
     pastEditModal,
     setPastEditModal,
     timeStep,

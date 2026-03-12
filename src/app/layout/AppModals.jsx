@@ -14,12 +14,14 @@ import { WorstRemovalModal } from "../../components/modals/WorstRemovalModal";
 import { ExportSavesModal } from "../../components/modals/ExportSavesModal";
 import { ImportSavesModal } from "../../components/modals/ImportSavesModal";
 import { LoadSavesModal } from "../../components/modals/LoadSavesModal";
+import { OnlineLibraryModal } from "../../components/modals/OnlineLibraryModal";
 import { PastEditWarningModal } from "../../components/modals/PastEditWarningModal";
 import { EditResourceModal } from "../../components/modals/EditResourceModal";
 import { useTutorial } from "../../context/TutorialContext";
 import { TUTORIAL_EXAMPLE_SAVE_NAME } from "../../tutorial/tutorialSteps";
 import "../../components/modals/modals.css";
 import "../../components/modals/LoadSavesModal.css";
+import "../../components/modals/OnlineLibraryModal.css";
 
 // Centralizes modal rendering to keep the root component lean.
 export function AppModals({
@@ -90,14 +92,17 @@ export function AppModals({
     exportModal,
     importModal,
     loadSavesModal,
+    onlineLibraryModal,
     setExportModal,
     setImportModal,
     setLoadSavesModal,
+    setOnlineLibraryModal,
     visibleSaves,
     saves,
     loadName,
     handleExportSelected,
     handleExportSavefile,
+    handleUploadSharedSave,
     handleRenameSavefile,
     handleDeleteSavefile,
     handleImportSelected,
@@ -265,6 +270,8 @@ export function AppModals({
         onRename={handleRenameSavefile}
         onDelete={handleDeleteSavefile}
         onExport={handleExportSavefile}
+        onUploadShared={handleUploadSharedSave}
+        canUploadShared={canCloudSave && !!cloudProfile?.username}
         onImport={handleImportSelected}
         onSaveConfig={handleUpdateSaveConfig}
         hasUnsavedChanges={hasUnsavedChanges}
@@ -274,6 +281,10 @@ export function AppModals({
         open={!!worstModal}
         data={worstModal}
         onClose={() => setWorstModal(null)}
+      />
+      <OnlineLibraryModal
+        open={!!onlineLibraryModal}
+        onClose={() => setOnlineLibraryModal(false)}
       />
       <PastEditWarningModal
         open={pastEditModal}

@@ -12,16 +12,16 @@
  * Results are stored in a JSON "database" file. Running again with the same tiles will exit immediately.
  *
  * Usage:
- *   node build_fit_db.mjs --tiles 11110,11111,11110,11110,11100
+ *   node scripts/build_fit_db.mjs --tiles 11110,11111,11110,11110,11100
  *
  * Or edit the `tiles` constant at the bottom and run:
- *   node build_fit_db.mjs
+ *   node scripts/build_fit_db.mjs
  */
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { solveTilingMask } from "./tilingSolver.js";
+import { solveTilingMask } from "../src/utils/tilingSolver.js";
 
 /* ----------------------- Helpers: tiles -> mask ----------------------- */
 

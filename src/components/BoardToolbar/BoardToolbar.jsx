@@ -1,4 +1,4 @@
-﻿// Mini toolbar beside/above the board with mode buttons
+﻿// Board toolbar beside/above the board with mode buttons
 import {
   Move,
   Trash2,
@@ -9,9 +9,9 @@ import {
 } from "lucide-react";
 import { ACTION_COLORS } from "../../config/colors";
 import { useTutorialGate } from "../../hooks/useTutorialGate";
-import "./MiniToolbar.css";
+import "./BoardToolbar.css";
 
-export function MiniToolbar({
+export function BoardToolbar({
   moveMode,
   sellMode,
   boostMode,
@@ -37,7 +37,9 @@ export function MiniToolbar({
 
   if (isPast && !editUnlocked) {
     return (
-      <div className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}>
+      <div
+        className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}
+      >
         <button
           onClick={onToggleMove}
           className={`mini-btn ${moveMode ? "active-mode" : ""}`}
@@ -60,7 +62,9 @@ export function MiniToolbar({
   }
 
   return (
-    <div className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}>
+    <div
+      className={`${toolbarClass}${toolbarLocked ? " tutorial-zone-locked" : ""}`}
+    >
       <button
         onClick={onToggleMove}
         className={`mini-btn ${moveMode ? "active-mode" : ""}`}
@@ -133,6 +137,3 @@ export function MiniToolbar({
     </div>
   );
 }
-
-
-

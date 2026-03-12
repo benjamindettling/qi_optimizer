@@ -27,7 +27,6 @@ export const useProductionHandlers = ({
   setTimeStep,
   setSelectedIds,
   setSelectedBuildingId,
-  infiniteResources,
   applyConfigBoosts,
   qaBasePerHour,
   qaHoursPerHarvest,
@@ -78,23 +77,21 @@ export const useProductionHandlers = ({
       );
       total.qa = (total.qa ?? 0) + qaFromLockedCulture;
 
-      if (!infiniteResources) {
-        setResources((prev) => ({
-          ...prev,
-          coins: prev.coins + (total.coins ?? 0),
-          supplies: prev.supplies + (total.supplies ?? 0),
-          chronos: prev.chronos + (total.chronos ?? 0),
-          quantumActions: (prev.quantumActions ?? 0) + (total.qa ?? 0),
-          goods: GOODS_TYPES.reduce(
-            (acc, g) => ({
-              ...acc,
-              [g]: (prev.goods?.[g] ?? 0) + (total.goods?.[g] ?? 0),
-            }),
-            {},
-          ),
-          units: { ...(prev.units ?? {}) },
-        }));
-      }
+      setResources((prev) => ({
+        ...prev,
+        coins: prev.coins + (total.coins ?? 0),
+        supplies: prev.supplies + (total.supplies ?? 0),
+        chronos: prev.chronos + (total.chronos ?? 0),
+        quantumActions: (prev.quantumActions ?? 0) + (total.qa ?? 0),
+        goods: GOODS_TYPES.reduce(
+          (acc, g) => ({
+            ...acc,
+            [g]: (prev.goods?.[g] ?? 0) + (total.goods?.[g] ?? 0),
+          }),
+          {},
+        ),
+        units: { ...(prev.units ?? {}) },
+      }));
       const harvestedIds = instances.map((i) => i.id);
       setReadyMap((prev) => {
         const next = { ...prev };
@@ -129,7 +126,6 @@ export const useProductionHandlers = ({
       stats,
       libraryMap,
       qaHoursPerHarvest,
-      infiniteResources,
       setResources,
       setReadyMap,
       setBuildLocks,
@@ -180,29 +176,27 @@ export const useProductionHandlers = ({
         return next;
       });
     }
-    if (!infiniteResources) {
-      const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
-      const hasCultureDelta =
-        (cultureTotal.coins ?? 0) !== 0 ||
-        (cultureTotal.supplies ?? 0) !== 0 ||
-        (cultureTotal.chronos ?? 0) !== 0 ||
-        Object.values(cultureTotal.goods ?? {}).some((v) => (v ?? 0) !== 0);
-      if (totalQa !== 0 || hasCultureDelta) {
-        setResources((prev) => ({
-          ...prev,
-          coins: (prev.coins ?? 0) + (cultureTotal.coins ?? 0),
-          supplies: (prev.supplies ?? 0) + (cultureTotal.supplies ?? 0),
-          chronos: (prev.chronos ?? 0) + (cultureTotal.chronos ?? 0),
-          quantumActions: (prev.quantumActions ?? 0) + totalQa,
-          goods: GOODS_TYPES.reduce(
-            (acc, g) => ({
-              ...acc,
-              [g]: (prev.goods?.[g] ?? 0) + (cultureTotal.goods?.[g] ?? 0),
-            }),
-            {},
-          ),
-        }));
-      }
+    const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
+    const hasCultureDelta =
+      (cultureTotal.coins ?? 0) !== 0 ||
+      (cultureTotal.supplies ?? 0) !== 0 ||
+      (cultureTotal.chronos ?? 0) !== 0 ||
+      Object.values(cultureTotal.goods ?? {}).some((v) => (v ?? 0) !== 0);
+    if (totalQa !== 0 || hasCultureDelta) {
+      setResources((prev) => ({
+        ...prev,
+        coins: (prev.coins ?? 0) + (cultureTotal.coins ?? 0),
+        supplies: (prev.supplies ?? 0) + (cultureTotal.supplies ?? 0),
+        chronos: (prev.chronos ?? 0) + (cultureTotal.chronos ?? 0),
+        quantumActions: (prev.quantumActions ?? 0) + totalQa,
+        goods: GOODS_TYPES.reduce(
+          (acc, g) => ({
+            ...acc,
+            [g]: (prev.goods?.[g] ?? 0) + (cultureTotal.goods?.[g] ?? 0),
+          }),
+          {},
+        ),
+      }));
     }
     setTimeStep(() => nextStep);
     setBoostMode(false);
@@ -210,7 +204,7 @@ export const useProductionHandlers = ({
     setSelectedIds(new Set());
     setSelectedBuildingId(null);
     recordHistoryAction?.({
-      type: infiniteResources ? "finishProductionsAdmin" : "finishProductions",
+      type: "finishProductions",
       title: label,
     });
     requestAutoSnapshot();
@@ -219,7 +213,6 @@ export const useProductionHandlers = ({
     libraryMap,
     buildLocks,
     timeStep,
-    infiniteResources,
     qaBasePerHour,
     qaHoursPerHarvest,
     setResources,
@@ -284,7 +277,7 @@ export const useProductionHandlers = ({
         qaOutsidePerHour: qaBasePerHour,
         qaHoursPerStep: qaHoursPerHarvest,
       });
-      if (!infiniteResources && outsideQaDelta !== 0) {
+      if (outsideQaDelta !== 0) {
         setResources((prev) => ({
           ...prev,
           quantumActions: (prev.quantumActions ?? 0) + outsideQaDelta,
@@ -298,7 +291,7 @@ export const useProductionHandlers = ({
       setSelectedBuildingId(null);
     }
     recordHistoryAction?.({
-      type: infiniteResources ? "harvestAllAdmin" : "harvestAll",
+      type: "harvestAll",
       title: label,
     });
     requestAutoSnapshot();
@@ -314,7 +307,6 @@ export const useProductionHandlers = ({
     setResources,
     qaBasePerHour,
     qaHoursPerHarvest,
-    infiniteResources,
     setTimeStep,
     setCheckpointIndex,
     setEditUnlocked,
@@ -361,7 +353,7 @@ export const useProductionHandlers = ({
     
     updateStatus(label);
     recordHistoryAction?.({
-      type: infiniteResources ? "harvestAllAdmin" : "harvestAll",
+      type: "harvestAll",
       title: label,
     });
     requestAutoSnapshot();
@@ -372,7 +364,6 @@ export const useProductionHandlers = ({
     buildLocks,
     applyConfigBoosts,
     libraryMap,
-    infiniteResources,
     setCheckpointIndex,
     setEditUnlocked,
     updateStatus,

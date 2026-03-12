@@ -71,7 +71,6 @@ export const buildInitialGameState = ({ libraryMap, townhallDef }) => {
     fastBuyTarget: null,
     unitModal: null,
     helpModal: null,
-    configModal: null,
     editGoodModal: null,
     unlockChoice: null,
     unlockGoodSelect: null,

@@ -1,4 +1,4 @@
-/* Mini toolbar - vertical/horizontal toolbar beside/above the board */
+/* Board toolbar - vertical/horizontal toolbar beside/above the board */
 .mini-toolbar {
   display: flex;
   gap: 0.5rem;

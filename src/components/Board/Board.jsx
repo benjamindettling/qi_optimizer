@@ -192,6 +192,8 @@ export function Board({
   onDebugLockRegion,
   infiniteResources = false,
   moveMode = false,
+  sellMode = false,
+  refundMode = false,
   selectedBuildingId = null,
   carried = null,
   helpMode = false,
@@ -211,6 +213,15 @@ export function Board({
   });
   const [isTouchSelection, setIsTouchSelection] = useState(false);
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
+  const hideAdminLockButtons =
+    moveMode ||
+    sellMode ||
+    refundMode ||
+    boostMode ||
+    isShopOpen ||
+    !!selectedBuildingId ||
+    !!carried ||
+    isTouchSelection;
   const regionInteractionsDisabled = isShopOpen || !!selectedBuildingId || isTouchSelection;
 
   useEffect(() => {
@@ -336,7 +347,12 @@ export function Board({
         const normalClickable = !isVoid && !unlocked && isNeighbor && canUnlock;
         const isDebugUnlockable =
           adminMode && !isVoid && !unlocked && isNeighbor;
-        const isDebugLockable = adminMode && !isVoid && unlocked && !isBase;
+        const isDebugLockable =
+          adminMode &&
+          !hideAdminLockButtons &&
+          !isVoid &&
+          unlocked &&
+          !isBase;
         const clickable =
           normalClickable || isDebugUnlockable || isDebugLockable;
 
@@ -363,6 +379,7 @@ export function Board({
   }, [
     adminMode,
     canAnyUnlock,
+    hideAdminLockButtons,
     infiniteResources,
     neighborUnlocked,
     safeCellSize,

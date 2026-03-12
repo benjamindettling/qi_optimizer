@@ -178,6 +178,49 @@ export const extractSaveConfig = (source) =>
     { ...DEFAULT_SAVE_CONFIG },
   );
 
+const toFiniteNumberOrFallback = (value, fallback) => {
+  const next = Number(value);
+  return Number.isFinite(next) ? next : fallback;
+};
+
+const toNonNegativeNumberOrFallback = (value, fallback) => {
+  const next = toFiniteNumberOrFallback(value, fallback);
+  return next < 0 ? fallback : next;
+};
+
+export const extractSaveConfigFromStats = (stats, fallbackSource) => {
+  const fallback = extractSaveConfig(fallbackSource);
+  const minimum = stats?.minimum;
+  if (!minimum || typeof minimum !== "object" || Array.isArray(minimum)) {
+    return fallback;
+  }
+
+  return {
+    extraCoins: toNonNegativeNumberOrFallback(minimum.money, fallback.extraCoins),
+    extraSupplies: toNonNegativeNumberOrFallback(
+      minimum.supplies,
+      fallback.extraSupplies,
+    ),
+    goodsStartBonus: toNonNegativeNumberOrFallback(
+      minimum.goods,
+      fallback.goodsStartBonus,
+    ),
+    shardsLimit: toNonNegativeNumberOrFallback(
+      minimum.shardsUsed,
+      fallback.shardsLimit,
+    ),
+    coinBoost: toFiniteNumberOrFallback(minimum.coinBoost, fallback.coinBoost),
+    supplyBoost: toFiniteNumberOrFallback(
+      minimum.supplyBoost,
+      fallback.supplyBoost,
+    ),
+    troopsStartBonus: toNonNegativeNumberOrFallback(
+      minimum.troops,
+      fallback.troopsStartBonus,
+    ),
+  };
+};
+
 export const buildEffectiveSaveConfig = (baseConfig, saveConfig) => ({
   ...normalizeConfigWithShardSettings({
     ...DEFAULT_CONFIG,
@@ -317,15 +360,33 @@ const trackMinima = (resources, minima) => {
   );
 };
 
+const normalizeTreeData = (treeData) => {
+  if (Array.isArray(treeData)) {
+    return { tree: treeData };
+  }
+  if (
+    treeData &&
+    typeof treeData === "object" &&
+    !Array.isArray(treeData) &&
+    Array.isArray(treeData.tree)
+  ) {
+    return treeData;
+  }
+  return null;
+};
+
 export const analyzeSmallestSaveConfig = ({
   treeData,
   draftConfig,
   fallbackConfig,
 }) => {
-  if (!treeData?.tree) return null;
+  const normalizedTreeData = normalizeTreeData(treeData);
+  if (!normalizedTreeData) return null;
 
-  const { historyTree } = deserializeTree(treeData);
-  const normalizedDraft = extractSaveConfig(draftConfig ?? treeData?.config);
+  const { historyTree } = deserializeTree(normalizedTreeData);
+  const normalizedDraft = extractSaveConfig(
+    draftConfig ?? normalizedTreeData?.config,
+  );
   const effectiveConfig = buildEffectiveSaveConfig(
     fallbackConfig,
     normalizedDraft,
@@ -838,11 +899,12 @@ export const computeSavefileTreeStats = ({
   saveConfig,
   fallbackConfig,
 }) => {
-  if (!treeData?.tree) return null;
+  const normalizedTreeData = normalizeTreeData(treeData);
+  if (!normalizedTreeData) return null;
 
   const analysis = analyzeSmallestSaveConfig({
-    treeData,
-    draftConfig: saveConfig ?? treeData?.config,
+    treeData: normalizedTreeData,
+    draftConfig: saveConfig ?? normalizedTreeData?.config,
     fallbackConfig: {
       ...(fallbackConfig || {}),
       onlyCountQaFromSetup: true,
@@ -882,14 +944,16 @@ export const computeSavefileTreeStats = ({
     minimum: {
       money: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraCoins ?? 0))),
       supplies: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraSupplies ?? 0))),
+      coinBoost: Number(sim.effectiveConfig?.coinBoost ?? 0),
+      supplyBoost: Number(sim.effectiveConfig?.supplyBoost ?? 0),
       goods: Math.max(0, Math.round(Number(analysis.adjustedConfig?.goodsStartBonus ?? 0))),
+      troops: Math.max(0, Math.round(Number(sim.effectiveConfig?.troopsStartBonus ?? 0))),
       shardsUsed: Math.max(0, Math.round(analysis.shardsUsed ?? 0)),
     },
     final: {
       attack,
       defense,
       totalQaSetup,
-      finalStep: stepVal,
     },
   };
 };

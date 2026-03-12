@@ -1,11 +1,5 @@
 ﻿// Menu panel for TopBar - Save, Load, Admin, Help, Profile
-import {
-  Save,
-  FolderOpen,
-  Globe,
-  Sparkle,
-  User,
-} from "lucide-react";
+import { Save, FolderOpen, Globe, Sparkle, User } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLang } from "../../context/LanguageContext";
@@ -22,6 +16,7 @@ export function MenuPanel({
   onOpenExport,
   onOpenImport,
   onOpenLoadSaves,
+  onOpenOnlineLibrary,
   adminMode,
   editingLocked,
   onToggleAdmin,
@@ -96,7 +91,11 @@ export function MenuPanel({
             <button
               className={`menu-btn${hasUnsavedChanges ? " menu-btn--unsaved" : ""}`}
               onClick={openSaveModal}
-              title={hasUnsavedChanges ? t("menuSaveUnsavedTitle") : t("btnSaveTitle")}
+              title={
+                hasUnsavedChanges
+                  ? t("menuSaveUnsavedTitle")
+                  : t("btnSaveTitle")
+              }
               aria-label={t("btnSaveTitle")}
               data-tutorial-zone="save-controls"
               data-help-id="btn-save"
@@ -117,7 +116,7 @@ export function MenuPanel({
             </button>
             <button
               className="menu-btn"
-              onClick={() => {}}
+              onClick={() => onOpenOnlineLibrary?.()}
               title={t("btnOnlineTitle")}
               aria-label={t("btnOnlineLabel")}
               data-help-id="btn-online"
@@ -150,7 +149,6 @@ export function MenuPanel({
             </button>
           </div>
         </div>
-
       </div>
 
       {saveModalOpen && typeof document !== "undefined"
@@ -162,7 +160,10 @@ export function MenuPanel({
                 </div>
 
                 <div className="menu-save-modal-body">
-                  <label className="menu-save-modal-label" htmlFor="topbar-save-name">
+                  <label
+                    className="menu-save-modal-label"
+                    htmlFor="topbar-save-name"
+                  >
                     {t("saveModalNameLabel")}
                   </label>
                   <QiInput
@@ -194,7 +195,10 @@ export function MenuPanel({
                 </div>
 
                 <div className="modal-actions">
-                  <button className="menu-save-modal-cancel" onClick={closeSaveModal}>
+                  <button
+                    className="menu-save-modal-cancel"
+                    onClick={closeSaveModal}
+                  >
                     {t("startConfigCancel")}
                   </button>
                   <button
@@ -213,4 +217,3 @@ export function MenuPanel({
     </>
   );
 }
-

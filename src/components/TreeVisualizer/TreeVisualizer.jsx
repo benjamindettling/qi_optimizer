@@ -206,7 +206,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const [deleteHoverBranch, setDeleteHoverBranch] = useState(null); // { parentId, childId }
   const [hoveredCheckpointMarker, setHoveredCheckpointMarker] = useState(null);
 
-  // Config matching treeHistory
   const cfg = useMemo(
     () => ({
       leftPadding: 40,
@@ -261,111 +260,104 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     } catch {
       // Ignore storage write errors.
     }
-  }, [
-    branchFocusMode,
-    horizontalCollapse,
-    selectionFocusMode,
-    relativeZoom,
-  ]);
+  }, [branchFocusMode, horizontalCollapse, selectionFocusMode, relativeZoom]);
 
   // Build internal structure from flat nodes array
-  const {
-    internalNodes,
-    internalLinks,
-    childrenMap,
-    rootId,
-    nodeMap,
-  } = useMemo(() => {
-    if (!nodes || nodes.length === 0) {
-      return {
-        internalNodes: [],
-        internalLinks: [],
-        childrenMap: new Map(),
-        rootId: null,
-        nodeMap: new Map(),
-      };
-    }
-
-    const nodeMap = new Map();
-    const childrenMap = new Map();
-    const parentMap = new Map();
-    const internalNodes = [];
-    const internalLinks = [];
-
-    nodes.forEach((node) => {
-      const isCheckpoint = isCheckpointNode(node.actionType, node.actionTitle);
-      const isTriangle = TRIANGLE_TYPES.has(node.actionType);
-      const isSquare = SQUARE_TYPES.has(node.actionType);
-      const shape = isTriangle ? "triangle" : isSquare ? "square" : "circle";
-
-      // Determine node color based on validity flags
-      let nodeColor = actionColors[node.actionType] || ACTION_COLORS.default;
-      if (node.greyedOut) {
-        nodeColor = "#9ca3af"; // Grey for greyed out nodes
+  const { internalNodes, internalLinks, childrenMap, rootId, nodeMap } =
+    useMemo(() => {
+      if (!nodes || nodes.length === 0) {
+        return {
+          internalNodes: [],
+          internalLinks: [],
+          childrenMap: new Map(),
+          rootId: null,
+          nodeMap: new Map(),
+        };
       }
 
-      const internalNode = {
-        id: node.id,
-        x: 0,
-        y: 0,
-        color: nodeColor,
-        actionType: node.actionType,
-        isCheckpoint,
-        shape,
-        data: node,
-        // Include validity flags
-        unfixable: node.unfixable,
-        configFixable: node.configFixable,
-        orderTBD: node.orderTBD,
-        orderFixable: node.orderFixable,
-        orderUnfixable: node.orderUnfixable,
-        greyedOut: node.greyedOut,
-        // Include deficits for configFixable nodes
-        deficits: node.deficits,
-        // Include fixed layout for orderFixable nodes
-        fixedLayout: node.fixedLayout,
-        layoutFixPlan: node.layoutFixPlan,
-      };
-      nodeMap.set(node.id, internalNode);
-      internalNodes.push(internalNode);
+      const nodeMap = new Map();
+      const childrenMap = new Map();
+      const parentMap = new Map();
+      const internalNodes = [];
+      const internalLinks = [];
 
-      if (node.parentId != null && nodeMap.has(node.parentId)) {
-        parentMap.set(node.id, node.parentId);
+      nodes.forEach((node) => {
+        const isCheckpoint = isCheckpointNode(
+          node.actionType,
+          node.actionTitle,
+        );
+        const isTriangle = TRIANGLE_TYPES.has(node.actionType);
+        const isSquare = SQUARE_TYPES.has(node.actionType);
+        const shape = isTriangle ? "triangle" : isSquare ? "square" : "circle";
 
-        if (!childrenMap.has(node.parentId)) {
-          childrenMap.set(node.parentId, []);
+        // Determine node color based on validity flags
+        let nodeColor = actionColors[node.actionType] || ACTION_COLORS.default;
+        if (node.greyedOut) {
+          nodeColor = "#9ca3af"; // Grey for greyed out nodes
         }
-        const siblings = childrenMap.get(node.parentId);
-        const childIndex = siblings.length;
-        siblings.push({ id: node.id, order: childIndex });
 
-        internalLinks.push({
-          id: `link_${node.parentId}_${node.id}`,
-          source: node.parentId,
-          target: node.id,
-          kind: childIndex === 0 ? "cont" : "fork",
-          order: childIndex,
-        });
+        const internalNode = {
+          id: node.id,
+          x: 0,
+          y: 0,
+          color: nodeColor,
+          actionType: node.actionType,
+          isCheckpoint,
+          shape,
+          data: node,
+          // Include validity flags
+          unfixable: node.unfixable,
+          configFixable: node.configFixable,
+          orderTBD: node.orderTBD,
+          orderFixable: node.orderFixable,
+          orderUnfixable: node.orderUnfixable,
+          greyedOut: node.greyedOut,
+          // Include deficits for configFixable nodes
+          deficits: node.deficits,
+          // Include fixed layout for orderFixable nodes
+          fixedLayout: node.fixedLayout,
+          layoutFixPlan: node.layoutFixPlan,
+        };
+        nodeMap.set(node.id, internalNode);
+        internalNodes.push(internalNode);
+
+        if (node.parentId != null && nodeMap.has(node.parentId)) {
+          parentMap.set(node.id, node.parentId);
+
+          if (!childrenMap.has(node.parentId)) {
+            childrenMap.set(node.parentId, []);
+          }
+          const siblings = childrenMap.get(node.parentId);
+          const childIndex = siblings.length;
+          siblings.push({ id: node.id, order: childIndex });
+
+          internalLinks.push({
+            id: `link_${node.parentId}_${node.id}`,
+            source: node.parentId,
+            target: node.id,
+            kind: childIndex === 0 ? "cont" : "fork",
+            order: childIndex,
+          });
+        }
+      });
+
+      // Find root (node with no parent)
+      let rootId = null;
+      for (const n of internalNodes) {
+        if (!parentMap.has(n.id)) {
+          rootId = n.id;
+          break;
+        }
       }
-    });
 
-    // Find root (node with no parent)
-    let rootId = null;
-    for (const n of internalNodes) {
-      if (!parentMap.has(n.id)) {
-        rootId = n.id;
-        break;
-      }
-    }
-
-    return {
-      internalNodes,
-      internalLinks,
-      childrenMap,
-      rootId,
-      nodeMap,
-    };
-  }, [nodes, actionColors]);
+      return {
+        internalNodes,
+        internalLinks,
+        childrenMap,
+        rootId,
+        nodeMap,
+      };
+    }, [nodes, actionColors]);
 
   // Helpers
   const sourceId = (l) =>
@@ -549,7 +541,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       displayRootId,
       displayLinks,
     };
-  }, [horizontalCollapse, internalNodes, internalLinks, childrenMap, nodeMap, rootId]);
+  }, [
+    horizontalCollapse,
+    internalNodes,
+    internalLinks,
+    childrenMap,
+    nodeMap,
+    rootId,
+  ]);
 
   const activeChildrenMap = collapseModel.displayChildrenMap;
   const activeParentMap = collapseModel.displayParentMap;
@@ -574,6 +573,26 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     [horizontalCollapse, bundleInfo, childrenMap],
   );
 
+  const resolveCollapsedDragSource = useCallback(
+    (nodeId) => {
+      if (!horizontalCollapse || nodeId == null) return nodeId;
+      const bundle = bundleInfo.get(nodeId);
+      if (!bundle?.bundleCount || bundle.bundleCount <= 1) return nodeId;
+
+      let cur = nodeId;
+      const seen = new Set();
+      while (cur != null && !seen.has(cur)) {
+        seen.add(cur);
+        const parentId = nodeMap.get(cur)?.data?.parentId;
+        if (parentId == null || !bundleInfo.get(parentId)?.isHidden) break;
+        cur = parentId;
+      }
+
+      return cur ?? nodeId;
+    },
+    [horizontalCollapse, bundleInfo, nodeMap],
+  );
+
   useEffect(() => {
     if (!horizontalCollapse || internalSelected == null) return;
     const resolved = resolveCollapsedSelection(internalSelected);
@@ -586,11 +605,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       setSelectedEdge(null);
       setBranchPopup(null);
     }
-  }, [
-    horizontalCollapse,
-    internalSelected,
-    resolveCollapsedSelection,
-  ]);
+  }, [horizontalCollapse, internalSelected, resolveCollapsedSelection]);
 
   // Compute checkpoint groups - which "wave" each node belongs to
   // checkpointsBefore = number of checkpoints on path from root to node (exclusive of node itself)
@@ -1231,7 +1246,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       desiredY,
       metrics.bounds,
     );
-    const zoomChanged = Math.abs(relativeZoom - prevRelativeZoomRef.current) > 0.000001;
+    const zoomChanged =
+      Math.abs(relativeZoom - prevRelativeZoomRef.current) > 0.000001;
     prevRelativeZoomRef.current = relativeZoom;
     applyTransform(nextTransform, zoomChanged ? 0 : 180);
   }, [
@@ -1284,61 +1300,58 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   );
 
   // Auto-scroll when dragging near edges
-  const startAutoScroll = useCallback(
-    (mouseX, mouseY) => {
-      if (!containerRef.current || !apiRef.current) return;
+  const startAutoScroll = useCallback((mouseX, mouseY) => {
+    if (!containerRef.current || !apiRef.current) return;
 
-      const rect = containerRef.current.getBoundingClientRect();
-      const edgeThreshold = 50; // Pixels from edge to start scrolling
-      const maxSpeed = 15; // Max pixels per frame
+    const rect = containerRef.current.getBoundingClientRect();
+    const edgeThreshold = 50; // Pixels from edge to start scrolling
+    const maxSpeed = 15; // Max pixels per frame
 
-      const autoScrollTick = () => {
-        if (!isDraggingRef.current || !apiRef.current) {
-          dragScrollRef.current = null;
-          return;
-        }
-
-        const { svg, zoom } = apiRef.current;
-        let dx = 0;
-        let dy = 0;
-
-        // Calculate scroll speed based on distance from edge
-        const leftDist = mouseX - rect.left;
-        const rightDist = rect.right - mouseX;
-        const topDist = mouseY - rect.top;
-        const bottomDist = rect.bottom - mouseY;
-
-        if (leftDist < edgeThreshold) {
-          dx = maxSpeed * (1 - leftDist / edgeThreshold);
-        } else if (rightDist < edgeThreshold) {
-          dx = -maxSpeed * (1 - rightDist / edgeThreshold);
-        }
-
-        if (topDist < edgeThreshold) {
-          dy = maxSpeed * (1 - topDist / edgeThreshold);
-        } else if (bottomDist < edgeThreshold) {
-          dy = -maxSpeed * (1 - bottomDist / edgeThreshold);
-        }
-
-        if (dx !== 0 || dy !== 0) {
-          const transform = currentTransformRef.current;
-          const newTransform = transform.translate(
-            dx / transform.k,
-            dy / transform.k,
-          );
-          svg.call(zoom.transform, newTransform);
-        }
-
-        dragScrollRef.current = requestAnimationFrame(autoScrollTick);
-      };
-
-      if (dragScrollRef.current) {
-        cancelAnimationFrame(dragScrollRef.current);
+    const autoScrollTick = () => {
+      if (!isDraggingRef.current || !apiRef.current) {
+        dragScrollRef.current = null;
+        return;
       }
+
+      const { svg, zoom } = apiRef.current;
+      let dx = 0;
+      let dy = 0;
+
+      // Calculate scroll speed based on distance from edge
+      const leftDist = mouseX - rect.left;
+      const rightDist = rect.right - mouseX;
+      const topDist = mouseY - rect.top;
+      const bottomDist = rect.bottom - mouseY;
+
+      if (leftDist < edgeThreshold) {
+        dx = maxSpeed * (1 - leftDist / edgeThreshold);
+      } else if (rightDist < edgeThreshold) {
+        dx = -maxSpeed * (1 - rightDist / edgeThreshold);
+      }
+
+      if (topDist < edgeThreshold) {
+        dy = maxSpeed * (1 - topDist / edgeThreshold);
+      } else if (bottomDist < edgeThreshold) {
+        dy = -maxSpeed * (1 - bottomDist / edgeThreshold);
+      }
+
+      if (dx !== 0 || dy !== 0) {
+        const transform = currentTransformRef.current;
+        const newTransform = transform.translate(
+          dx / transform.k,
+          dy / transform.k,
+        );
+        svg.call(zoom.transform, newTransform);
+      }
+
       dragScrollRef.current = requestAnimationFrame(autoScrollTick);
-    },
-    [],
-  );
+    };
+
+    if (dragScrollRef.current) {
+      cancelAnimationFrame(dragScrollRef.current);
+    }
+    dragScrollRef.current = requestAnimationFrame(autoScrollTick);
+  }, []);
 
   const stopAutoScroll = useCallback(() => {
     if (dragScrollRef.current) {
@@ -1423,28 +1436,31 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   );
 
   // Handle drag start on a node
-  const handleDragStart = useCallback((nodeId, event) => {
-    if (deleteMode) return;
-    // Don't allow dragging the root node (id 0)
-    if (nodeId === 0) return;
+  const handleDragStart = useCallback(
+    (nodeId, event) => {
+      if (deleteMode) return;
+      // Don't allow dragging the root node (id 0)
+      if (nodeId === 0) return;
 
-    event.preventDefault();
-    event.stopPropagation();
+      event.preventDefault();
+      event.stopPropagation();
 
-    isDraggingRef.current = true;
-    const rect = containerRef.current?.getBoundingClientRect();
-    const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-    const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+      isDraggingRef.current = true;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
+      const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
 
-    setDragState({
-      nodeId,
-      startX: clientX - (rect?.left ?? 0),
-      startY: clientY - (rect?.top ?? 0),
-      currentX: clientX - (rect?.left ?? 0),
-      currentY: clientY - (rect?.top ?? 0),
-      hasMoved: false, // Track if mouse actually moved beyond threshold
-    });
-  }, [deleteMode]);
+      setDragState({
+        nodeId,
+        startX: clientX - (rect?.left ?? 0),
+        startY: clientY - (rect?.top ?? 0),
+        currentX: clientX - (rect?.left ?? 0),
+        currentY: clientY - (rect?.top ?? 0),
+        hasMoved: false, // Track if mouse actually moved beyond threshold
+      });
+    },
+    [deleteMode],
+  );
 
   // Handle drag move
   const handleDragMove = useCallback(
@@ -1496,7 +1512,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     if (wasDragging && dropTarget !== null && onCopyBranch) {
       // Copy the dragged node's subtree as a new child of the drop target
-      onCopyBranch(dragState.nodeId, dropTarget);
+      const sourceNodeId = resolveCollapsedDragSource(dragState.nodeId);
+      onCopyBranch(sourceNodeId, dropTarget);
     }
 
     // If it wasn't a real drag (just a click), select the node
@@ -1521,6 +1538,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     stopAutoScroll,
     onSelectNode,
     resolveCollapsedSelection,
+    resolveCollapsedDragSource,
   ]);
 
   // Global mouse/touch event listeners for drag
@@ -1630,13 +1648,11 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const aIsSelected =
         highlightedEdge?.parentId === sourceId(a) &&
         (activeChildrenMap.get(sourceId(a)) ?? [])[highlightedEdge.childIndex]
-          ?.id ===
-          targetId(a);
+          ?.id === targetId(a);
       const bIsSelected =
         highlightedEdge?.parentId === sourceId(b) &&
         (activeChildrenMap.get(sourceId(b)) ?? [])[highlightedEdge.childIndex]
-          ?.id ===
-          targetId(b);
+          ?.id === targetId(b);
 
       if (aIsSelected && !bIsSelected) return 1;
       if (!aIsSelected && bIsSelected) return -1;
@@ -1736,9 +1752,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         const edgeParentId = sourceId(d);
         const edgeChildId = targetId(d);
         setDeleteHoverBranch((prev) =>
-          prev &&
-          prev.parentId === edgeParentId &&
-          prev.childId === edgeChildId
+          prev && prev.parentId === edgeParentId && prev.childId === edgeChildId
             ? null
             : prev,
         );
@@ -1857,7 +1871,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         ...marker,
         screenX: marker.worldX * currentTransform.k + currentTransform.x,
       }))
-      .filter((marker) => marker.screenX >= -24 && marker.screenX <= width + 24);
+      .filter(
+        (marker) => marker.screenX >= -24 && marker.screenX <= width + 24,
+      );
     const markerColor = actionColors.checkpoint || "#004d4d";
     const labelY = height - 20;
 
@@ -2042,7 +2058,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             .attr("fill", getTextFill)
             .attr("font-size", (d) => (isBundleCountNode(d) ? "12px" : "9px"))
             .attr("font-weight", (d) => (isBundleCountNode(d) ? "900" : "bold"))
-            .attr("paint-order", (d) => (isBundleCountNode(d) ? "stroke" : null))
+            .attr("paint-order", (d) =>
+              isBundleCountNode(d) ? "stroke" : null,
+            )
             .attr("stroke", (d) => (isBundleCountNode(d) ? "#111827" : "none"))
             .attr("stroke-width", (d) => (isBundleCountNode(d) ? 0.9 : 0))
             .attr("pointer-events", "none")
@@ -2075,7 +2093,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             .attr("fill", getTextFill)
             .attr("font-size", (d) => (isBundleCountNode(d) ? "12px" : "9px"))
             .attr("font-weight", (d) => (isBundleCountNode(d) ? "900" : "bold"))
-            .attr("paint-order", (d) => (isBundleCountNode(d) ? "stroke" : null))
+            .attr("paint-order", (d) =>
+              isBundleCountNode(d) ? "stroke" : null,
+            )
             .attr("stroke", (d) => (isBundleCountNode(d) ? "#111827" : "none"))
             .attr("stroke-width", (d) => (isBundleCountNode(d) ? 0.9 : 0));
           update
@@ -2802,9 +2822,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           data-help-id="tree-focus-button"
           onClick={handleToggleSelectionFocusMode}
           title={
-            selectionFocusMode
-              ? "Node-Fokus aktiv"
-              : "Node-Fokus deaktiviert"
+            selectionFocusMode ? "Node-Fokus aktiv" : "Node-Fokus deaktiviert"
           }
           aria-label="Toggle node focus mode"
         >

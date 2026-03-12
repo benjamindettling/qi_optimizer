@@ -30,7 +30,10 @@ import { T } from "../i18n/translations";
 import tutorialExampleSave from "../config/example/example_full.json";
 import tutorialTreeSave from "../config/example/example_tree.json";
 import seemsAlchemistSave from "../config/example/SeemsAlchemist.json";
-import { deserializeTree, getMainBranchEndNodeId } from "../utils/treeSerializer";
+import {
+  deserializeTree,
+  getMainBranchEndNodeId,
+} from "../utils/treeSerializer";
 import "./ui/FloatingPageControls.css";
 
 const ROOT_TREE_NEXT_NODE_ID = 1;
@@ -41,9 +44,11 @@ const isMhDefId = (defId) =>
   (defId === "mehrgeschossiges_haus" ||
     defId.endsWith(":mehrgeschossiges_haus"));
 const isGutshausDefId = (defId) =>
-  typeof defId === "string" && (defId === "gutshaus" || defId.endsWith(":gutshaus"));
+  typeof defId === "string" &&
+  (defId === "gutshaus" || defId.endsWith(":gutshaus"));
 const isChurchDefId = (defId) =>
-  typeof defId === "string" && (defId === "kirche" || defId.endsWith(":kirche"));
+  typeof defId === "string" &&
+  (defId === "kirche" || defId.endsWith(":kirche"));
 
 const getRootChildren = (historyTree) => {
   const root = historyTree?.nodes?.get?.(0);
@@ -287,7 +292,9 @@ export function AppRoot() {
       clonedNodes.set(id, {
         ...node,
         action: node?.action ? { ...node.action } : null,
-        childrenIds: Array.isArray(node?.childrenIds) ? [...node.childrenIds] : [],
+        childrenIds: Array.isArray(node?.childrenIds)
+          ? [...node.childrenIds]
+          : [],
       });
     });
     return {
@@ -305,16 +312,18 @@ export function AppRoot() {
       historyIndex: controller.historyIndex ?? 0,
       loadName: controller.loadName ?? "",
     };
-  }, [cloneHistoryTree, controller.historyIndex, controller.historyTree, controller.loadName]);
+  }, [
+    cloneHistoryTree,
+    controller.historyIndex,
+    controller.historyTree,
+    controller.loadName,
+  ]);
 
   const clearTreeForBoardTutorial = useCallback(() => {
     controller.loadHistoryTree?.(
       {
         nodes: new Map([
-          [
-            0,
-            { id: 0, parentId: null, action: null, childrenIds: [] },
-          ],
+          [0, { id: 0, parentId: null, action: null, childrenIds: [] }],
         ]),
         nextNodeId: ROOT_TREE_NEXT_NODE_ID,
       },
@@ -478,8 +487,7 @@ export function AppRoot() {
   const handleTutorialCopyBranch = useCallback(
     (sourceId, targetId) => {
       const rootChildren = getRootChildren(controller.historyTree);
-      const firstRootChildId =
-        rootChildren.length > 0 ? rootChildren[0] : null;
+      const firstRootChildId = rootChildren.length > 0 ? rootChildren[0] : null;
       const secondRootChildId =
         rootChildren.length > 1 ? rootChildren[1] : null;
 
@@ -568,9 +576,6 @@ export function AppRoot() {
           return true;
         case "helpModal":
           controller.setHelpModal(false);
-          return true;
-        case "configModal":
-          controller.setConfigModal(false);
           return true;
         case "accountModal":
           setAccountModalOpen(false);
@@ -742,15 +747,14 @@ export function AppRoot() {
         remainingRootChildren: rootChildren.length,
       });
     }
-  }, [
-    controller.historyTree,
-    currentStepIndex,
-    fireEvent,
-    isTutorialActive,
-  ]);
+  }, [controller.historyTree, currentStepIndex, fireEvent, isTutorialActive]);
 
   useEffect(() => {
-    if (!controller.savesLoaded || !controller.setAllSaves || defaultExamplesInjected) {
+    if (
+      !controller.savesLoaded ||
+      !controller.setAllSaves ||
+      defaultExamplesInjected
+    ) {
       return;
     }
     controller.setAllSaves((prev) => {
@@ -1053,6 +1057,8 @@ export function AppRoot() {
     onDebugLockRegion: controller.handleDebugLockRegion,
     infiniteResources: controller.infiniteResources,
     moveMode: controller.moveMode,
+    sellMode: controller.sellMode,
+    refundMode: controller.refundMode,
     selectedBuildingId: controller.selectedBuildingId,
     carried: controller.carried,
     helpMode: !!controller.helpModal,
@@ -1104,6 +1110,7 @@ export function AppRoot() {
     onOpenExport: controller.openExportSaves,
     onOpenImport: controller.openImportSaves,
     onOpenLoadSaves: handleOpenLoadSaves,
+    onOpenOnlineLibrary: () => controller.setOnlineLibraryModal(true),
     onExportPdf: handleExportPdf,
     isPlacementMode,
     onCancelPlacement: handleCancelPlacement,

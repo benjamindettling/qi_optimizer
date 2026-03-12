@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState, useCallback, useEffect } from "react";
 import { Board } from "../../components/Board/Board";
-import { TopBarPager } from "../../components/TopBar/TopBarPager";
+import { TopBar } from "../../components/TopBar/TopBar";
 import { ShopSidebar } from "../../components/ShopSidebar/ShopSidebar";
-import { NotesCluster } from "../../components/RightSidebar/NotesCluster";
-import { MiniToolbar } from "../../components/MiniToolbar/MiniToolbar";
+import { LogAndTools } from "../../components/LogAndTools/LogAndTools";
+import { BoardToolbar } from "../../components/BoardToolbar/BoardToolbar";
 import { TreeVisualizer } from "../../components/TreeVisualizer/TreeVisualizer";
 import { FixDeficitsModal } from "../../components/modals/FixDeficitsModal";
 import { FixLayoutModal } from "../../components/modals/FixLayoutModal";
@@ -18,12 +18,7 @@ import { useTutorial } from "../../context/TutorialContext";
 import { TUTORIAL_STEPS } from "../../tutorial/tutorialSteps";
 import { T } from "../../i18n/translations";
 import { getBuildingName } from "../../utils/buildingName";
-import {
-  FolderTree,
-  SquareStack,
-  ArrowUpFromLine,
-  Trash2,
-} from "lucide-react";
+import { FolderTree, SquareStack, ArrowUpFromLine, Trash2 } from "lucide-react";
 
 // Main page layout: TopBar + Workspace Grid (Board, Tree, Notes clusters)
 export function AppLayout({
@@ -98,9 +93,11 @@ export function AppLayout({
         branchHiderMode:
           treeRef.current.branchHiderMode ?? treeRef.current.focusMode,
         actionGrouperMode:
-          treeRef.current.actionGrouperMode ?? treeRef.current.horizontalCollapse,
+          treeRef.current.actionGrouperMode ??
+          treeRef.current.horizontalCollapse,
         currentOnTopBranch:
-          treeRef.current.currentOnTopBranch ?? treeRef.current.currentOnMainBranch,
+          treeRef.current.currentOnTopBranch ??
+          treeRef.current.currentOnMainBranch,
       });
     }
   }, []);
@@ -467,6 +464,11 @@ export function AppLayout({
     toolbarProps.onOpenLoadSaves?.();
   }, [clearExclusiveModes, toolbarProps]);
 
+  const wrappedTopBarOpenOnlineLibrary = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onOpenOnlineLibrary?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
   const wrappedTopBarToggleAdmin = useCallback(
     (...args) => {
       clearExclusiveModes();
@@ -564,7 +566,7 @@ export function AppLayout({
       <div className="page">
         {/* TopBar spans full width */}
         <div ref={topBarRef} onClickCapture={handleTopBarClickCapture}>
-          <TopBarPager
+          <TopBar
             // Stats panel props
             resources={topBarProps.resources}
             stats={topBarProps.stats}
@@ -596,6 +598,7 @@ export function AppLayout({
             onOpenExport={wrappedTopBarOpenExport}
             onOpenImport={wrappedTopBarOpenImport}
             onOpenLoadSaves={wrappedTopBarOpenLoadSaves}
+            onOpenOnlineLibrary={wrappedTopBarOpenOnlineLibrary}
             onToggleAdmin={wrappedTopBarToggleAdmin}
             onOpenHelp={wrappedTopBarOpenHelp}
             onOpenAccount={wrappedTopBarOpenAccount}
@@ -625,7 +628,7 @@ export function AppLayout({
             className={`board-cluster board-cluster--toolbar-${effectiveToolbarPosition}`}
             ref={boardClusterRef}
           >
-            <MiniToolbar
+            <BoardToolbar
               moveMode={toolbarProps.moveMode}
               sellMode={toolbarProps.sellMode}
               boostMode={toolbarProps.boostMode}
@@ -810,8 +813,8 @@ export function AppLayout({
             </div>
           </div>
 
-          {/* Log Cluster */}
-          <NotesCluster
+          {/* Log and Tools */}
+          <LogAndTools
             notes={toolbarProps.notes}
             onChangeNotes={toolbarProps.onChangeNotes}
             historyTree={historyProps.historyTree}
