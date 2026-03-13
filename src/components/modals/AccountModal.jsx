@@ -24,10 +24,8 @@ import { QiInput } from "../common/QiInput";
 import "./AccountModal.css";
 
 const TAB_KEYS = [
-  "account",
   "config",
   "preferences",
-  "premium",
 ];
 
 const isValidTabKey = (tabKey) => TAB_KEYS.includes(tabKey);
@@ -62,7 +60,7 @@ export function AccountModal({
   saveAccountToCloud,
   canCloudSave,
   cloudProfile,
-  initialTab = "account",
+  initialTab = "config",
 }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
@@ -75,10 +73,8 @@ export function AccountModal({
   const navigate = useNavigate();
   const location = useLocation();
   const mainTabs = [
-    { key: "account", label: t("accountTabAccount") },
     { key: "config", label: t("accountTabConfig") },
     { key: "preferences", label: t("accountTabPreferences") },
-    { key: "premium", label: t("accountTabPremium") },
   ];
   const legalTabs = [
     { key: "contact", label: t("accountTabContact") },
@@ -87,14 +83,12 @@ export function AccountModal({
   ];
   const allTabs = [...mainTabs, ...legalTabs];
   const mainTabHelpIds = {
-    account: "profile-tab-account",
     config: "profile-tab-config",
     preferences: "profile-tab-preferences",
-    premium: "profile-tab-premium",
   };
 
   const { user, authLoading, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState("account");
+  const [activeTab, setActiveTab] = useState("config");
 
   // Auth form state
   const [authMode, setAuthMode] = useState("login"); // "login" | "register"

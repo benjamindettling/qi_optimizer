@@ -30,7 +30,8 @@
 // Goods key to index mapping (1-5)
 // Must match current in-game goods keys from boardConfig/data.
 const GOODS_KEYS = ["Kupfer", "Honig", "Stein", "Seil", "Schießpulver"];
-const UNITS_KEYS = ["Soldat", "Reiter", "Schütze"]; // Actual unit keys in German
+// Must match the actual tracked unit keys used by production, history, log, and UI.
+const UNITS_KEYS = ["Katapult", "Blide", "Kanone"];
 const RESOURCE_KEYS = ["coins", "supplies", "chronos", "shards", "quantumActions"]; // 1-5
 
 // Compact action type mapping

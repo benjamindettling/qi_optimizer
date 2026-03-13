@@ -1,80 +1,116 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  Download,
-  Edit2,
-  Trash2,
-  Check,
+  SlidersHorizontal,
+  ArrowLeft,
+  Save,
+  User,
   X,
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
 } from "lucide-react";
+import {
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { QiInput } from "../common/QiInput";
-import { SaveStatsDisplay } from "../common/SaveStatsDisplay";
+import { SavefileCard } from "../common/SavefileCard";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import { useAuth } from "../../auth/AuthProvider";
+import { auth } from "../../firebase";
+import {
+  claimUsername,
+  fetchProfileUsername,
+  loginWithUsernameOrEmail,
+} from "../../firebase/usernameAuth";
 import {
   listNewestSharedSaves,
+  listSharedSavesByUser,
   downloadSharedSave,
   renameSharedSave,
   deleteSharedSave,
   findOwnSharedSaveByTitle,
 } from "../../firebase/sharedSaves";
+import {
+  getProfileDescription,
+  setProfileDescription,
+} from "../../firebase/sharedSaves";
+import { extractSaveConfig } from "../../utils/saveConfig";
 import "./OnlineLibraryModal.css";
+
+import moneyIcon from "/money.webp";
+import suppliesIcon from "/supplies.webp";
+import goodsIcon from "/goods/Kupfer.webp";
+import shardsIcon from "/shards.webp";
+import attackIcon from "/fight/red_attack.webp";
+import defenseIcon from "/fight/red_defense.webp";
+import qaIcon from "/quantum_actions.webp";
+import unitIcon from "/troop.webp";
 
 const SORT_MODES = [
   { key: "newest", field: "uploadedAt", dir: "desc" },
+  { key: "oldest", field: "uploadedAt", dir: "asc" },
+  { key: "az", field: "title", dir: "asc" },
+  { key: "za", field: "title", dir: "desc" },
   { key: "highestQa", field: "finalTotalQaSetup", dir: "desc" },
-  { key: "lowestShards", field: "minShardsUsed", dir: "asc" },
-  { key: "highestAttack", field: "finalAttack", dir: "desc" },
-  { key: "highestDefense", field: "finalDefense", dir: "desc" },
 ];
 
 const SORT_LABEL_KEYS = {
   newest: "onlineLibrarySortNewest",
+  oldest: "onlineLibrarySortOldest",
+  az: "onlineLibrarySortAz",
+  za: "onlineLibrarySortZa",
   highestQa: "onlineLibrarySortHighestQa",
-  lowestShards: "onlineLibrarySortLowestShards",
-  highestAttack: "onlineLibrarySortHighestAttack",
-  highestDefense: "onlineLibrarySortHighestDefense",
 };
 
 const MIN_FILTER_FIELDS = [
-  { key: "minMoney", labelKey: "loadSavesStatsMoney" },
-  { key: "minSupplies", labelKey: "loadSavesStatsSupplies" },
-  { key: "minGoods", labelKey: "loadSavesStatsGoods" },
-  { key: "minTroops", labelKey: "loadSavesStatsTroops" },
-  { key: "minCoinBoost", labelKey: "loadSavesStatsCoinBoost" },
-  { key: "minSupplyBoost", labelKey: "loadSavesStatsSupplyBoost" },
-  { key: "minShardsUsed", labelKey: "loadSavesStatsShardsUsed" },
+  { key: "minMoney", labelKey: "loadSavesStatsMoney", icon: moneyIcon },
+  {
+    key: "minSupplies",
+    labelKey: "loadSavesStatsSupplies",
+    icon: suppliesIcon,
+  },
+  { key: "minGoods", labelKey: "loadSavesStatsGoods", icon: goodsIcon },
+  {
+    key: "minShardsUsed",
+    labelKey: "loadSavesStatsShardsUsed",
+    icon: shardsIcon,
+  },
 ];
 
 const FINAL_FILTER_FIELDS = [
-  { key: "finalAttack", labelKey: "loadSavesStatsAttack" },
-  { key: "finalDefense", labelKey: "loadSavesStatsDefense" },
-  { key: "finalTotalQaSetup", labelKey: "loadSavesStatsTotalQa" },
+  { key: "finalAttack", labelKey: "loadSavesStatsAttack", icon: attackIcon },
+  { key: "finalDefense", labelKey: "loadSavesStatsDefense", icon: defenseIcon },
+  { key: "finalTotalQaSetup", labelKey: "loadSavesStatsTotalQa", icon: qaIcon },
+  { key: "finalUnitKatapult", labelKey: "loadSavesStatsUnits", icon: unitIcon },
 ];
+
+/**
+ * Determine whether a shared save is "impossible" for the given user config.
+ * Returns true when any minimum requirement exceeds the user's setting.
+ */
+function isSharedSaveImpossible(save, userConfig) {
+  if (!userConfig) return false;
+  const uc = extractSaveConfig(userConfig);
+  return (
+    (uc.goodsStartBonus ?? 0) < (save.minGoods ?? 0) ||
+    (uc.shardsLimit ?? 0) < (save.minShardsUsed ?? 0)
+  );
+}
 
 function toFinite(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
 
-function formatDate(ts) {
-  if (!ts) return "-";
-  const d = ts.toDate ? ts.toDate() : new Date(ts);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
-
-export function OnlineLibraryModal({ open, onClose }) {
+export function OnlineLibraryModal({
+  open,
+  onClose,
+  userConfig,
+  currentUsername = "",
+}) {
   const { lang } = useLang();
   const t = useCallback((key) => T[key]?.[lang] ?? T[key]?.DE ?? key, [lang]);
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const currentUid = user?.uid ?? null;
 
   // Data state
@@ -89,10 +125,25 @@ export function OnlineLibraryModal({ open, onClose }) {
   const [filters, setFilters] = useState({});
 
   // Card interaction state
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState("");
   const [deletingId, setDeletingId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+
+  // Profile view state
+  const [profileView, setProfileView] = useState(null); // { uid, username }
+  const [profileSaves, setProfileSaves] = useState([]);
+  const [profileDesc, setProfileDesc] = useState("");
+  const [profileDescDraft, setProfileDescDraft] = useState("");
+  const [profileEditingDesc, setProfileEditingDesc] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  // Inline auth state for own-profile access in online library
+  const [authMode, setAuthMode] = useState("login");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [registerUsername, setRegisterUsername] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [showAuthPanel, setShowAuthPanel] = useState(false);
 
   const setFilterValue = useCallback((key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -126,10 +177,21 @@ export function OnlineLibraryModal({ open, onClose }) {
         setFiltersOpen(false);
         setSearchTerm("");
         setFilters({});
-        setEditingId(null);
-        setEditingName("");
         setDeletingId(null);
         setBusyId(null);
+        setProfileView(null);
+        setProfileSaves([]);
+        setProfileDesc("");
+        setProfileDescDraft("");
+        setProfileEditingDesc(false);
+        setProfileLoading(false);
+        setAuthMode("login");
+        setEmailOrUsername("");
+        setRegisterUsername("");
+        setRegisterEmail("");
+        setAuthPassword("");
+        setAuthError("");
+        setShowAuthPanel(false);
       }, 0);
     }
   }, [open, fetchSaves]);
@@ -177,6 +239,12 @@ export function OnlineLibraryModal({ open, onClose }) {
       if (mode.field === "uploadedAt") {
         aVal = a.uploadedAt?.toMillis?.() ?? a.uploadedAt ?? 0;
         bVal = b.uploadedAt?.toMillis?.() ?? b.uploadedAt ?? 0;
+      } else if (mode.field === "title") {
+        aVal = (a.title ?? "").toLowerCase();
+        bVal = (b.title ?? "").toLowerCase();
+        if (aVal < bVal) return mode.dir === "desc" ? 1 : -1;
+        if (aVal > bVal) return mode.dir === "desc" ? -1 : 1;
+        return 0;
       } else {
         aVal = toFinite(a[mode.field]) ?? 0;
         bVal = toFinite(b[mode.field]) ?? 0;
@@ -216,63 +284,6 @@ export function OnlineLibraryModal({ open, onClose }) {
     [busyId, t],
   );
 
-  const handleStartEdit = useCallback((save) => {
-    setEditingId(save.id);
-    setEditingName(save.title || "");
-  }, []);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingId(null);
-    setEditingName("");
-  }, []);
-
-  const handleConfirmRename = useCallback(
-    async (save) => {
-      const newTitle = editingName.trim();
-      if (!newTitle || newTitle === save.title) {
-        handleCancelEdit();
-        return;
-      }
-      if (!currentUid) return;
-
-      setBusyId(save.id);
-      try {
-        // Check for duplicate title
-        const existing = await findOwnSharedSaveByTitle({
-          ownerUid: currentUid,
-          title: newTitle,
-        });
-        if (existing && existing.id !== save.id) {
-          alert(t("onlineLibraryRenameExists"));
-          setBusyId(null);
-          return;
-        }
-
-        await renameSharedSave({
-          saveId: save.id,
-          ownerUid: currentUid,
-          newTitle,
-        });
-
-        // Optimistic update
-        setSaves((prev) =>
-          prev.map((s) =>
-            s.id === save.id
-              ? { ...s, title: newTitle, titleLower: newTitle.toLowerCase() }
-              : s,
-          ),
-        );
-        handleCancelEdit();
-      } catch (err) {
-        console.error("Rename failed", err);
-        alert(t("onlineLibraryRenameError"));
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [editingName, currentUid, handleCancelEdit, t],
-  );
-
   const handleConfirmDelete = useCallback(
     async (save) => {
       if (!currentUid) return;
@@ -305,17 +316,203 @@ export function OnlineLibraryModal({ open, onClose }) {
         supplies: save.minSupplies,
         goods: save.minGoods,
         shardsUsed: save.minShardsUsed,
-        troops: save.minTroops,
-        coinBoost: save.minCoinBoost,
-        supplyBoost: save.minSupplyBoost,
       },
       final: {
         attack: save.finalAttack,
         defense: save.finalDefense,
         totalQaSetup: save.finalTotalQaSetup,
+        units: {
+          Katapult: save.finalUnitKatapult ?? 0,
+          Blide: save.finalUnitBlide ?? 0,
+          Kanone: save.finalUnitKanone ?? 0,
+        },
       },
     };
   }, []);
+
+  // ---- Profile navigation ----
+
+  const openProfile = useCallback(async (uid, username) => {
+    setProfileView({ uid, username });
+    setProfileLoading(true);
+    setProfileEditingDesc(false);
+    try {
+      const [userSaves, desc] = await Promise.all([
+        listSharedSavesByUser(uid),
+        getProfileDescription(uid),
+      ]);
+      setProfileSaves(userSaves);
+      setProfileDesc(desc);
+      setProfileDescDraft(desc);
+    } catch (err) {
+      console.error("Failed to load profile", err);
+      setProfileSaves([]);
+      setProfileDesc("");
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
+
+  const closeProfile = useCallback(() => {
+    setProfileView(null);
+    setProfileSaves([]);
+    setProfileDesc("");
+    setProfileDescDraft("");
+    setProfileEditingDesc(false);
+    setProfileLoading(false);
+  }, []);
+
+  const handleSaveDescription = useCallback(async () => {
+    if (!profileView || profileView.uid !== currentUid) return;
+    setBusyId("profile-desc");
+    try {
+      await setProfileDescription(currentUid, profileDescDraft.trim());
+      setProfileDesc(profileDescDraft.trim());
+      setProfileEditingDesc(false);
+    } catch (err) {
+      console.error("Failed to save description", err);
+      alert(t("onlineLibraryProfileDescError"));
+    } finally {
+      setBusyId(null);
+    }
+  }, [profileView, currentUid, profileDescDraft, t]);
+
+  /**
+   * Rename directly with a given new title (used by SavefileCard's onRename).
+   */
+  const handleConfirmRenameImmediate = useCallback(
+    async (save, newTitle) => {
+      const trimmed = newTitle.trim();
+      if (!trimmed || trimmed === save.title) return;
+      if (!currentUid) return;
+
+      setBusyId(save.id);
+      try {
+        const existing = await findOwnSharedSaveByTitle({
+          ownerUid: currentUid,
+          title: trimmed,
+        });
+        if (existing && existing.id !== save.id) {
+          alert(t("onlineLibraryRenameExists"));
+          setBusyId(null);
+          return;
+        }
+        await renameSharedSave({
+          saveId: save.id,
+          ownerUid: currentUid,
+          newTitle: trimmed,
+        });
+        setSaves((prev) =>
+          prev.map((s) =>
+            s.id === save.id
+              ? { ...s, title: trimmed, titleLower: trimmed.toLowerCase() }
+              : s,
+          ),
+        );
+      } catch (err) {
+        console.error("Rename failed", err);
+        alert(t("onlineLibraryRenameError"));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [currentUid, t],
+  );
+
+  const handleOpenOwnProfile = useCallback(() => {
+    if (!currentUid) {
+      setShowAuthPanel(true);
+      return;
+    }
+    setShowAuthPanel(false);
+    openProfile(currentUid, currentUsername || "?");
+  }, [currentUid, currentUsername, openProfile]);
+
+  const claimFallbackUsername = useCallback(async (uid, emailValue) => {
+    const base = String(emailValue ?? "user")
+      .split("@")[0]
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_.-]/g, "") || "user";
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = attempt === 0 ? base : `${base}${Math.floor(Math.random() * 9000) + 1000}`;
+      try {
+        await claimUsername(uid, candidate, emailValue || "");
+        return candidate;
+      } catch {
+        // try next candidate
+      }
+    }
+    return "";
+  }, []);
+
+  const handleAuthSubmit = useCallback(
+    async (event) => {
+      event.preventDefault();
+      setAuthError("");
+      try {
+        if (authMode === "register") {
+          const userCred = await createUserWithEmailAndPassword(
+            auth,
+            registerEmail.trim(),
+            authPassword,
+          );
+          const desiredUsername = registerUsername.trim().toLowerCase();
+          if (desiredUsername) {
+            await claimUsername(
+              userCred.user.uid,
+              desiredUsername,
+              registerEmail.trim(),
+            );
+          }
+          const actualUsername = desiredUsername || await fetchProfileUsername(userCred.user.uid);
+          setShowAuthPanel(false);
+          await openProfile(userCred.user.uid, actualUsername || "?");
+          setRegisterUsername("");
+          setRegisterEmail("");
+        } else {
+          const result = await loginWithUsernameOrEmail(
+            emailOrUsername.trim(),
+            authPassword,
+          );
+          const username = await fetchProfileUsername(result.user.uid);
+          setShowAuthPanel(false);
+          await openProfile(result.user.uid, username || result.user.email || "?");
+          setEmailOrUsername("");
+        }
+        setAuthPassword("");
+      } catch (err) {
+        setAuthError(err?.message || "Authentication failed");
+      }
+    },
+    [
+      authMode,
+      registerEmail,
+      authPassword,
+      registerUsername,
+      emailOrUsername,
+      openProfile,
+    ],
+  );
+
+  const handleGoogleAuth = useCallback(async () => {
+    setAuthError("");
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const uid = result.user.uid;
+      const emailValue = result.user.email || "";
+      let username = await fetchProfileUsername(uid);
+      if (!username) {
+        username = await claimFallbackUsername(uid, emailValue);
+      }
+      setShowAuthPanel(false);
+      await openProfile(uid, username || emailValue || "?");
+    } catch (err) {
+      setAuthError(err?.message || "Google sign-in failed");
+    }
+  }, [claimFallbackUsername, openProfile]);
 
   if (!open) return null;
 
@@ -364,16 +561,15 @@ export function OnlineLibraryModal({ open, onClose }) {
             className={`online-library-filter-toggle ${filtersOpen ? "active" : ""}`}
             onClick={() => setFiltersOpen((prev) => !prev)}
           >
+            <SlidersHorizontal size={14} />
             {t("onlineLibraryFilterTitle")}
-            {filtersOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
           <button
-            className="online-library-refresh-btn"
-            onClick={fetchSaves}
-            disabled={loading}
-            title={t("onlineLibraryRetry")}
+            className="online-library-toolbar-btn"
+            onClick={handleOpenOwnProfile}
+            title={t("onlineLibraryOpenOwnProfile")}
           >
-            <RefreshCw size={16} className={loading ? "spinning" : ""} />
+            <User size={16} />
           </button>
         </div>
 
@@ -385,11 +581,14 @@ export function OnlineLibraryModal({ open, onClose }) {
                 {t("onlineLibraryFilterMinLabel")}
               </div>
               <div className="online-library-filter-grid">
-                {MIN_FILTER_FIELDS.map(({ key, labelKey }) => (
+                {MIN_FILTER_FIELDS.map(({ key, labelKey, icon, isBoost }) => (
                   <div key={key} className="online-library-filter-field">
-                    <label className="online-library-filter-label">
-                      {t(labelKey)}
-                    </label>
+                    <img
+                      src={icon}
+                      alt={t(labelKey)}
+                      title={t(labelKey)}
+                      className={`online-library-filter-icon${isBoost ? " boost-icon" : ""}`}
+                    />
                     <QiInput
                       mode="number"
                       className="online-library-filter-input"
@@ -410,11 +609,14 @@ export function OnlineLibraryModal({ open, onClose }) {
                 {t("onlineLibraryFilterFinalLabel")}
               </div>
               <div className="online-library-filter-grid">
-                {FINAL_FILTER_FIELDS.map(({ key, labelKey }) => (
+                {FINAL_FILTER_FIELDS.map(({ key, labelKey, icon }) => (
                   <div key={key} className="online-library-filter-field">
-                    <label className="online-library-filter-label">
-                      {t(labelKey)}
-                    </label>
+                    <img
+                      src={icon}
+                      alt={t(labelKey)}
+                      title={t(labelKey)}
+                      className="online-library-filter-icon"
+                    />
                     <QiInput
                       mode="number"
                       className="online-library-filter-input"
@@ -448,106 +650,255 @@ export function OnlineLibraryModal({ open, onClose }) {
               </button>
             </div>
           )}
-          {!loading && !error && displaySaves.length === 0 && (
+          {!loading && !error && !profileView && displaySaves.length === 0 && (
             <div className="online-library-status">
               {t("onlineLibraryEmpty")}
             </div>
           )}
-          {displaySaves.map((save) => {
-            const owner = isOwner(save);
-            const busy = busyId === save.id;
-            const stats = statsForSave(save);
-            return (
-              <div key={save.id} className="online-library-card">
-                <div className="online-library-card-top">
-                  {editingId === save.id ? (
-                    <div
-                      className="load-saves-edit-container"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <QiInput
-                        mode="text"
-                        fullWidth
-                        className="load-saves-edit-input"
-                        value={editingName}
-                        onChange={setEditingName}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleConfirmRename(save);
-                          else if (e.key === "Escape") handleCancelEdit();
-                        }}
-                        autoFocus
-                      />
-                      <button
-                        className="load-saves-edit-confirm"
-                        onClick={() => handleConfirmRename(save)}
-                        disabled={busy}
-                        title={t("loadSavesBtnConfirm")}
-                      >
-                        <Check size={16} />
-                      </button>
-                      <button
-                        className="load-saves-edit-cancel"
-                        onClick={handleCancelEdit}
-                        title={t("loadSavesBtnCancel")}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="online-library-card-info">
-                      <span className="online-library-card-title">
-                        {save.title}
-                      </span>
-                      <span className="online-library-card-meta">
-                        {t("onlineLibraryUploadedBy")}{" "}
-                        <strong>{save.ownerUsername || "?"}</strong>
-                        {" · "}
-                        {formatDate(save.updatedAt ?? save.uploadedAt)}
-                      </span>
-                    </div>
-                  )}
 
-                  {editingId !== save.id && (
-                    <div className="online-library-card-actions">
-                      <button
-                        className="load-saves-action-btn export-btn"
-                        onClick={() => handleDownload(save)}
-                        disabled={busy}
-                        title={t("onlineLibraryBtnDownload")}
-                      >
-                        <Download size={16} />
-                      </button>
-                      {owner && (
-                        <>
-                          <button
-                            className="load-saves-action-btn edit-btn"
-                            onClick={() => handleStartEdit(save)}
-                            disabled={busy}
-                            title={t("onlineLibraryBtnRename")}
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            className="load-saves-action-btn delete-btn"
-                            onClick={() => setDeletingId(save.id)}
-                            disabled={busy}
-                            title={t("onlineLibraryBtnDelete")}
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </>
-                      )}
-                    </div>
+          {showAuthPanel && !profileView && (
+            <div className="online-library-auth-panel">
+              <div className="online-library-auth-toggle">
+                <button
+                  className={authMode === "login" ? "active" : ""}
+                  onClick={() => setAuthMode("login")}
+                >
+                  {t("onlineAuthSignIn")}
+                </button>
+                <button
+                  className={authMode === "register" ? "active" : ""}
+                  onClick={() => setAuthMode("register")}
+                >
+                  {t("onlineAuthSignUp")}
+                </button>
+              </div>
+
+              <form className="online-library-auth-form" onSubmit={handleAuthSubmit}>
+                {authMode === "register" && (
+                  <QiInput
+                    mode="text"
+                    fullWidth
+                    value={registerUsername}
+                    onChange={setRegisterUsername}
+                    placeholder={t("onlineAuthUsername")}
+                  />
+                )}
+
+                <QiInput
+                  mode="text"
+                  fullWidth
+                  value={authMode === "register" ? registerEmail : emailOrUsername}
+                  onChange={authMode === "register" ? setRegisterEmail : setEmailOrUsername}
+                  placeholder={
+                    authMode === "register"
+                      ? t("onlineAuthEmail")
+                      : t("onlineAuthIdentifier")
+                  }
+                />
+
+                <QiInput
+                  mode="text"
+                  fullWidth
+                  value={authPassword}
+                  onChange={setAuthPassword}
+                  placeholder={t("onlineAuthPassword")}
+                />
+
+                {authError ? (
+                  <div className="online-library-auth-error">{authError}</div>
+                ) : null}
+
+                <div className="online-library-auth-actions">
+                  <button type="submit" className="online-library-auth-submit">
+                    {authMode === "register" ? t("onlineAuthCreate") : t("onlineAuthLogin")}
+                  </button>
+                  <button
+                    type="button"
+                    className="online-library-auth-google"
+                    onClick={handleGoogleAuth}
+                  >
+                    {t("onlineAuthGoogle")}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Profile view */}
+          {profileView && (
+            <>
+              <div
+                className="online-library-status"
+                style={{ gridColumn: "1 / -1", padding: "0 0 6px" }}
+              >
+                <div className="online-library-profile-header">
+                  <button
+                    className="online-library-profile-back"
+                    onClick={closeProfile}
+                  >
+                    <ArrowLeft size={14} /> {t("onlineLibraryProfileBack")}
+                  </button>
+                  <span className="online-library-profile-title">
+                    {profileView.username || "?"}
+                  </span>
+                  {profileView.uid === currentUid && (
+                    <button
+                      className="online-library-profile-upload"
+                      onClick={() => logout?.()}
+                      title={t("onlineLibraryProfileLogout")}
+                    >
+                      {t("onlineLibraryProfileLogout")}
+                    </button>
                   )}
                 </div>
-                <SaveStatsDisplay
-                  minimum={stats.minimum}
-                  final={stats.final}
-                  showExtended
-                />
+                {profileLoading ? (
+                  <div
+                    style={{
+                      padding: "12px 0",
+                      color: "var(--color-text-muted)",
+                      fontSize: "0.9em",
+                    }}
+                  >
+                    {t("onlineLibraryLoading")}
+                  </div>
+                ) : (
+                  <>
+                    {profileView.uid === currentUid && profileEditingDesc ? (
+                      <div>
+                        <textarea
+                          className="online-library-profile-edit-desc"
+                          value={profileDescDraft}
+                          onChange={(e) => setProfileDescDraft(e.target.value)}
+                          maxLength={500}
+                          placeholder={t("onlineLibraryProfileDescPlaceholder")}
+                        />
+                        <div className="online-library-profile-actions">
+                          <button
+                            className="load-saves-action-btn export-btn"
+                            onClick={handleSaveDescription}
+                            disabled={busyId === "profile-desc"}
+                            title={t("onlineLibraryProfileDescSave")}
+                          >
+                            <Save size={14} />{" "}
+                            {t("onlineLibraryProfileDescSave")}
+                          </button>
+                          <button
+                            className="load-saves-action-btn"
+                            onClick={() => {
+                              setProfileDescDraft(profileDesc);
+                              setProfileEditingDesc(false);
+                            }}
+                            title={t("loadSavesBtnCancel")}
+                          >
+                            <X size={14} /> {t("loadSavesBtnCancel")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="online-library-profile-desc"
+                        onClick={
+                          profileView.uid === currentUid
+                            ? () => setProfileEditingDesc(true)
+                            : undefined
+                        }
+                        style={
+                          profileView.uid === currentUid
+                            ? { cursor: "pointer" }
+                            : undefined
+                        }
+                        title={
+                          profileView.uid === currentUid
+                            ? t("onlineLibraryProfileDescEdit")
+                            : undefined
+                        }
+                      >
+                        {profileDesc ||
+                          (profileView.uid === currentUid
+                            ? t("onlineLibraryProfileDescPlaceholder")
+                            : t("onlineLibraryProfileNoDesc"))}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
-            );
-          })}
+              {profileSaves.map((save) => {
+                const owner = isOwner(save);
+                const busy = busyId === save.id;
+                const stats = statsForSave(save);
+                const impossible = isSharedSaveImpossible(save, userConfig);
+                return (
+                  <SavefileCard
+                    key={save.id}
+                    title={save.title}
+                    isOwned={owner}
+                    impossible={impossible}
+                    stats={stats}
+                    ownerUsername={!owner ? save.ownerUsername : undefined}
+                    ownerUid={!owner ? save.ownerUid : undefined}
+                    timestamp={save.updatedAt ?? save.uploadedAt}
+                    onLoad={() => handleDownload(save)}
+                    onRename={
+                      owner
+                        ? (newName) =>
+                            handleConfirmRenameImmediate(save, newName)
+                        : undefined
+                    }
+                    onExport={() => handleDownload(save)}
+                    onDelete={owner ? () => setDeletingId(save.id) : undefined}
+                    onProfileClick={openProfile}
+                    busy={busy}
+                  />
+                );
+              })}
+              {!profileLoading && profileSaves.length === 0 && (
+                <div className="online-library-status">
+                  {t("onlineLibraryProfileNoSaves")}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Main listing */}
+          {!profileView &&
+            displaySaves.map((save) => {
+              const owner = isOwner(save);
+              const busy = busyId === save.id;
+              const stats = statsForSave(save);
+              const impossible = isSharedSaveImpossible(save, userConfig);
+              return (
+                <SavefileCard
+                  key={save.id}
+                  title={save.title}
+                  isOwned={owner}
+                  impossible={impossible}
+                  stats={stats}
+                  ownerUsername={!owner ? save.ownerUsername : undefined}
+                  ownerUid={!owner ? save.ownerUid : undefined}
+                  timestamp={save.updatedAt ?? save.uploadedAt}
+                  onLoad={() => handleDownload(save)}
+                  onRename={
+                    owner
+                      ? (newName) => handleConfirmRenameImmediate(save, newName)
+                      : undefined
+                  }
+                  onExport={() => handleDownload(save)}
+                  onDelete={owner ? () => setDeletingId(save.id) : undefined}
+                  onProfileClick={openProfile}
+                  busy={busy}
+                />
+              );
+            })}
+        </div>
+
+        {/* Note about 0% boosts */}
+        <div className="online-library-note">
+          <span className="online-library-note-icon impossible-square" />
+          <span>= {t("onlineLibraryNoteImpossible")}</span>
+          <span className="online-library-note-separator">|</span>
+          <img src={moneyIcon} alt="" className="online-library-note-icon" />
+          <img src={suppliesIcon} alt="" className="online-library-note-icon" />
+          <span>{t("onlineLibraryNoteBoosts")}</span>
         </div>
       </div>
 

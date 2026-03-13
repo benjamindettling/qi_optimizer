@@ -978,6 +978,10 @@
   btnAdminLabel: { DE: "Admin", EN: "Admin" },
   btnHelpTitle: { DE: "Hilfe", EN: "Help" },
   btnHelpLabel: { DE: "Hilfe", EN: "Help" },
+  btnSettingsTitle: { DE: "Einstellungen", EN: "Settings" },
+  btnSettingsLabel: { DE: "Einstellungen", EN: "Settings" },
+  btnUploadTitle: { DE: "In Online-Bibliothek hochladen", EN: "Upload to online library" },
+  btnUploadLabel: { DE: "Upload", EN: "Upload" },
   btnProfileTitle: { DE: "Profil", EN: "Profile" },
   btnProfileLabel: { DE: "Profil", EN: "Profile" },
   btnLangTitle_DE: { DE: "Auf Englisch wechseln", EN: "Switch to German" },
@@ -1013,6 +1017,11 @@
   },
   saveModalCreateFallback: { DE: "Kreiere", EN: "Create" },
   saveModalUpdateFallback: { DE: "Update", EN: "Update" },
+  uploadWarningTitle: { DE: "Upload bestätigen", EN: "Confirm upload" },
+  uploadWarningBody: {
+    DE: "Dieser Spielstand wird öffentlich in die Online-Bibliothek hochgeladen. Du kannst ihn jederzeit unter Online -> Profil umbenennen oder löschen.",
+    EN: "This save will be uploaded publicly to the online library. You can rename or delete it anytime via Online -> Profile.",
+  },
 
   // === TOPBAR – RESOURCE LABELS ===
   resourceCoins: { DE: "Münzen", EN: "Coins" },
@@ -1247,6 +1256,15 @@
   loadSavesStatsAttack: { DE: "Angriff", EN: "Attack" },
   loadSavesStatsDefense: { DE: "Verteidigung", EN: "Defense" },
   loadSavesStatsTotalQa: { DE: "QA gesamt", EN: "Total QA" },
+  loadSavesStatsUnits: { DE: "Einheiten (K/B/K)", EN: "Units (K/B/C)" },
+  onlineLibraryNoteImpossible: {
+    DE: "Nicht machbar mit deinen Boni",
+    EN: "Not possible with your bonuses",
+  },
+  onlineLibraryNoteBoosts: {
+    DE: "Min. geht von 0% Münz-/Vorratsboost aus",
+    EN: "Min. assumes 0% coin/supply boost",
+  },
 
   // === ACCOUNT / PROFILE MODAL ===
   accountTabAccount: { DE: "Account", EN: "Account" },
@@ -1375,6 +1393,9 @@
   },
   onlineLibrarySortLabel: { DE: "Sortierung", EN: "Sort by" },
   onlineLibrarySortNewest: { DE: "Neueste", EN: "Newest" },
+  onlineLibrarySortOldest: { DE: "Aelteste", EN: "Oldest" },
+  onlineLibrarySortAz: { DE: "A-Z", EN: "A-Z" },
+  onlineLibrarySortZa: { DE: "Z-A", EN: "Z-A" },
   onlineLibrarySortHighestQa: { DE: "Höchste QA", EN: "Highest QA" },
   onlineLibrarySortLowestShards: {
     DE: "Wenigste Scherben",
@@ -1402,6 +1423,25 @@
     DE: "Setup suchen...",
     EN: "Search setup...",
   },
+  onlineLibraryOpenOwnProfile: {
+    DE: "Eigenes Profil öffnen",
+    EN: "Open own profile",
+  },
+  onlineAuthSignIn: { DE: "Anmelden", EN: "Sign in" },
+  onlineAuthSignUp: { DE: "Registrieren", EN: "Sign up" },
+  onlineAuthIdentifier: {
+    DE: "Benutzername oder E-Mail",
+    EN: "Username or email",
+  },
+  onlineAuthUsername: { DE: "Benutzername", EN: "Username" },
+  onlineAuthEmail: { DE: "E-Mail", EN: "Email" },
+  onlineAuthPassword: { DE: "Passwort", EN: "Password" },
+  onlineAuthCreate: { DE: "Konto erstellen", EN: "Create account" },
+  onlineAuthLogin: { DE: "Einloggen", EN: "Login" },
+  onlineAuthGoogle: {
+    DE: "Mit Google fortfahren",
+    EN: "Continue with Google",
+  },
   onlineLibraryDownloading: { DE: "Wird heruntergeladen...", EN: "Downloading..." },
   onlineLibraryDownloadError: {
     DE: "Download fehlgeschlagen",
@@ -1416,6 +1456,31 @@
     EN: "Delete failed",
   },
   onlineLibraryRetry: { DE: "Erneut versuchen", EN: "Retry" },
+
+  // Profile view translations
+  onlineLibraryProfileBack: { DE: "Zurück", EN: "Back" },
+  onlineLibraryProfileNoDesc: {
+    DE: "Keine Beschreibung vorhanden.",
+    EN: "No description available.",
+  },
+  onlineLibraryProfileDescPlaceholder: {
+    DE: "Profilbeschreibung hinzufügen...",
+    EN: "Add profile description...",
+  },
+  onlineLibraryProfileDescEdit: {
+    DE: "Klicken zum Bearbeiten",
+    EN: "Click to edit",
+  },
+  onlineLibraryProfileDescSave: { DE: "Speichern", EN: "Save" },
+  onlineLibraryProfileLogout: { DE: "Abmelden", EN: "Logout" },
+  onlineLibraryProfileDescError: {
+    DE: "Beschreibung konnte nicht gespeichert werden",
+    EN: "Failed to save description",
+  },
+  onlineLibraryProfileNoSaves: {
+    DE: "Keine Setups von diesem Spieler.",
+    EN: "No setups from this player.",
+  },
 
   accountSaveFailed: { DE: "Speichern fehlgeschlagen", EN: "Saving failed" },
   accountBtnSave: { DE: "Speichern", EN: "Save" },

@@ -13,8 +13,6 @@ import {
 } from "../../utils/treeSerializer";
 import {
   computeSavefileTreeStats,
-  extractSaveConfig,
-  SAVE_CONFIG_FIELDS,
 } from "../../utils/saveConfig";
 
 const sanitizeSaveStats = (stats) => {
@@ -143,7 +141,6 @@ export const useSaveTransfer = ({
       }
       const computedTreeStats = computeSavefileTreeStats({
         treeData: serializedTree,
-        saveConfig: extractSaveConfig(config),
         fallbackConfig: config,
       });
       const sanitizedTreeStats = sanitizeSaveStats(computedTreeStats);
@@ -187,7 +184,7 @@ export const useSaveTransfer = ({
       const payload = {
         ...save,
       };
-      // Keep export payload portable: omit local-only sync state and legacy checkpoints.
+      // Keep export payload portable: omit local-only state and legacy fields.
       delete payload.syncUser;
       delete payload.checkpoints;
       delete payload.saveConfig;
@@ -289,8 +286,6 @@ export const useSaveTransfer = ({
           
           // Create a save entry with the imported name and tree
           const saveName = importData.name || "Import";
-          const importedSaveConfig =
-            importData?.saveConfig ?? importData?.tree?.config;
           const importedTree = Array.isArray(importData?.tree)
             ? importData.tree
             : (Array.isArray(importData?.tree?.tree)
@@ -307,10 +302,6 @@ export const useSaveTransfer = ({
                 ? importData.tree.stats
                 : null);
           const sanitizedImportedStats = sanitizeSaveStats(importedStats);
-          const importedLocalSaveConfig = extractSaveConfigFromStats(
-            sanitizedImportedStats,
-            importedSaveConfig,
-          );
           setAllSaves((prev) => ({
             ...(prev || {}),
             [saveName]: {
@@ -318,10 +309,9 @@ export const useSaveTransfer = ({
               name: saveName,
               tree: importedTree,
               ...(sanitizedImportedStats ? { stats: sanitizedImportedStats } : {}),
-              saveConfig: importedLocalSaveConfig,
             },
           }));
-          setActiveSaveConfig?.(importedLocalSaveConfig);
+          setActiveSaveConfig?.(null);
           setLoadName?.(saveName);
         } catch (e) {
           console.error("Failed to import v2 tree:", e);
@@ -366,59 +356,6 @@ export const useSaveTransfer = ({
   );
 
   // Update savefile config
-  const handleUpdateSaveConfig = useCallback(
-    (name, newConfig, options = {}) => {
-      if (!name) return;
-      const nextSyncUser = options?.syncUser === true;
-      setAllSaves((prev) => {
-        if (!(name in prev)) return prev;
-        const save = prev[name];
-        return {
-          ...prev,
-          [name]: {
-            ...save,
-            saveConfig: extractSaveConfig(newConfig),
-            syncUser: nextSyncUser,
-          },
-        };
-      });
-      // If editing the currently loaded save, also update activeSaveConfig
-      // so the board recalculates immediately
-      if (name === loadName) {
-        setActiveSaveConfig?.(extractSaveConfig(newConfig));
-      }
-    },
-    [setAllSaves, loadName, setActiveSaveConfig],
-  );
-
-  // Create a synced copy with user config
-  const handleSyncConfig = useCallback(
-    (userConfig) => {
-      if (!loadName || !saves[loadName]) return;
-      
-      const originalSave = saves[loadName];
-      const newName = `${loadName}_SYNCED`;
-      
-      const syncedConfig = extractSaveConfig(userConfig);
-      
-      setAllSaves((prev) => ({
-        ...prev,
-        [newName]: {
-          ...originalSave,
-          name: newName,
-          saveConfig: syncedConfig,
-          syncUser: true,
-        },
-      }));
-      
-      setLoadName(newName);
-      // Also update the active save config to reflect the synced config
-      setActiveSaveConfig?.(syncedConfig);
-      return newName;
-    },
-    [loadName, saves, setAllSaves, setLoadName, setActiveSaveConfig],
-  );
-
     return {
     openExportSaves,
     openImportSaves,
@@ -429,7 +366,5 @@ export const useSaveTransfer = ({
     handleRenameSavefile,
     handleDeleteSavefile,
     handleImportSelected,
-    handleUpdateSaveConfig,
-    handleSyncConfig,
   };
 };

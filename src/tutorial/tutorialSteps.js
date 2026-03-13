@@ -526,16 +526,6 @@ export const TUTORIAL_STEPS = [
     disabledZones: [],
   },
   {
-    id: 'save-load-btn-config',
-    section: 'saveLoad',
-    titleKey: 'tutorialStepSaveLoadBtnConfigTitle',
-    bodyKey: 'tutorialStepSaveLoadBtnConfigBody',
-    highlight: 'load-config-btn',
-    advanceOn: 'click',
-    allowedPopups: ['loadSavesModal'],
-    disabledZones: [],
-  },
-  {
     id: 'save-load-btn-rename',
     section: 'saveLoad',
     titleKey: 'tutorialStepSaveLoadBtnRenameTitle',

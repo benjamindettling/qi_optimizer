@@ -294,7 +294,7 @@ export function StartingPage({
   updateConfig,
   onStartSimulator,
   onOpenSaves,
-  onOpenAccount,
+  onOpenSettings,
   onStartTutorial,
 }) {
   const { lang } = useLang();
@@ -328,8 +328,8 @@ export function StartingPage({
     }
   };
 
-  const openAccountTab = (tabKey = "account") => {
-    onOpenAccount?.(tabKey);
+  const openSettingsTab = (tabKey = "config") => {
+    onOpenSettings?.(tabKey);
   };
 
   const openLegalPage = (path) => {
@@ -371,7 +371,7 @@ export function StartingPage({
             </button>
             <button
               className="btn-secondary"
-              onClick={() => openAccountTab("account")}
+              onClick={() => openSettingsTab("config")}
               type="button"
             >
               <StableLocalizedText

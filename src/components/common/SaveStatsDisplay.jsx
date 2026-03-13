@@ -5,7 +5,7 @@ import shardsIcon from "/shards.webp";
 import attackIcon from "/fight/red_attack.webp";
 import defenseIcon from "/fight/red_defense.webp";
 import qaIcon from "/quantum_actions.webp";
-import troopIcon from "/troop.webp";
+import unitIcon from "/troop.webp";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import { formatNumber } from "../../utils/formatNumber";
@@ -15,19 +15,27 @@ function valueOrDash(value, suffix = "") {
   return `${formatNumber(Number(value))}${suffix}`;
 }
 
+function formatUnits(units) {
+  if (!units || typeof units !== "object") return "-";
+  const k = Number(units.Katapult ?? 0);
+  const b = Number(units.Blide ?? 0);
+  const c = Number(units.Kanone ?? 0);
+  if (!Number.isFinite(k) && !Number.isFinite(b) && !Number.isFinite(c))
+    return "-";
+  return `${k}/${b}/${c}`;
+}
+
 /**
- * Shared stats display for save cards (local + online).
+ * Shared stats display for save cards.
+ *
+ * Minimum column: money, supplies, goods, shards
+ * Final column: QA, attack, defense, units
  *
  * @param {object}  props
- * @param {object}  props.minimum        — { money, supplies, goods, shardsUsed, troops?, coinBoost?, supplyBoost? }
- * @param {object}  props.final          — { attack, defense, totalQaSetup | qaTotalDisplay }
- * @param {boolean} [props.showExtended] — show troops / coinBoost / supplyBoost rows (for online cards)
+ * @param {object}  props.minimum — { money, supplies, goods, shardsUsed }
+ * @param {object}  props.final   — { totalQaSetup | qaTotalDisplay, attack, defense, units }
  */
-export function SaveStatsDisplay({
-  minimum = {},
-  final: finalStats = {},
-  showExtended = false,
-}) {
+export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
 
@@ -77,47 +85,21 @@ export function SaveStatsDisplay({
           />
           <strong>{valueOrDash(minimum.shardsUsed)}</strong>
         </div>
-        {showExtended && (
-          <>
-            <div
-              className="load-saves-stats-line"
-              title={t("loadSavesStatsTroops")}
-            >
-              <img
-                src={troopIcon}
-                alt={t("loadSavesStatsTroops")}
-                className="load-saves-stat-icon"
-              />
-              <strong>{valueOrDash(minimum.troops)}</strong>
-            </div>
-            <div
-              className="load-saves-stats-line"
-              title={t("loadSavesStatsCoinBoost")}
-            >
-              <img
-                src={moneyIcon}
-                alt={t("loadSavesStatsCoinBoost")}
-                className="load-saves-stat-icon boost-icon"
-              />
-              <strong>{valueOrDash(minimum.coinBoost, "%")}</strong>
-            </div>
-            <div
-              className="load-saves-stats-line"
-              title={t("loadSavesStatsSupplyBoost")}
-            >
-              <img
-                src={suppliesIcon}
-                alt={t("loadSavesStatsSupplyBoost")}
-                className="load-saves-stat-icon boost-icon"
-              />
-              <strong>{valueOrDash(minimum.supplyBoost, "%")}</strong>
-            </div>
-          </>
-        )}
       </div>
       <div className="load-saves-stats-col">
         <div className="load-saves-stats-title final">
           {t("loadSavesStatsFinal")}
+        </div>
+        <div
+          className="load-saves-stats-line"
+          title={t("loadSavesStatsTotalQa")}
+        >
+          <img
+            src={qaIcon}
+            alt={t("loadSavesStatsTotalQa")}
+            className="load-saves-stat-icon"
+          />
+          <strong>{valueOrDash(qaDisplay)}</strong>
         </div>
         <div
           className="load-saves-stats-line"
@@ -141,16 +123,13 @@ export function SaveStatsDisplay({
           />
           <strong>{valueOrDash(finalStats.defense, "%")}</strong>
         </div>
-        <div
-          className="load-saves-stats-line"
-          title={t("loadSavesStatsTotalQa")}
-        >
+        <div className="load-saves-stats-line" title={t("loadSavesStatsUnits")}>
           <img
-            src={qaIcon}
-            alt={t("loadSavesStatsTotalQa")}
+            src={unitIcon}
+            alt={t("loadSavesStatsUnits")}
             className="load-saves-stat-icon"
           />
-          <strong>{valueOrDash(qaDisplay)}</strong>
+          <strong>{formatUnits(finalStats.units)}</strong>
         </div>
       </div>
     </div>

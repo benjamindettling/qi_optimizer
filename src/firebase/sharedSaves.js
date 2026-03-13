@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   where,
   writeBatch,
 } from "firebase/firestore";
@@ -50,14 +51,14 @@ export function buildSharedSaveDocuments({ saveEntry, ownerUid, ownerUsername, t
     minMoney: toFiniteNumber(minimum.money),
     minSupplies: toFiniteNumber(minimum.supplies),
     minGoods: toFiniteNumber(minimum.goods),
-    minTroops: toFiniteNumber(minimum.troops),
-    minCoinBoost: toFiniteNumber(minimum.coinBoost),
-    minSupplyBoost: toFiniteNumber(minimum.supplyBoost),
     minShardsUsed: toFiniteNumber(minimum.shardsUsed),
 
     finalAttack: toFiniteNumber(final.attack),
     finalDefense: toFiniteNumber(final.defense),
     finalTotalQaSetup: toFiniteNumber(final.totalQaSetup),
+    finalUnitKatapult: toFiniteNumber(final.units?.Katapult),
+    finalUnitBlide: toFiniteNumber(final.units?.Blide),
+    finalUnitKanone: toFiniteNumber(final.units?.Kanone),
   };
 
   const exportedSave = {
@@ -298,4 +299,45 @@ export async function syncOwnerUsernameOnSharedSaves({ ownerUid, newUsername }) 
   }
 
   return updated;
+}
+
+// ---------------------------------------------------------------------
+// LIST all public saves by a specific user
+// ---------------------------------------------------------------------
+export async function listSharedSavesByUser(ownerUid) {
+  if (!ownerUid) return [];
+
+  const q = query(
+    collection(db, "sharedSaves"),
+    where("ownerUid", "==", ownerUid),
+    where("isPublic", "==", true),
+    orderBy("uploadedAt", "desc"),
+    limit(200),
+  );
+
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+  }));
+}
+
+// ---------------------------------------------------------------------
+// PROFILE DESCRIPTION — read/write users/{uid}.profileDescription
+// ---------------------------------------------------------------------
+export async function getProfileDescription(uid) {
+  if (!uid) return "";
+  const snap = await getDoc(doc(db, "users", uid));
+  if (!snap.exists()) return "";
+  return snap.data()?.profileDescription ?? "";
+}
+
+export async function setProfileDescription(uid, description) {
+  if (!uid) throw new Error("Missing uid.");
+  const text = String(description ?? "").trim().slice(0, 500);
+  await setDoc(
+    doc(db, "users", uid),
+    { profileDescription: text, profileDescUpdatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }

@@ -1,21 +1,9 @@
-﻿import { useState, useRef, useEffect } from "react";
-import {
-  Edit2,
-  Share2,
-  Trash2,
-  Download,
-  Upload,
-  Check,
-  X,
-  Settings,
-} from "lucide-react";
-import { useMemo } from "react";
-import { SaveConfigModal } from "./SaveConfigModal";
+﻿import { useState, useRef, useEffect, useMemo } from "react";
+import { Download, Upload } from "lucide-react";
 import { QiInput } from "../common/QiInput";
-import { SaveStatsDisplay } from "../common/SaveStatsDisplay";
+import { SavefileCard } from "../common/SavefileCard";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
-import { getSavefileStatusColor } from "../../config/colors";
 import { getSavefileSyncState } from "../../utils/saveConfig";
 import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
@@ -30,7 +18,6 @@ export function LoadSavesModal({
   onUploadShared,
   canUploadShared = false,
   onImport,
-  onSaveConfig,
   loadName = "",
   hasUnsavedChanges = false,
   userConfig,
@@ -40,13 +27,8 @@ export function LoadSavesModal({
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
 
-  const [editingId, setEditingId] = useState(null);
-  const [editingName, setEditingName] = useState("");
   const [deletingId, setDeletingId] = useState(null);
-  const [configEditingName, setConfigEditingName] = useState(null);
   const [pendingLoadName, setPendingLoadName] = useState(null);
-  const [showStats, setShowStats] = useState(true);
-  const [cardStatsOverrides, setCardStatsOverrides] = useState({});
   const [searchTerm, setSearchTerm] = useState("");
   const dropzoneRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -98,13 +80,8 @@ export function LoadSavesModal({
   useEffect(() => {
     if (!open) {
       setTimeout(() => {
-        setEditingId(null);
-        setEditingName("");
         setDeletingId(null);
-        setConfigEditingName(null);
         setPendingLoadName(null);
-        setShowStats(true);
-        setCardStatsOverrides({});
         setSearchTerm("");
       }, 0);
     }
@@ -173,56 +150,14 @@ export function LoadSavesModal({
     }
   };
 
-  const handleStartEdit = (name) => {
-    setEditingId(name);
-    setEditingName(name);
-  };
-
-  const handleConfirmRename = (oldName) => {
-    const newName = editingName.trim();
-    if (newName && newName !== oldName) {
-      onRename?.(oldName, newName);
-    }
-    setEditingId(null);
-    setEditingName("");
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-    setEditingName("");
-  };
-
   const handleConfirmDelete = (name) => {
     onDelete?.(name);
     setDeletingId(null);
   };
 
-  const handleExport = (name) => {
-    onExport?.(name);
-  };
-
   const handleUploadShared = async (name) => {
     await onUploadShared?.(name);
   };
-
-  const handleCardClick = (name, event) => {
-    const target = event.target;
-    if (!(target instanceof Element)) return;
-    if (target.closest("button, input, textarea, select, a, label")) return;
-    setCardStatsOverrides((prev) => {
-      const hasOverride = Object.prototype.hasOwnProperty.call(prev, name);
-      const currentlyShown = hasOverride ? !!prev[name] : showStats;
-      return {
-        ...prev,
-        [name]: !currentlyShown,
-      };
-    });
-  };
-
-  const isCardStatsVisible = (name) =>
-    Object.prototype.hasOwnProperty.call(cardStatsOverrides, name)
-      ? !!cardStatsOverrides[name]
-      : showStats;
 
   if (!open) return null;
 
@@ -236,12 +171,6 @@ export function LoadSavesModal({
           </button>
         </div>
         <div className="load-saves-toolbar">
-          <button
-            className={`load-saves-show-stats-btn ${showStats ? "active" : ""}`}
-            onClick={() => setShowStats((prev) => !prev)}
-          >
-            {t("loadSavesShowStats")}
-          </button>
           <QiInput
             mode="text"
             fullWidth
@@ -251,144 +180,41 @@ export function LoadSavesModal({
             placeholder={t("loadSavesSearchPlaceholder")}
             aria-label={t("loadSavesSearchAria")}
           />
+          {canUploadShared && (
+            <button
+              className="load-saves-upload-btn"
+              onClick={() => {
+                const active = sortedNames.find((n) => n === loadName);
+                if (active) handleUploadShared(active);
+              }}
+              disabled={!loadName}
+              title={t("loadSavesBtnUpload")}
+            >
+              <Upload size={16} />
+            </button>
+          )}
         </div>
 
         <div className="load-saves-list">
           {filteredNames.length === 0 ? (
             <div className="load-saves-empty">{t("loadSavesEmpty")}</div>
           ) : (
-            filteredNames.map((name) => (
-              <div
-                key={name}
-                className="load-saves-row"
-                onClick={(event) => handleCardClick(name, event)}
-              >
-                <div className="load-saves-row-top">
-                  <button
-                    className={`load-saves-main-button ${
-                      name === loadName ? "active" : ""
-                    }`}
-                    onClick={() => handleLoad(name)}
-                    data-tutorial-zone={
-                      name === loadName ? "load-main-btn" : undefined
-                    }
-                  >
-                    {editingId === name ? (
-                      <div
-                        className="load-saves-edit-container"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <QiInput
-                          mode="text"
-                          fullWidth
-                          className="load-saves-edit-input"
-                          value={editingName}
-                          onChange={(nextValue) => setEditingName(nextValue)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              handleConfirmRename(name);
-                            } else if (e.key === "Escape") {
-                              handleCancelEdit();
-                            }
-                          }}
-                          autoFocus
-                        />
-                        <button
-                          className="load-saves-edit-confirm"
-                          onClick={() => handleConfirmRename(name)}
-                          title={t("loadSavesBtnConfirm")}
-                        >
-                          <Check size={16} />
-                        </button>
-                        <button
-                          className="load-saves-edit-cancel"
-                          onClick={handleCancelEdit}
-                          title={t("loadSavesBtnCancel")}
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ) : (
-                      <span
-                        className="load-saves-name"
-                        style={{
-                          color: getSavefileStatusColor(saveStatuses[name]),
-                        }}
-                      >
-                        {name}
-                      </span>
-                    )}
-                  </button>
-
-                  {editingId !== name && (
-                    <div className="load-saves-actions">
-                      <button
-                        className="load-saves-action-btn settings-btn"
-                        onClick={() => setConfigEditingName(name)}
-                        title={t("loadSavesBtnSaveConfig")}
-                        data-tutorial-zone={
-                          name === loadName ? "load-config-btn" : undefined
-                        }
-                      >
-                        <Settings size={16} />
-                      </button>
-                      <button
-                        className="load-saves-action-btn edit-btn"
-                        onClick={() => handleStartEdit(name)}
-                        title={t("loadSavesBtnRename")}
-                        data-tutorial-zone={
-                          name === loadName ? "load-rename-btn" : undefined
-                        }
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        className="load-saves-action-btn export-btn"
-                        onClick={() => handleExport(name)}
-                        title={t("loadSavesBtnExport")}
-                        data-tutorial-zone={
-                          name === loadName ? "load-export-btn" : undefined
-                        }
-                      >
-                        <Share2 size={16} />
-                      </button>
-                      <button
-                        className="load-saves-action-btn upload-btn"
-                        onClick={() => handleUploadShared(name)}
-                        title={
-                          canUploadShared
-                            ? t("loadSavesBtnUpload")
-                            : t("loadSavesBtnUploadDisabled")
-                        }
-                        disabled={!canUploadShared}
-                      >
-                        <Upload size={16} />
-                      </button>
-                      <button
-                        className="load-saves-action-btn delete-btn"
-                        onClick={() => setDeletingId(name)}
-                        title={t("loadSavesBtnDelete")}
-                        data-tutorial-zone={
-                          name === loadName ? "load-delete-btn" : undefined
-                        }
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {isCardStatsVisible(name) &&
-                  (() => {
-                    const cardStats = getCardDisplayStats(name);
-                    return (
-                      <SaveStatsDisplay
-                        minimum={cardStats?.minimum ?? {}}
-                        final={cardStats?.final ?? {}}
-                      />
-                    );
-                  })()}
-              </div>
-            ))
+            filteredNames.map((name) => {
+              const cardStats = getCardDisplayStats(name);
+              return (
+                <SavefileCard
+                  key={name}
+                  title={name}
+                  isOwned
+                  impossible={saveStatuses[name] === "impossible"}
+                  stats={cardStats}
+                  onLoad={() => handleLoad(name)}
+                  onRename={(newName) => onRename?.(name, newName)}
+                  onExport={() => onExport?.(name)}
+                  onDelete={() => setDeletingId(name)}
+                />
+              );
+            })
           )}
         </div>
 
@@ -461,22 +287,6 @@ export function LoadSavesModal({
           </div>
         </div>
       )}
-
-      <SaveConfigModal
-        open={!!configEditingName}
-        saveName={configEditingName}
-        saveEntry={configEditingName ? saves[configEditingName] : null}
-        saveConfig={
-          configEditingName ? saves[configEditingName]?.saveConfig : null
-        }
-        userConfig={userConfig}
-        onClose={() => setConfigEditingName(null)}
-        onSave={(newConfig, options) => {
-          if (configEditingName) {
-            onSaveConfig?.(configEditingName, newConfig, options);
-          }
-        }}
-      />
     </div>
   );
 }

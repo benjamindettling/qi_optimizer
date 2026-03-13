@@ -1,10 +1,11 @@
 /* LoadSavesModal styling */
 
 .load-saves-modal {
-  max-width: 750px;
+  max-width: 1400px;
   max-height: 80vh;
   display: flex;
   flex-direction: column;
+  width: 95vw;
 }
 
 .load-saves-toolbar {
@@ -19,6 +20,29 @@
   min-width: 180px;
   padding: 7px 10px;
   font-size: 0.85rem;
+}
+
+.load-saves-upload-btn {
+  padding: 7px 10px;
+  background: var(--color-button-bg);
+  border: 1px solid var(--color-button-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.load-saves-upload-btn:hover {
+  filter: brightness(1.2);
+}
+
+.load-saves-upload-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .load-saves-show-stats-btn {
@@ -81,6 +105,10 @@
   padding: 2px 2px 6px;
   background: transparent;
   margin-bottom: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px;
+  align-content: start;
 }
 
 .load-saves-empty {
@@ -88,6 +116,7 @@
   text-align: center;
   color: var(--color-text-muted);
   font-size: 0.95em;
+  grid-column: 1 / -1;
 }
 
 .load-saves-row {
@@ -99,16 +128,21 @@
   border-radius: var(--radius-md);
   background: var(--color-panel-bg-alt);
   gap: 8px;
-  margin-bottom: 10px;
   cursor: pointer;
-}
-
-.load-saves-row:last-child {
-  margin-bottom: 0;
 }
 
 .load-saves-row:hover {
   filter: brightness(1.05);
+}
+
+/* Impossible save styling */
+.load-saves-row.impossible {
+  background: rgba(229, 83, 61, 0.12);
+  border-color: rgba(229, 83, 61, 0.35);
+}
+
+.load-saves-name.impossible {
+  color: var(--ui-warning-amber) !important;
 }
 
 .load-saves-main-button {

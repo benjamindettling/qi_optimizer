@@ -482,9 +482,9 @@ export function AppLayout({
     topBarProps.onOpenHelp?.();
   }, [clearExclusiveModes, topBarProps]);
 
-  const wrappedTopBarOpenAccount = useCallback(() => {
+  const wrappedTopBarOpenSettings = useCallback(() => {
     clearExclusiveModes();
-    topBarProps.onOpenAccount?.();
+    topBarProps.onOpenSettings?.();
   }, [clearExclusiveModes, topBarProps]);
 
   const wrappedTopBarStartTutorial = useCallback(() => {
@@ -599,9 +599,12 @@ export function AppLayout({
             onOpenImport={wrappedTopBarOpenImport}
             onOpenLoadSaves={wrappedTopBarOpenLoadSaves}
             onOpenOnlineLibrary={wrappedTopBarOpenOnlineLibrary}
+            onUploadShared={topBarProps.onUploadShared}
+            canUploadShared={topBarProps.canUploadShared}
+            currentUsername={topBarProps.currentUsername}
             onToggleAdmin={wrappedTopBarToggleAdmin}
             onOpenHelp={wrappedTopBarOpenHelp}
-            onOpenAccount={wrappedTopBarOpenAccount}
+            onOpenSettings={wrappedTopBarOpenSettings}
             onStartTutorial={wrappedTopBarStartTutorial}
             hasUnsavedChanges={topBarProps.hasUnsavedChanges}
           />

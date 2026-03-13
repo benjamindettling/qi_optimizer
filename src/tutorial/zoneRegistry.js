@@ -67,7 +67,6 @@ export const ZONE_REGISTRY = {
   'harvest-modal': () => document.querySelector('[data-tutorial-zone="harvest-modal"]'),
   'help-btn': () => document.querySelector('[data-tutorial-zone="help-btn"]'),
   'load-main-btn': () => document.querySelector('[data-tutorial-zone="load-main-btn"]'),
-  'load-config-btn': () => document.querySelector('[data-tutorial-zone="load-config-btn"]'),
   'load-rename-btn': () => document.querySelector('[data-tutorial-zone="load-rename-btn"]'),
   'load-export-btn': () => document.querySelector('[data-tutorial-zone="load-export-btn"]'),
   'load-delete-btn': () => document.querySelector('[data-tutorial-zone="load-delete-btn"]'),

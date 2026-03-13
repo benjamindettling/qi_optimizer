@@ -7,7 +7,7 @@ import { HarvestModal } from "../../components/modals/HarvestModal";
 import { SmartHarvestModal } from "../../components/modals/SmartHarvestModal";
 import { SmartInvestModal } from "../../components/modals/SmartInvestModal";
 import { HelpModal } from "../../components/modals/HelpModal";
-import { AccountModal } from "../../components/modals/AccountModal";
+import { SettingsModal } from "../../components/modals/SettingsModal";
 import { EditGoodModal } from "../../components/modals/EditGoodModal";
 import { EditUnitModal } from "../../components/modals/EditUnitModal";
 import { WorstRemovalModal } from "../../components/modals/WorstRemovalModal";
@@ -22,13 +22,14 @@ import { TUTORIAL_EXAMPLE_SAVE_NAME } from "../../tutorial/tutorialSteps";
 import "../../components/modals/modals.css";
 import "../../components/modals/LoadSavesModal.css";
 import "../../components/modals/OnlineLibraryModal.css";
+import "../../components/common/SavefileCard.css";
 
 // Centralizes modal rendering to keep the root component lean.
 export function AppModals({
   controller,
-  accountModalOpen,
-  accountInitialTab,
-  setAccountModalOpen,
+  settingsModalOpen,
+  settingsInitialTab,
+  setSettingsModalOpen,
   viewMode,
   setViewMode,
   toolbarPosition,
@@ -106,7 +107,6 @@ export function AppModals({
     handleRenameSavefile,
     handleDeleteSavefile,
     handleImportSelected,
-    handleUpdateSaveConfig,
     handleLoadState,
     worstModal,
     setWorstModal,
@@ -225,10 +225,10 @@ export function AppModals({
         }}
       />
       <HelpModal open={!!helpModal} onClose={() => setHelpModal(false)} />
-      <AccountModal
-        open={!!accountModalOpen}
-        initialTab={accountInitialTab}
-        onClose={() => setAccountModalOpen(false)}
+      <SettingsModal
+        open={!!settingsModalOpen}
+        initialTab={settingsInitialTab}
+        onClose={() => setSettingsModalOpen(false)}
         config={config}
         onSave={updateConfig}
         onPreviewConfig={updateConfig}
@@ -273,7 +273,6 @@ export function AppModals({
         onUploadShared={handleUploadSharedSave}
         canUploadShared={canCloudSave && !!cloudProfile?.username}
         onImport={handleImportSelected}
-        onSaveConfig={handleUpdateSaveConfig}
         hasUnsavedChanges={hasUnsavedChanges}
         userConfig={userConfig}
       />
@@ -285,6 +284,8 @@ export function AppModals({
       <OnlineLibraryModal
         open={!!onlineLibraryModal}
         onClose={() => setOnlineLibraryModal(false)}
+        userConfig={userConfig}
+        currentUsername={cloudProfile?.username || ""}
       />
       <PastEditWarningModal
         open={pastEditModal}

@@ -44,9 +44,12 @@ export function TopBar({
   onOpenImport,
   onOpenLoadSaves,
   onOpenOnlineLibrary,
+  onUploadShared,
+  canUploadShared,
+  currentUsername,
   onToggleAdmin,
   onOpenHelp,
-  onOpenAccount,
+  onOpenSettings,
   onStartTutorial,
   hasUnsavedChanges,
 }) {
@@ -195,11 +198,14 @@ export function TopBar({
               onOpenImport={onOpenImport}
               onOpenLoadSaves={onOpenLoadSaves}
               onOpenOnlineLibrary={onOpenOnlineLibrary}
+              onUploadShared={onUploadShared}
+              canUploadShared={canUploadShared}
+              currentUsername={currentUsername}
               adminMode={adminMode}
               editingLocked={editingLocked}
               onToggleAdmin={onToggleAdmin}
               onOpenHelp={onOpenHelp}
-              onOpenAccount={onOpenAccount}
+              onOpenSettings={onOpenSettings}
               onStartTutorial={onStartTutorial}
               hasUnsavedChanges={hasUnsavedChanges}
             />

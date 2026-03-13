@@ -1,10 +1,12 @@
-﻿// Menu panel for TopBar - Save, Load, Admin, Help, Profile
-import { Save, FolderOpen, Globe, Sparkle, User } from "lucide-react";
+﻿// Menu panel for TopBar - Save, Load, Upload, Admin, Settings, Online
+import { Save, FolderOpen, Upload, Sparkle, Settings, Globe } from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
 import { QiInput } from "../common/QiInput";
+import { SavefileCard } from "../common/SavefileCard";
+import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
 export function MenuPanel({
   onSave,
@@ -17,10 +19,14 @@ export function MenuPanel({
   onOpenImport,
   onOpenLoadSaves,
   onOpenOnlineLibrary,
+  onUploadShared,
+  canUploadShared = false,
+  userConfig,
+  currentUsername = "",
   adminMode,
   editingLocked,
   onToggleAdmin,
-  onOpenAccount,
+  onOpenSettings,
   onStartTutorial,
   hasUnsavedChanges,
 }) {
@@ -28,6 +34,7 @@ export function MenuPanel({
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
   const adminActive = adminMode && !editingLocked;
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [saveNameDraft, setSaveNameDraft] = useState("");
 
   const existingSaveNames = useMemo(
@@ -58,6 +65,37 @@ export function MenuPanel({
     closeSaveModal();
   };
 
+  const currentSaveEntry = loadName ? saves?.[loadName] : null;
+  const currentSaveStats = currentSaveEntry?.stats ?? currentSaveEntry?.tree?.stats ?? null;
+  const outsideQaPerHour = getOutsideQaPerHour(userConfig);
+  const outsideQaTotal = 23 * 12 * outsideQaPerHour;
+  const uploadPreviewStats = currentSaveStats
+    ? {
+        minimum: currentSaveStats.minimum ?? {},
+        final: {
+          ...(currentSaveStats.final ?? {}),
+          qaTotalDisplay: Number.isFinite(Number(currentSaveStats?.final?.totalQaSetup))
+            ? Number(currentSaveStats.final.totalQaSetup) + outsideQaTotal
+            : null,
+        },
+      }
+    : { minimum: {}, final: {} };
+
+  const openUploadModal = () => {
+    if (!canUploadShared || !loadName) return;
+    setUploadModalOpen(true);
+  };
+
+  const closeUploadModal = () => {
+    setUploadModalOpen(false);
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!loadName) return;
+    await onUploadShared?.(loadName);
+    setUploadModalOpen(false);
+  };
+
   const handleDelete = (name, e) => {
     e.stopPropagation();
     if (confirm(`"${name}" ${t("confirmDeleteSave")}`)) {
@@ -82,6 +120,7 @@ export function MenuPanel({
   void setLoadName;
   void onStartTutorial;
   void adminMode;
+  void onOpenSettings;
 
   return (
     <>
@@ -116,13 +155,18 @@ export function MenuPanel({
             </button>
             <button
               className="menu-btn"
-              onClick={() => onOpenOnlineLibrary?.()}
-              title={t("btnOnlineTitle")}
-              aria-label={t("btnOnlineLabel")}
-              data-help-id="btn-online"
+              onClick={openUploadModal}
+              title={
+                canUploadShared
+                  ? t("btnUploadTitle")
+                  : t("loadSavesBtnUploadDisabled")
+              }
+              aria-label={t("btnUploadLabel")}
+              data-help-id="btn-upload"
+              disabled={!canUploadShared || !loadName}
             >
-              <Globe size={18} />
-              <span className="menu-btn-label">{t("btnOnlineLabel")}</span>
+              <Upload size={18} />
+              <span className="menu-btn-label">{t("btnUploadLabel")}</span>
             </button>
           </div>
           <div className="menu-column">
@@ -139,13 +183,23 @@ export function MenuPanel({
             </button>
             <button
               className="menu-btn"
-              onClick={onOpenAccount}
-              title={t("btnProfileTitle")}
-              aria-label={t("btnProfileLabel")}
-              data-help-id="btn-profile"
+              onClick={onOpenSettings}
+              title={t("btnSettingsTitle")}
+              aria-label={t("btnSettingsLabel")}
+              data-help-id="btn-settings"
             >
-              <User size={18} />
-              <span className="menu-btn-label">{t("btnProfileLabel")}</span>
+              <Settings size={18} />
+              <span className="menu-btn-label">{t("btnSettingsLabel")}</span>
+            </button>
+            <button
+              className="menu-btn"
+              onClick={() => onOpenOnlineLibrary?.()}
+              title={t("btnOnlineTitle")}
+              aria-label={t("btnOnlineLabel")}
+              data-help-id="btn-online"
+            >
+              <Globe size={18} />
+              <span className="menu-btn-label">{t("btnOnlineLabel")}</span>
             </button>
           </div>
         </div>
@@ -207,6 +261,45 @@ export function MenuPanel({
                     disabled={!trimmedSaveName}
                   >
                     {confirmSaveLabel}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {uploadModalOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div className="modal">
+              <div className="modal-card menu-save-modal">
+                <div className="help-header">
+                  <h3>{t("uploadWarningTitle")}</h3>
+                </div>
+
+                <div className="menu-save-modal-body">
+                  <p>{t("uploadWarningBody")}</p>
+                  <SavefileCard
+                    title={loadName || "-"}
+                    isOwned={false}
+                    stats={uploadPreviewStats}
+                    ownerUsername={currentUsername || "?"}
+                    timestamp={new Date()}
+                  />
+                </div>
+
+                <div className="modal-actions">
+                  <button
+                    className="menu-save-modal-cancel"
+                    onClick={closeUploadModal}
+                  >
+                    {t("startConfigCancel")}
+                  </button>
+                  <button
+                    className="menu-save-modal-confirm"
+                    onClick={handleConfirmUpload}
+                  >
+                    {t("btnUploadLabel")}
                   </button>
                 </div>
               </div>

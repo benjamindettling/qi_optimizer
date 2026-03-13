@@ -1,0 +1,133 @@
+/* SavefileCard — unified card for Load Saves and Online Library */
+
+.savefile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel-bg-alt);
+  gap: 8px;
+  cursor: pointer;
+}
+
+.savefile-card:hover {
+  filter: brightness(1.05);
+}
+
+.savefile-card.impossible {
+  background: rgba(229, 83, 61, 0.12);
+  border-color: rgba(229, 83, 61, 0.35);
+}
+
+.savefile-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.savefile-card-title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.savefile-card-title.impossible {
+  color: var(--ui-warning-amber);
+}
+
+.savefile-card-right {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.savefile-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.savefile-card-author {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.savefile-card-username-link {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+  color: var(--color-text-soft);
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.savefile-card-username-link:hover {
+  color: var(--color-accent);
+}
+
+.savefile-card-date {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* Edit mode */
+.savefile-card-edit-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.savefile-card-edit-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: var(--color-panel-bg);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-xs);
+  color: var(--color-text);
+  font-size: 0.95em;
+  font-family: var(--font-sans);
+}
+
+.savefile-card-edit-input:focus {
+  outline: none;
+  box-shadow: 0 0 6px rgba(76, 139, 245, 0.4);
+}
+
+.savefile-card-edit-confirm,
+.savefile-card-edit-cancel {
+  padding: 4px 6px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.savefile-card-edit-confirm:hover {
+  background: var(--ui-success-green);
+  border-color: var(--ui-success-green);
+  color: var(--color-bg);
+}
+
+.savefile-card-edit-cancel:hover {
+  background: var(--ui-error-red);
+  border-color: var(--ui-error-red);
+  color: var(--color-text);
+}

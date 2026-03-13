@@ -97,8 +97,8 @@ export function AppRoot() {
   const controller = useGameController();
   const adminMode = controller.infiniteResources;
   const [isShopOpen, setIsShopOpen] = useState(false);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
-  const [accountInitialTab, setAccountInitialTab] = useState("account");
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState("config");
   const navigate = useNavigate();
   const location = useLocation();
   const isSimulator = location.pathname === "/simulator";
@@ -577,8 +577,8 @@ export function AppRoot() {
         case "helpModal":
           controller.setHelpModal(false);
           return true;
-        case "accountModal":
-          setAccountModalOpen(false);
+        case "settingsModal":
+          setSettingsModalOpen(false);
           return true;
         case "editResourceModal":
           controller.cancelEditResource?.();
@@ -623,7 +623,7 @@ export function AppRoot() {
       "unlockChoice",
       "loadSavesModal",
       "helpModal",
-      "accountModal",
+      "settingsModal",
       "shop",
     ];
 
@@ -640,7 +640,7 @@ export function AppRoot() {
         unlockChoice: !!controller.unlockChoice,
         loadSavesModal: !!controller.loadSavesModal,
         helpModal: !!controller.helpModal,
-        accountModal: !!accountModalOpen,
+        settingsModal: !!settingsModalOpen,
         shop: !!isShopOpen,
       };
 
@@ -655,7 +655,7 @@ export function AppRoot() {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [
-    accountModalOpen,
+    settingsModalOpen,
     closeTutorialPopupByKey,
     controller.editGoodModal,
     controller.editResourceModal,
@@ -687,7 +687,7 @@ export function AppRoot() {
       fastBuyModal: !!controller.fastBuyModal,
       helpModal: !!controller.helpModal,
       configModal: !!controller.configModal,
-      accountModal: accountModalOpen,
+      settingsModal: settingsModalOpen,
       editResourceModal: !!controller.editResourceModal,
       editGoodModal: !!controller.editGoodModal,
       editUnitModal: !!controller.editUnitModal,
@@ -709,7 +709,7 @@ export function AppRoot() {
       showWarningNotice("unexpected-popup");
     }
   }, [
-    accountModalOpen,
+    settingsModalOpen,
     closeTutorialPopupByKey,
     controller,
     currentStepIndex,
@@ -853,7 +853,7 @@ export function AppRoot() {
     if (handledTutorialCompletionRef.current === completionCount) return;
     handledTutorialCompletionRef.current = completionCount;
     setIsShopOpen(false);
-    setAccountModalOpen(false);
+    setSettingsModalOpen(false);
     controller.setHelpModal?.(false);
     controller.setLoadSavesModal?.(false);
     controller.setExportModal?.(false);
@@ -870,9 +870,9 @@ export function AppRoot() {
   // Check if we're in placement mode (a building is selected for placement)
   const isPlacementMode = controller.selectedBuildingId !== null;
 
-  const openAccountModal = (tabKey = "account") => {
-    setAccountInitialTab(tabKey);
-    setAccountModalOpen(true);
+  const openSettingsModal = (tabKey = "config") => {
+    setSettingsInitialTab(tabKey);
+    setSettingsModalOpen(true);
   };
 
   const handleOpenHelp = useCallback(() => {
@@ -918,7 +918,10 @@ export function AppRoot() {
     adminMode,
     onToggleAdmin: controller.handleToggleInfinite,
     onOpenHelp: handleOpenHelp,
-    onOpenAccount: () => openAccountModal("account"),
+    onOpenSettings: () => openSettingsModal("config"),
+    onUploadShared: controller.handleUploadSharedSave,
+    canUploadShared: canCloudSave && !!cloudProfile?.username,
+    currentUsername: cloudProfile?.username || "",
     onEditResource: controller.handleEditResource,
     onEditGood: controller.handleEditGood,
     onEditUnit: controller.handleEditUnit,
@@ -1151,7 +1154,7 @@ export function AppRoot() {
               updateConfig={controller.updateConfig}
               onStartSimulator={() => navigate("/simulator")}
               onOpenSaves={() => controller.setLoadSavesModal(true)}
-              onOpenAccount={openAccountModal}
+              onOpenSettings={openSettingsModal}
               onStartTutorial={handleStartTutorial}
             />
           }
@@ -1244,12 +1247,12 @@ export function AppRoot() {
           </button>
         </div>
       )}
-      {/* Modals rendered on all routes so Account & LoadSaves work everywhere */}
+      {/* Modals rendered on all routes so Settings & LoadSaves work everywhere */}
       <AppModals
         controller={controller}
-        accountModalOpen={accountModalOpen}
-        accountInitialTab={accountInitialTab}
-        setAccountModalOpen={setAccountModalOpen}
+        settingsModalOpen={settingsModalOpen}
+        settingsInitialTab={settingsInitialTab}
+        setSettingsModalOpen={setSettingsModalOpen}
         viewMode={controller.viewMode}
         setViewMode={controller.setViewMode}
         toolbarPosition={controller.toolbarPosition}

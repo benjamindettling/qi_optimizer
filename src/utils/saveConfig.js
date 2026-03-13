@@ -898,13 +898,21 @@ export const computeSavefileTreeStats = ({
   treeData,
   saveConfig,
   fallbackConfig,
+  overrideBoosts,
 }) => {
   const normalizedTreeData = normalizeTreeData(treeData);
   if (!normalizedTreeData) return null;
 
+  // For minimum calculations, force coinBoost/supplyBoost to 0 (hard minimum)
+  // unless overrideBoosts is explicitly provided (e.g. for local legality checks).
+  const draftBase = saveConfig ?? normalizedTreeData?.config;
+  const draftForMinimizer = overrideBoosts
+    ? { ...extractSaveConfig(draftBase), ...overrideBoosts }
+    : { ...extractSaveConfig(draftBase), coinBoost: 0, supplyBoost: 0 };
+
   const analysis = analyzeSmallestSaveConfig({
     treeData: normalizedTreeData,
-    draftConfig: saveConfig ?? normalizedTreeData?.config,
+    draftConfig: draftForMinimizer,
     fallbackConfig: {
       ...(fallbackConfig || {}),
       onlyCountQaFromSetup: true,
@@ -940,46 +948,73 @@ export const computeSavefileTreeStats = ({
       remainingSteps * QA_HOURS_PER_STEP * setupQaPerHour,
   );
 
+  // Extract final unit counts
+  const finalUnits = sim.resources.units ?? {};
+  const katapult = Math.max(0, Math.round(Number(finalUnits.Katapult ?? 0)));
+  const blide = Math.max(0, Math.round(Number(finalUnits.Blide ?? 0)));
+  const kanone = Math.max(0, Math.round(Number(finalUnits.Kanone ?? 0)));
+
   return {
     minimum: {
       money: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraCoins ?? 0))),
       supplies: Math.max(0, Math.round(Number(analysis.adjustedConfig?.extraSupplies ?? 0))),
-      coinBoost: Number(sim.effectiveConfig?.coinBoost ?? 0),
-      supplyBoost: Number(sim.effectiveConfig?.supplyBoost ?? 0),
       goods: Math.max(0, Math.round(Number(analysis.adjustedConfig?.goodsStartBonus ?? 0))),
-      troops: Math.max(0, Math.round(Number(sim.effectiveConfig?.troopsStartBonus ?? 0))),
       shardsUsed: Math.max(0, Math.round(analysis.shardsUsed ?? 0)),
     },
     final: {
       attack,
       defense,
       totalQaSetup,
+      units: { Katapult: katapult, Blide: blide, Kanone: kanone },
     },
   };
 };
 
+/**
+ * Check if a save is impossible for the given user config (generic check, 0% boosts).
+ * Used for display coloring. Returns "impossible" or "synced".
+ */
 export const getSavefileSyncState = ({ saveEntry, userConfig }) => {
-  if (!saveEntry) return SAVEFILE_SYNC_STATES.desynced;
+  if (!saveEntry) return SAVEFILE_SYNC_STATES.synced;
 
-  const analysis = analyzeSmallestSaveConfig({
-    treeData: saveEntry?.tree,
-    draftConfig: saveEntry?.saveConfig ?? saveEntry?.tree?.config,
-    fallbackConfig: userConfig,
-  });
-
-  if (analysis) {
+  // Use 0% boosts for the generic impossibility check (matches saved stats)
+  const stats = saveEntry?.stats;
+  if (stats?.minimum) {
     const normalizedUserConfig = extractSaveConfig(userConfig);
-    const impossible = MIN_SAFE_SAVE_CONFIG_FIELDS.some(
-      (field) =>
-        (normalizedUserConfig?.[field] ?? 0) <
-        (analysis.adjustedConfig?.[field] ?? 0),
-    );
+    const min = stats.minimum;
+    const impossible =
+      (normalizedUserConfig.extraCoins ?? 0) < (min.money ?? 0) ||
+      (normalizedUserConfig.extraSupplies ?? 0) < (min.supplies ?? 0) ||
+      (normalizedUserConfig.goodsStartBonus ?? 0) < (min.goods ?? 0) ||
+      (normalizedUserConfig.shardsLimit ?? 0) < (min.shardsUsed ?? 0);
     if (impossible) {
       return SAVEFILE_SYNC_STATES.impossible;
     }
   }
 
-  return saveEntry?.syncUser === true
-    ? SAVEFILE_SYNC_STATES.synced
-    : SAVEFILE_SYNC_STATES.desynced;
+  return SAVEFILE_SYNC_STATES.synced;
+};
+
+/**
+ * Compute a local legality check using the user's actual boosts.
+ * This runs the full minimizer with the user's coinBoost/supplyBoost.
+ * Returns true if the save is legal with user's config.
+ */
+export const computeLocalLegality = ({ saveEntry, userConfig }) => {
+  if (!saveEntry?.tree) return true;
+  const uc = extractSaveConfig(userConfig);
+  const statsWithBoosts = computeSavefileTreeStats({
+    treeData: saveEntry.tree,
+    saveConfig: uc,
+    fallbackConfig: userConfig,
+    overrideBoosts: { coinBoost: uc.coinBoost, supplyBoost: uc.supplyBoost },
+  });
+  if (!statsWithBoosts?.minimum) return true;
+  const min = statsWithBoosts.minimum;
+  return (
+    (uc.extraCoins ?? 0) >= (min.money ?? 0) &&
+    (uc.extraSupplies ?? 0) >= (min.supplies ?? 0) &&
+    (uc.goodsStartBonus ?? 0) >= (min.goods ?? 0) &&
+    (uc.shardsLimit ?? 0) >= (min.shardsUsed ?? 0)
+  );
 };

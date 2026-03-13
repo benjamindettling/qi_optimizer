@@ -164,8 +164,6 @@ export const buildControllerReturn = ({
   handleRenameSavefile: saveTransferApi.handleRenameSavefile,
   handleDeleteSavefile: saveTransferApi.handleDeleteSavefile,
   handleImportSelected: saveTransferApi.handleImportSelected,
-  handleUpdateSaveConfig: saveTransferApi.handleUpdateSaveConfig,
-  handleSyncConfig: saveTransferApi.handleSyncConfig,
   checkpoints: snapshotApi.checkpoints,
   setCheckpointIndex: snapshotApi.setCheckpointIndex,
   timeStep: state.timeStep,
