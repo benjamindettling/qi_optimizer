@@ -45,6 +45,7 @@ function formatTime(ts) {
  * @param {string}  [props.ownerUid]           — Author uid (foreign cards)
  * @param {boolean} [props.busy]               — Card currently processing an action
  * @param {number}  [props.outsideQaTotal]     — Outside QA to add to totalQaSetup for display
+ * @param {object}  [props.minimumViolations]   — { money, supplies, goods, shardsUsed }
  */
 export function SavefileCard({
   title,
@@ -60,6 +61,7 @@ export function SavefileCard({
   onProfileClick,
   ownerUid,
   busy = false,
+  minimumViolations,
 }) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
@@ -202,7 +204,11 @@ export function SavefileCard({
           </>
         )}
       </div>
-      <SaveStatsDisplay minimum={minimum} final={finalStats} />
+      <SaveStatsDisplay
+        minimum={minimum}
+        final={finalStats}
+        minimumViolations={minimumViolations}
+      />
     </div>
   );
 }

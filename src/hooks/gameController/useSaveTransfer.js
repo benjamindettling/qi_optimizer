@@ -55,25 +55,25 @@ export const useSaveTransfer = ({
   }, [setExportModal]);
 
     const handleUploadSharedSave = useCallback(
-    async (name) => {
-      if (!name) return;
+    async (name, options = {}) => {
+      const { overwrite = false } = options;
+      if (!name) {
+        return { status: "error", code: "MISSING_NAME" };
+      }
       if (!user?.uid) {
-        alert("You must be logged in to upload a shared save.");
-        return;
+        return { status: "error", code: "AUTH_REQUIRED" };
       }
 
       const saveEntry = saves?.[name];
       if (!saveEntry) {
-        alert("Savefile not found.");
-        return;
+        return { status: "error", code: "SAVE_NOT_FOUND" };
       }
 
       try {
         const ownerUsername = await fetchProfileUsername(user.uid);
 
         if (!ownerUsername) {
-          alert("No username found for this account. Please set a username first.");
-          return;
+          return { status: "error", code: "USERNAME_MISSING" };
         }
 
         const existing = await findOwnSharedSaveByTitle({
@@ -81,13 +81,15 @@ export const useSaveTransfer = ({
           title: name,
         });
 
-        if (existing) {
-          const shouldOverwrite = window.confirm(
-            `You already uploaded a save called "${name}".\n\nPress OK to overwrite it, or Cancel to keep the existing online file.`,
-          );
+        if (existing && !overwrite) {
+          return {
+            status: "needs-overwrite",
+            code: "DUPLICATE_TITLE",
+            saveId: existing.id,
+          };
+        }
 
-          if (!shouldOverwrite) return;
-
+        if (existing && overwrite) {
           await overwriteSharedSave({
             saveId: existing.id,
             saveEntry,
@@ -96,8 +98,7 @@ export const useSaveTransfer = ({
             title: name,
           });
 
-          alert(`Shared save "${name}" was overwritten.`);
-          return;
+          return { status: "success", action: "overwritten", name };
         }
 
         await uploadSharedSave({
@@ -107,10 +108,14 @@ export const useSaveTransfer = ({
           title: name,
         });
 
-        alert(`Shared save "${name}" was uploaded.`);
+        return { status: "success", action: "uploaded", name };
       } catch (error) {
         console.error("Failed to upload shared save:", error);
-        alert("Failed to upload shared save.");
+        return {
+          status: "error",
+          code: error?.code || "UPLOAD_FAILED",
+          message: error?.message || "Failed to upload shared save.",
+        };
       }
     },
     [saves, user],

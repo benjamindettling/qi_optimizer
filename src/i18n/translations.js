@@ -1022,6 +1022,48 @@
     DE: "Dieser Spielstand wird öffentlich in die Online-Bibliothek hochgeladen. Du kannst ihn jederzeit unter Online -> Profil umbenennen oder löschen.",
     EN: "This save will be uploaded publicly to the online library. You can rename or delete it anytime via Online -> Profile.",
   },
+  uploadOverwriteTitle: {
+    DE: "Bestehenden Upload ersetzen",
+    EN: "Replace existing upload",
+  },
+  uploadOverwriteBody: {
+    DE: "Du hast bereits einen Upload mit dem Namen \"{name}\". Soll dieser online ersetzt werden?",
+    EN: "You already uploaded a save named \"{name}\". Do you want to overwrite it online?",
+  },
+  uploadOverwriteConfirm: { DE: "Ersetzen", EN: "Overwrite" },
+  uploadResultUploadedTitle: {
+    DE: "Upload erfolgreich",
+    EN: "Upload successful",
+  },
+  uploadResultUploadedBody: {
+    DE: "\"{name}\" wurde in die Online-Bibliothek hochgeladen.",
+    EN: "\"{name}\" was uploaded to the online library.",
+  },
+  uploadResultOverwrittenTitle: {
+    DE: "Upload ersetzt",
+    EN: "Upload overwritten",
+  },
+  uploadResultOverwrittenBody: {
+    DE: "\"{name}\" wurde online ersetzt.",
+    EN: "\"{name}\" was overwritten online.",
+  },
+  uploadErrorTitle: { DE: "Upload fehlgeschlagen", EN: "Upload failed" },
+  uploadErrorAuth: {
+    DE: "Bitte melde dich an, bevor du hochlaedst.",
+    EN: "Please sign in before uploading.",
+  },
+  uploadErrorNoSave: {
+    DE: "Dieser Spielstand wurde nicht gefunden.",
+    EN: "This save was not found.",
+  },
+  uploadErrorNoUsername: {
+    DE: "Bitte zuerst einen Benutzernamen fuer dieses Konto setzen.",
+    EN: "Please set a username for this account first.",
+  },
+  uploadErrorGeneric: {
+    DE: "Der Upload konnte nicht abgeschlossen werden.",
+    EN: "The upload could not be completed.",
+  },
 
   // === TOPBAR – RESOURCE LABELS ===
   resourceCoins: { DE: "Münzen", EN: "Coins" },
@@ -1262,9 +1304,8 @@
     EN: "Not possible with your bonuses",
   },
   onlineLibraryNoteBoosts: {
-    DE: "Min. geht von 0% Münz-/Vorratsboost aus",
-    EN: "Min. assumes 0% coin/supply boost",
-  },
+    DE: "% Boosts werden bei der Warnung ignoriert. Ums genau zu sehen, klicke auf das Setup und teste es kurz aus",
+    EN: "% Boosts are ignored for this warnung. When in doubt, quickly check out the savefile and see for sure",},
 
   // === ACCOUNT / PROFILE MODAL ===
   accountTabAccount: { DE: "Account", EN: "Account" },

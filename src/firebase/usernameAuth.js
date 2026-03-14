@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 
 const normalize = (s) => (s ?? "").trim().toLowerCase();
+const normalizeRaw = (s) => (s ?? "").trim();
 
 // -----------------------------
 // LOGIN: username OR email
@@ -55,8 +56,9 @@ export async function loginWithUsernameOrEmail(identifier, password) {
 // -----------------------------
 // src/firebase/usernameAuth.js
 export async function claimUsername(uid, username, email) {
-  const uname = normalize(username);
-  if (!uname) throw new Error("Username darf nicht leer sein.");
+  const usernameRaw = normalizeRaw(username);
+  const uname = normalize(usernameRaw);
+  if (!uname || !usernameRaw) throw new Error("Username darf nicht leer sein.");
 
   const unameRef = doc(db, "usernames", uname);
   const userRef = doc(db, "users", uid);
@@ -79,7 +81,7 @@ export async function claimUsername(uid, username, email) {
     // set canonical username on profile
     tx.set(
       userRef,
-      { username: uname, usernameUpdatedAt: serverTimestamp() },
+      { username: usernameRaw, usernameUpdatedAt: serverTimestamp() },
       { merge: true }
     );
   });
@@ -91,9 +93,10 @@ export async function claimUsername(uid, username, email) {
 // -----------------------------
 export async function changeUsername({ uid, email, oldUsername, newUsername }) {
   const oldU = normalize(oldUsername);
-  const newU = normalize(newUsername);
+  const newRaw = normalizeRaw(newUsername);
+  const newU = normalize(newRaw);
 
-  if (!newU) throw new Error("Username darf nicht leer sein.");
+  if (!newU || !newRaw) throw new Error("Username darf nicht leer sein.");
   if (newU === oldU) return;
 
   const newRef = doc(db, "usernames", newU);
@@ -128,7 +131,7 @@ export async function changeUsername({ uid, email, oldUsername, newUsername }) {
     // 3) update canonical username
     tx.set(
       userRef,
-      { username: newU, usernameUpdatedAt: serverTimestamp() },
+      { username: newRaw, usernameUpdatedAt: serverTimestamp() },
       { merge: true }
     );
   });

@@ -35,7 +35,11 @@ function formatUnits(units) {
  * @param {object}  props.minimum — { money, supplies, goods, shardsUsed }
  * @param {object}  props.final   — { totalQaSetup | qaTotalDisplay, attack, defense, units }
  */
-export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
+export function SaveStatsDisplay({
+  minimum = {},
+  final: finalStats = {},
+  minimumViolations = {},
+}) {
   const { lang } = useLang();
   const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
 
@@ -53,7 +57,13 @@ export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
             alt={t("loadSavesStatsMoney")}
             className="load-saves-stat-icon"
           />
-          <strong>{valueOrDash(minimum.money)}</strong>
+          <strong
+            className={
+              minimumViolations.money ? "load-saves-stat-value-violation" : ""
+            }
+          >
+            {valueOrDash(minimum.money)}
+          </strong>
         </div>
         <div
           className="load-saves-stats-line"
@@ -64,7 +74,15 @@ export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
             alt={t("loadSavesStatsSupplies")}
             className="load-saves-stat-icon"
           />
-          <strong>{valueOrDash(minimum.supplies)}</strong>
+          <strong
+            className={
+              minimumViolations.supplies
+                ? "load-saves-stat-value-violation"
+                : ""
+            }
+          >
+            {valueOrDash(minimum.supplies)}
+          </strong>
         </div>
         <div className="load-saves-stats-line" title={t("loadSavesStatsGoods")}>
           <img
@@ -72,7 +90,13 @@ export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
             alt={t("loadSavesStatsGoods")}
             className="load-saves-stat-icon"
           />
-          <strong>{valueOrDash(minimum.goods)}</strong>
+          <strong
+            className={
+              minimumViolations.goods ? "load-saves-stat-value-violation" : ""
+            }
+          >
+            {valueOrDash(minimum.goods)}
+          </strong>
         </div>
         <div
           className="load-saves-stats-line"
@@ -83,7 +107,15 @@ export function SaveStatsDisplay({ minimum = {}, final: finalStats = {} }) {
             alt={t("loadSavesStatsShardsUsed")}
             className="load-saves-stat-icon"
           />
-          <strong>{valueOrDash(minimum.shardsUsed)}</strong>
+          <strong
+            className={
+              minimumViolations.shardsUsed
+                ? "load-saves-stat-value-violation"
+                : ""
+            }
+          >
+            {valueOrDash(minimum.shardsUsed)}
+          </strong>
         </div>
       </div>
       <div className="load-saves-stats-col">

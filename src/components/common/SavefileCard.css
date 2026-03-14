@@ -69,8 +69,8 @@
   text-decoration-style: dotted;
   text-underline-offset: 2px;
   color: var(--color-text-soft);
-  font-weight: 600;
-  font-size: 0.82rem;
+  font-weight: 700;
+  font-size: 0.96rem;
 }
 
 .savefile-card-username-link:hover {

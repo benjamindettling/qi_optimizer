@@ -23,10 +23,7 @@ import { DEFAULT_CONFIG } from "../../config/gameDefaults";
 import { QiInput } from "../common/QiInput";
 import "./AccountModal.css";
 
-const TAB_KEYS = [
-  "config",
-  "preferences",
-];
+const TAB_KEYS = ["config", "preferences"];
 
 const isValidTabKey = (tabKey) => TAB_KEYS.includes(tabKey);
 const CONFIG_KEYS = Object.keys(DEFAULT_CONFIG);
@@ -181,7 +178,9 @@ export function AccountModal({
   const restorePreviewSnapshot = () => {
     onPreviewConfig?.(openSnapshot.config, { persist: false });
     setViewMode(openSnapshot.viewMode, { persist: false });
-    setWarnDeleteSingleAction(openSnapshot.warnDeleteSingleAction, { persist: false });
+    setWarnDeleteSingleAction(openSnapshot.warnDeleteSingleAction, {
+      persist: false,
+    });
     setWarnDeleteSubtree(openSnapshot.warnDeleteSubtree, { persist: false });
   };
 
@@ -209,8 +208,7 @@ export function AccountModal({
     const finalViewMode = draft.viewMode ?? viewMode;
     const finalWarnDeleteSingleAction =
       draft.warnDeleteSingleAction ?? warnDeleteSingleAction;
-    const finalWarnDeleteSubtree =
-      draft.warnDeleteSubtree ?? warnDeleteSubtree;
+    const finalWarnDeleteSubtree = draft.warnDeleteSubtree ?? warnDeleteSubtree;
 
     // Commit preferences + config to local persistence.
     setViewMode(finalViewMode, { persist: true });
@@ -248,10 +246,7 @@ export function AccountModal({
   };
 
   const Label = ({ icon, text, helpId = null }) => (
-    <span
-      className="config-label"
-      data-help-id={helpId || undefined}
-    >
+    <span className="config-label" data-help-id={helpId || undefined}>
       {icon ? <img src={icon} alt={text} className="inline-icon" /> : null}
       <span>{text}</span>
     </span>
@@ -339,7 +334,9 @@ export function AccountModal({
               mode="number"
               className="config-input"
               value={draft.redDefenseBoost ?? 0}
-              onChange={(nextValue) => updateField("redDefenseBoost", nextValue)}
+              onChange={(nextValue) =>
+                updateField("redDefenseBoost", nextValue)
+              }
               title={t("accountConfigRedDefense")}
             />
           </label>
@@ -357,7 +354,9 @@ export function AccountModal({
               mode="number"
               className="config-input"
               value={draft.blueAttackBoost ?? 0}
-              onChange={(nextValue) => updateField("blueAttackBoost", nextValue)}
+              onChange={(nextValue) =>
+                updateField("blueAttackBoost", nextValue)
+              }
               title={t("accountConfigBlueAttack")}
             />
           </label>
@@ -369,7 +368,9 @@ export function AccountModal({
               mode="number"
               className="config-input"
               value={draft.blueDefenseBoost ?? 0}
-              onChange={(nextValue) => updateField("blueDefenseBoost", nextValue)}
+              onChange={(nextValue) =>
+                updateField("blueDefenseBoost", nextValue)
+              }
               title={t("accountConfigBlueDefense")}
             />
           </label>
@@ -466,7 +467,10 @@ export function AccountModal({
         </div>
       </div>
 
-      <div className="config-row" data-help-id="profile-pref-tree-delete-single">
+      <div
+        className="config-row"
+        data-help-id="profile-pref-tree-delete-single"
+      >
         <Label text={t("accountPrefWarnDeleteSingle")} />
         <div className="preference-buttons">
           <button
@@ -484,7 +488,10 @@ export function AccountModal({
         </div>
       </div>
 
-      <div className="config-row" data-help-id="profile-pref-tree-delete-branch">
+      <div
+        className="config-row"
+        data-help-id="profile-pref-tree-delete-branch"
+      >
         <Label text={t("accountPrefWarnDeleteSubtree")} />
         <div className="preference-buttons">
           <button
@@ -652,7 +659,6 @@ export function AccountModal({
         <li>{t("legalPrivacyPurposePoint2")}</li>
         <li>{t("legalPrivacyPurposePoint3")}</li>
       </ul>
-
 
       <h4>{t("accountPrivacyContactTitle")}</h4>
       <div className="legal-block">

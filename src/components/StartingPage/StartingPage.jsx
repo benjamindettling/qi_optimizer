@@ -355,14 +355,22 @@ export function StartingPage({
           </div>
 
           <div className="starting-page-actions">
-            <button className="btn-start" onClick={handleStartClick} type="button">
+            <button
+              className="btn-start"
+              onClick={handleStartClick}
+              type="button"
+            >
               <StableLocalizedText
                 textPair={T.startOpenSimulator}
                 lang={lang}
                 className="starting-page-btn-label"
               />
             </button>
-            <button className="btn-secondary" onClick={onOpenSaves} type="button">
+            <button
+              className="btn-secondary"
+              onClick={onOpenSaves}
+              type="button"
+            >
               <StableLocalizedText
                 textPair={T.startSecondarySaves}
                 lang={lang}
@@ -380,7 +388,11 @@ export function StartingPage({
                 className="starting-page-btn-label"
               />
             </button>
-            <button className="btn-secondary" onClick={onStartTutorial} type="button">
+            <button
+              className="btn-secondary"
+              onClick={onStartTutorial}
+              type="button"
+            >
               <StableLocalizedText
                 textPair={T.tutorialStart}
                 lang={lang}
@@ -390,11 +402,17 @@ export function StartingPage({
           </div>
         </div>
 
-        <section className="starting-page-tutorial" aria-label={t("startFooterTutorialAria")}>
+        <section
+          className="starting-page-tutorial"
+          aria-label={t("startFooterTutorialAria")}
+        >
           {lang === "EN" ? TUTORIAL_EN : TUTORIAL_DE}
         </section>
 
-        <footer className="starting-page-footer" aria-label={t("startFooterLegalAria")}>
+        <footer
+          className="starting-page-footer"
+          aria-label={t("startFooterLegalAria")}
+        >
           <button
             type="button"
             className="starting-page-footer-link"
@@ -440,4 +458,3 @@ export function StartingPage({
     </>
   );
 }
-

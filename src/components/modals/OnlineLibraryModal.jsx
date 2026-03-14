@@ -1,11 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import {
-  SlidersHorizontal,
-  ArrowLeft,
-  Save,
-  User,
-  X,
-} from "lucide-react";
+import { SlidersHorizontal, ArrowLeft, Save, User, X } from "lucide-react";
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
@@ -24,7 +18,6 @@ import {
 } from "../../firebase/usernameAuth";
 import {
   listNewestSharedSaves,
-  listSharedSavesByUser,
   downloadSharedSave,
   renameSharedSave,
   deleteSharedSave,
@@ -95,6 +88,16 @@ function isSharedSaveImpossible(save, userConfig) {
     (uc.goodsStartBonus ?? 0) < (save.minGoods ?? 0) ||
     (uc.shardsLimit ?? 0) < (save.minShardsUsed ?? 0)
   );
+}
+
+function getSharedSaveMinimumViolations(save, userConfig) {
+  const uc = extractSaveConfig(userConfig);
+  return {
+    money: (uc.extraCoins ?? 0) < (Number(save?.minMoney) || 0),
+    supplies: (uc.extraSupplies ?? 0) < (Number(save?.minSupplies) || 0),
+    goods: (uc.goodsStartBonus ?? 0) < (Number(save?.minGoods) || 0),
+    shardsUsed: (uc.shardsLimit ?? 0) < (Number(save?.minShardsUsed) || 0),
+  };
 }
 
 function toFinite(v) {
@@ -332,26 +335,31 @@ export function OnlineLibraryModal({
 
   // ---- Profile navigation ----
 
-  const openProfile = useCallback(async (uid, username) => {
-    setProfileView({ uid, username });
-    setProfileLoading(true);
-    setProfileEditingDesc(false);
-    try {
-      const [userSaves, desc] = await Promise.all([
-        listSharedSavesByUser(uid),
-        getProfileDescription(uid),
-      ]);
+  const openProfile = useCallback(
+    async (uid, username) => {
+      setProfileView({ uid, username });
+      setProfileLoading(true);
+      setProfileEditingDesc(false);
+
+      const userSaves = (saves || []).filter((s) => s.ownerUid === uid);
+      let desc = "";
+
+      if (uid === currentUid) {
+        try {
+          desc = await getProfileDescription(uid);
+        } catch (err) {
+          console.error("Failed to load profile description", err);
+          desc = "";
+        }
+      }
+
       setProfileSaves(userSaves);
       setProfileDesc(desc);
       setProfileDescDraft(desc);
-    } catch (err) {
-      console.error("Failed to load profile", err);
-      setProfileSaves([]);
-      setProfileDesc("");
-    } finally {
       setProfileLoading(false);
-    }
-  }, []);
+    },
+    [currentUid, saves],
+  );
 
   const closeProfile = useCallback(() => {
     setProfileView(null);
@@ -421,7 +429,7 @@ export function OnlineLibraryModal({
 
   const handleOpenOwnProfile = useCallback(() => {
     if (!currentUid) {
-      setShowAuthPanel(true);
+      setShowAuthPanel((prev) => !prev);
       return;
     }
     setShowAuthPanel(false);
@@ -429,14 +437,18 @@ export function OnlineLibraryModal({
   }, [currentUid, currentUsername, openProfile]);
 
   const claimFallbackUsername = useCallback(async (uid, emailValue) => {
-    const base = String(emailValue ?? "user")
-      .split("@")[0]
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_.-]/g, "") || "user";
+    const base =
+      String(emailValue ?? "user")
+        .split("@")[0]
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_.-]/g, "") || "user";
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
-      const candidate = attempt === 0 ? base : `${base}${Math.floor(Math.random() * 9000) + 1000}`;
+      const candidate =
+        attempt === 0
+          ? base
+          : `${base}${Math.floor(Math.random() * 9000) + 1000}`;
       try {
         await claimUsername(uid, candidate, emailValue || "");
         return candidate;
@@ -458,7 +470,7 @@ export function OnlineLibraryModal({
             registerEmail.trim(),
             authPassword,
           );
-          const desiredUsername = registerUsername.trim().toLowerCase();
+          const desiredUsername = registerUsername.trim();
           if (desiredUsername) {
             await claimUsername(
               userCred.user.uid,
@@ -466,7 +478,8 @@ export function OnlineLibraryModal({
               registerEmail.trim(),
             );
           }
-          const actualUsername = desiredUsername || await fetchProfileUsername(userCred.user.uid);
+          const actualUsername =
+            desiredUsername || (await fetchProfileUsername(userCred.user.uid));
           setShowAuthPanel(false);
           await openProfile(userCred.user.uid, actualUsername || "?");
           setRegisterUsername("");
@@ -478,7 +491,10 @@ export function OnlineLibraryModal({
           );
           const username = await fetchProfileUsername(result.user.uid);
           setShowAuthPanel(false);
-          await openProfile(result.user.uid, username || result.user.email || "?");
+          await openProfile(
+            result.user.uid,
+            username || result.user.email || "?",
+          );
           setEmailOrUsername("");
         }
         setAuthPassword("");
@@ -656,16 +672,18 @@ export function OnlineLibraryModal({
             </div>
           )}
 
-          {showAuthPanel && !profileView && (
+          {showAuthPanel && (
             <div className="online-library-auth-panel">
               <div className="online-library-auth-toggle">
                 <button
+                  type="button"
                   className={authMode === "login" ? "active" : ""}
                   onClick={() => setAuthMode("login")}
                 >
                   {t("onlineAuthSignIn")}
                 </button>
                 <button
+                  type="button"
                   className={authMode === "register" ? "active" : ""}
                   onClick={() => setAuthMode("register")}
                 >
@@ -673,36 +691,66 @@ export function OnlineLibraryModal({
                 </button>
               </div>
 
-              <form className="online-library-auth-form" onSubmit={handleAuthSubmit}>
-                {authMode === "register" && (
+              <form
+                className="online-library-auth-form"
+                onSubmit={handleAuthSubmit}
+                autoComplete="on"
+              >
+                <div className="online-library-auth-grid">
+                  {authMode === "register" && (
+                    <QiInput
+                      mode="text"
+                      fullWidth
+                      value={registerUsername}
+                      onChange={setRegisterUsername}
+                      placeholder={t("onlineAuthUsername")}
+                      name="username"
+                      autoComplete="username"
+                    />
+                  )}
+
                   <QiInput
                     mode="text"
+                    type={authMode === "register" ? "email" : "text"}
                     fullWidth
-                    value={registerUsername}
-                    onChange={setRegisterUsername}
-                    placeholder={t("onlineAuthUsername")}
+                    value={
+                      authMode === "register" ? registerEmail : emailOrUsername
+                    }
+                    onChange={
+                      authMode === "register"
+                        ? setRegisterEmail
+                        : setEmailOrUsername
+                    }
+                    placeholder={
+                      authMode === "register"
+                        ? t("onlineAuthEmail")
+                        : t("onlineAuthIdentifier")
+                    }
+                    name={authMode === "register" ? "email" : "username"}
+                    autoComplete={
+                      authMode === "register" ? "email" : "username"
+                    }
                   />
-                )}
 
-                <QiInput
-                  mode="text"
-                  fullWidth
-                  value={authMode === "register" ? registerEmail : emailOrUsername}
-                  onChange={authMode === "register" ? setRegisterEmail : setEmailOrUsername}
-                  placeholder={
-                    authMode === "register"
-                      ? t("onlineAuthEmail")
-                      : t("onlineAuthIdentifier")
-                  }
-                />
-
-                <QiInput
-                  mode="text"
-                  fullWidth
-                  value={authPassword}
-                  onChange={setAuthPassword}
-                  placeholder={t("onlineAuthPassword")}
-                />
+                  <QiInput
+                    mode="text"
+                    type="password"
+                    fullWidth
+                    value={authPassword}
+                    onChange={setAuthPassword}
+                    placeholder={t("onlineAuthPassword")}
+                    name={
+                      authMode === "register"
+                        ? "new-password"
+                        : "current-password"
+                    }
+                    autoComplete={
+                      authMode === "register"
+                        ? "new-password"
+                        : "current-password"
+                    }
+                  />
+                </div>
 
                 {authError ? (
                   <div className="online-library-auth-error">{authError}</div>
@@ -710,14 +758,17 @@ export function OnlineLibraryModal({
 
                 <div className="online-library-auth-actions">
                   <button type="submit" className="online-library-auth-submit">
-                    {authMode === "register" ? t("onlineAuthCreate") : t("onlineAuthLogin")}
+                    {authMode === "register"
+                      ? t("onlineAuthCreate")
+                      : t("onlineAuthLogin")}
                   </button>
                   <button
                     type="button"
                     className="online-library-auth-google"
                     onClick={handleGoogleAuth}
                   >
-                    {t("onlineAuthGoogle")}
+                    <span className="online-library-auth-google-glyph">G</span>
+                    <span>{t("onlineAuthGoogle")}</span>
                   </button>
                 </div>
               </form>
@@ -827,6 +878,10 @@ export function OnlineLibraryModal({
                 const busy = busyId === save.id;
                 const stats = statsForSave(save);
                 const impossible = isSharedSaveImpossible(save, userConfig);
+                const minimumViolations = getSharedSaveMinimumViolations(
+                  save,
+                  userConfig,
+                );
                 return (
                   <SavefileCard
                     key={save.id}
@@ -834,6 +889,7 @@ export function OnlineLibraryModal({
                     isOwned={owner}
                     impossible={impossible}
                     stats={stats}
+                    minimumViolations={minimumViolations}
                     ownerUsername={!owner ? save.ownerUsername : undefined}
                     ownerUid={!owner ? save.ownerUid : undefined}
                     timestamp={save.updatedAt ?? save.uploadedAt}
@@ -866,6 +922,10 @@ export function OnlineLibraryModal({
               const busy = busyId === save.id;
               const stats = statsForSave(save);
               const impossible = isSharedSaveImpossible(save, userConfig);
+              const minimumViolations = getSharedSaveMinimumViolations(
+                save,
+                userConfig,
+              );
               return (
                 <SavefileCard
                   key={save.id}
@@ -873,6 +933,7 @@ export function OnlineLibraryModal({
                   isOwned={owner}
                   impossible={impossible}
                   stats={stats}
+                  minimumViolations={minimumViolations}
                   ownerUsername={!owner ? save.ownerUsername : undefined}
                   ownerUid={!owner ? save.ownerUid : undefined}
                   timestamp={save.updatedAt ?? save.uploadedAt}

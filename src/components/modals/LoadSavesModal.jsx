@@ -4,7 +4,10 @@ import { QiInput } from "../common/QiInput";
 import { SavefileCard } from "../common/SavefileCard";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
-import { getSavefileSyncState } from "../../utils/saveConfig";
+import {
+  extractSaveConfig,
+  getSavefileSyncState,
+} from "../../utils/saveConfig";
 import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
 export function LoadSavesModal({
@@ -58,6 +61,22 @@ export function LoadSavesModal({
     const outsidePerHour = getOutsideQaPerHour(userConfig);
     return FINAL_STEP * QA_HOURS_PER_STEP * outsidePerHour;
   }, [userConfig]);
+
+  const minimumViolationsFor = useMemo(() => {
+    const cfg = extractSaveConfig(userConfig);
+    const result = {};
+    sortedNames.forEach((name) => {
+      const stats = saves?.[name]?.stats ?? saves?.[name]?.tree?.stats;
+      const minimum = stats?.minimum ?? {};
+      result[name] = {
+        money: (cfg.extraCoins ?? 0) < (Number(minimum.money) || 0),
+        supplies: (cfg.extraSupplies ?? 0) < (Number(minimum.supplies) || 0),
+        goods: (cfg.goodsStartBonus ?? 0) < (Number(minimum.goods) || 0),
+        shardsUsed: (cfg.shardsLimit ?? 0) < (Number(minimum.shardsUsed) || 0),
+      };
+    });
+    return result;
+  }, [sortedNames, saves, userConfig]);
 
   const getCardDisplayStats = (name) => {
     const stats = saves?.[name]?.stats ?? saves?.[name]?.tree?.stats;
@@ -208,6 +227,7 @@ export function LoadSavesModal({
                   isOwned
                   impossible={saveStatuses[name] === "impossible"}
                   stats={cardStats}
+                  minimumViolations={minimumViolationsFor[name]}
                   onLoad={() => handleLoad(name)}
                   onRename={(newName) => onRename?.(name, newName)}
                   onExport={() => onExport?.(name)}

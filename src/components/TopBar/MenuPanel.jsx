@@ -1,5 +1,12 @@
 ﻿// Menu panel for TopBar - Save, Load, Upload, Admin, Settings, Online
-import { Save, FolderOpen, Upload, Sparkle, Settings, Globe } from "lucide-react";
+import {
+  Save,
+  FolderOpen,
+  Upload,
+  Sparkle,
+  Settings,
+  Globe,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLang } from "../../context/LanguageContext";
@@ -35,6 +42,8 @@ export function MenuPanel({
   const adminActive = adminMode && !editingLocked;
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadOverwriteOpen, setUploadOverwriteOpen] = useState(false);
+  const [uploadResult, setUploadResult] = useState(null);
   const [saveNameDraft, setSaveNameDraft] = useState("");
 
   const existingSaveNames = useMemo(
@@ -66,7 +75,8 @@ export function MenuPanel({
   };
 
   const currentSaveEntry = loadName ? saves?.[loadName] : null;
-  const currentSaveStats = currentSaveEntry?.stats ?? currentSaveEntry?.tree?.stats ?? null;
+  const currentSaveStats =
+    currentSaveEntry?.stats ?? currentSaveEntry?.tree?.stats ?? null;
   const outsideQaPerHour = getOutsideQaPerHour(userConfig);
   const outsideQaTotal = 23 * 12 * outsideQaPerHour;
   const uploadPreviewStats = currentSaveStats
@@ -74,7 +84,9 @@ export function MenuPanel({
         minimum: currentSaveStats.minimum ?? {},
         final: {
           ...(currentSaveStats.final ?? {}),
-          qaTotalDisplay: Number.isFinite(Number(currentSaveStats?.final?.totalQaSetup))
+          qaTotalDisplay: Number.isFinite(
+            Number(currentSaveStats?.final?.totalQaSetup),
+          )
             ? Number(currentSaveStats.final.totalQaSetup) + outsideQaTotal
             : null,
         },
@@ -90,10 +102,77 @@ export function MenuPanel({
     setUploadModalOpen(false);
   };
 
+  const closeUploadOverwriteModal = () => {
+    setUploadOverwriteOpen(false);
+  };
+
+  const closeUploadResultModal = () => {
+    setUploadResult(null);
+  };
+
+  const uploadErrorMessage = (code) => {
+    switch (code) {
+      case "AUTH_REQUIRED":
+        return t("uploadErrorAuth");
+      case "SAVE_NOT_FOUND":
+      case "MISSING_NAME":
+        return t("uploadErrorNoSave");
+      case "USERNAME_MISSING":
+        return t("uploadErrorNoUsername");
+      default:
+        return t("uploadErrorGeneric");
+    }
+  };
+
   const handleConfirmUpload = async () => {
     if (!loadName) return;
-    await onUploadShared?.(loadName);
+    const result = await onUploadShared?.(loadName, { overwrite: false });
+
+    if (result?.status === "needs-overwrite") {
+      setUploadModalOpen(false);
+      setUploadOverwriteOpen(true);
+      return;
+    }
+
     setUploadModalOpen(false);
+
+    if (result?.status === "success") {
+      setUploadResult({
+        title:
+          result.action === "overwritten"
+            ? t("uploadResultOverwrittenTitle")
+            : t("uploadResultUploadedTitle"),
+        body:
+          result.action === "overwritten"
+            ? t("uploadResultOverwrittenBody").replace("{name}", loadName)
+            : t("uploadResultUploadedBody").replace("{name}", loadName),
+      });
+      return;
+    }
+
+    setUploadResult({
+      title: t("uploadErrorTitle"),
+      body: uploadErrorMessage(result?.code),
+    });
+  };
+
+  const handleConfirmOverwriteUpload = async () => {
+    if (!loadName) return;
+    const result = await onUploadShared?.(loadName, { overwrite: true });
+    setUploadOverwriteOpen(false);
+
+    if (result?.status === "success") {
+      setUploadResult({
+        title: t("uploadResultOverwrittenTitle"),
+        body: t("uploadResultOverwrittenBody").replace("{name}", loadName),
+      });
+      return;
+    }
+
+    setUploadResult({
+      title: t("uploadErrorTitle"),
+      body: uploadErrorMessage(result?.code),
+    });
   };
 
   const handleDelete = (name, e) => {
@@ -300,6 +379,65 @@ export function MenuPanel({
                     onClick={handleConfirmUpload}
                   >
                     {t("btnUploadLabel")}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {uploadOverwriteOpen && typeof document !== "undefined"
+        ? createPortal(
+            <div className="modal">
+              <div className="modal-card menu-save-modal">
+                <div className="help-header">
+                  <h3>{t("uploadOverwriteTitle")}</h3>
+                </div>
+                <div className="menu-save-modal-body">
+                  <p>
+                    {t("uploadOverwriteBody").replace(
+                      "{name}",
+                      loadName || "-",
+                    )}
+                  </p>
+                </div>
+                <div className="modal-actions">
+                  <button
+                    className="menu-save-modal-cancel"
+                    onClick={closeUploadOverwriteModal}
+                  >
+                    {t("startConfigCancel")}
+                  </button>
+                  <button
+                    className="menu-save-modal-confirm"
+                    onClick={handleConfirmOverwriteUpload}
+                  >
+                    {t("uploadOverwriteConfirm")}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {uploadResult && typeof document !== "undefined"
+        ? createPortal(
+            <div className="modal">
+              <div className="modal-card menu-save-modal">
+                <div className="help-header">
+                  <h3>{uploadResult.title}</h3>
+                </div>
+                <div className="menu-save-modal-body">
+                  <p>{uploadResult.body}</p>
+                </div>
+                <div className="modal-actions">
+                  <button
+                    className="menu-save-modal-confirm"
+                    onClick={closeUploadResultModal}
+                  >
+                    {t("loadSavesBtnConfirm")}
                   </button>
                 </div>
               </div>
