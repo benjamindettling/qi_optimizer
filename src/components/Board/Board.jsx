@@ -490,6 +490,14 @@ export function Board({
     };
   }, [boardHeightPx, boardWidthPx, isTouchSelection, previewRect, safeCellSize]);
 
+  const touchActionAnchor = useMemo(() => {
+    if (!previewRect || !touchActionButtons) return null;
+    return {
+      x: previewRect.x + previewRect.width / 2,
+      y: previewRect.y + previewRect.height / 2,
+    };
+  }, [previewRect, touchActionButtons]);
+
   const unlockedGridPath = useMemo(() => {
     const segments = [];
     const hasCell = (col, row) => unlockedCellSet.has(`${col},${row}`);
@@ -1435,8 +1443,11 @@ export function Board({
                     </g>
                   ) : null}
 
-                  {previewRect && touchActionButtons ? (
-                    <g data-layer="touch-actions">
+                  {previewRect && touchActionButtons && touchActionAnchor ? (
+                    <g
+                      data-layer="touch-actions"
+                      transform={`rotate(${labelCounterRotation} ${touchActionAnchor.x} ${touchActionAnchor.y})`}
+                    >
                       <g
                         className="touch-action-button touch-action-button--confirm"
                         transform={`translate(${touchActionButtons.confirm.x} ${touchActionButtons.confirm.y})`}
