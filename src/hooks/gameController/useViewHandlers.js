@@ -29,7 +29,13 @@ export const useViewHandlers = ({
       return null;
     }
     
-    const newOrigin = buildPreviewOrigin(hoverCell, previewDef, categoryColors, isCellUnlocked);
+    const newOrigin = buildPreviewOrigin(
+      hoverCell,
+      previewDef,
+      categoryColors,
+      isCellUnlocked,
+      lastValidPreviewRef.current,
+    );
     
     // If new position is valid, update and use it
     if (newOrigin) {

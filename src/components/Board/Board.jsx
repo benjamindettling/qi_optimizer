@@ -210,9 +210,12 @@ export function Board({
     startY: 0,
     hasDragged: false,
     ghostAtStart: null,
+    startScrollX: 0,
+    startScrollY: 0,
   });
   const [isTouchSelection, setIsTouchSelection] = useState(false);
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
+  const isPreviewDragActive = !!selectedBuildingId || !!carried;
   const hideAdminLockButtons =
     moveMode ||
     sellMode ||
@@ -775,7 +778,8 @@ export function Board({
   const labelCounterRotation = -parseRotation(viewRotation);
 
   const resolveCellFromClient = useCallback(
-    (clientX, clientY) => {
+    (clientX, clientY, options = {}) => {
+      const { clampToBoard = false } = options;
       const svgNode = svgRef.current;
       const boardSpaceNode = boardSpaceRef.current;
       if (!svgNode || !boardSpaceNode) return null;
@@ -787,18 +791,26 @@ export function Board({
       point.x = clientX;
       point.y = clientY;
       const localPoint = point.matrixTransform(ctm.inverse());
+      const maxLocalX = Math.max(0, boardWidthPx - 1e-6);
+      const maxLocalY = Math.max(0, boardHeightPx - 1e-6);
+      const resolvedX = clampToBoard
+        ? Math.min(Math.max(localPoint.x, 0), maxLocalX)
+        : localPoint.x;
+      const resolvedY = clampToBoard
+        ? Math.min(Math.max(localPoint.y, 0), maxLocalY)
+        : localPoint.y;
 
       if (
-        localPoint.x < 0 ||
-        localPoint.y < 0 ||
-        localPoint.x >= boardWidthPx ||
-        localPoint.y >= boardHeightPx
+        resolvedX < 0 ||
+        resolvedY < 0 ||
+        resolvedX >= boardWidthPx ||
+        resolvedY >= boardHeightPx
       ) {
         return null;
       }
 
-      const localCol = Math.floor(localPoint.x / safeCellSize);
-      const localRow = Math.floor(localPoint.y / safeCellSize);
+      const localCol = Math.floor(resolvedX / safeCellSize);
+      const localRow = Math.floor(resolvedY / safeCellSize);
 
       if (
         localCol < 0 ||
@@ -829,7 +841,9 @@ export function Board({
 
   const handlePointerMove = useCallback(
     (event) => {
-      const cell = resolveCellFromClient(event.clientX, event.clientY);
+      const cell = resolveCellFromClient(event.clientX, event.clientY, {
+        clampToBoard: true,
+      });
       if (!cell) return;
 
       if (
@@ -861,6 +875,8 @@ export function Board({
         startY: event.clientY,
         hasDragged: false,
         ghostAtStart: previewOrigin ? { ...previewOrigin } : null,
+        startScrollX: typeof window !== "undefined" ? window.scrollX : 0,
+        startScrollY: typeof window !== "undefined" ? window.scrollY : 0,
       };
 
       if (
@@ -872,14 +888,19 @@ export function Board({
 
       pointerDownCellRef.current = cell;
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
-      try {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-      } catch {
-        // ignore capture failures
+      const shouldCapturePointer =
+        event.pointerType !== "touch" || isPreviewDragActive;
+      if (shouldCapturePointer) {
+        try {
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+        } catch {
+          // ignore capture failures
+        }
       }
     },
     [
       isTouchSelection,
+      isPreviewDragActive,
       layout,
       moveMode,
       previewOrigin,
@@ -899,8 +920,19 @@ export function Board({
       const pState = pointerStateRef.current;
       const isTouch =
         event.pointerType === "touch" || pState.pointerType === "touch";
+      const scrollDeltaX =
+        typeof window !== "undefined"
+          ? Math.abs(window.scrollX - (pState.startScrollX || 0))
+          : 0;
+      const scrollDeltaY =
+        typeof window !== "undefined"
+          ? Math.abs(window.scrollY - (pState.startScrollY || 0))
+          : 0;
 
       if (isTouch && pState.hasDragged) {
+        return;
+      }
+      if (isTouch && (scrollDeltaX > 2 || scrollDeltaY > 2)) {
         return;
       }
 
@@ -931,10 +963,17 @@ export function Board({
     ],
   );
 
+  const handlePointerCancel = useCallback(() => {
+    pointerDownCellRef.current = null;
+    pointerStateRef.current.hasDragged = true;
+  }, []);
+
   const handleDragOver = useCallback(
     (event) => {
       event.preventDefault();
-      const cell = resolveCellFromClient(event.clientX, event.clientY);
+      const cell = resolveCellFromClient(event.clientX, event.clientY, {
+        clampToBoard: true,
+      });
       if (!cell) return;
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
     },
@@ -1026,6 +1065,7 @@ export function Board({
             className="board-svg"
             width={svgWidthPx}
             height={svgHeightPx}
+            style={{ touchAction: isPreviewDragActive ? "none" : "auto" }}
             data-view-cols={safeCols}
             data-view-rows={safeRows}
             data-view-col-start={viewColStart}
@@ -1102,6 +1142,7 @@ export function Board({
                     onPointerMove={handlePointerMove}
                     onPointerDown={handlePointerDown}
                     onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerCancel}
                     onPointerLeave={() => {
                       pointerDownCellRef.current = null;
                     }}

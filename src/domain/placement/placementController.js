@@ -193,30 +193,94 @@ export const canPlaceDef = ({
   return { ok: true, x: adjustedX, y: adjustedY };
 };
 
-export const buildPreviewOrigin = (hoverCell, previewDef, categoryColors, isCellUnlocked) => {
+const clampValue = (value, min, max) =>
+  Math.min(Math.max(value, min), max);
+
+const isPlacementUnlocked = (x, y, def, isCellUnlocked) => {
+  if (typeof isCellUnlocked !== "function") return true;
+  for (let dy = 0; dy < def.height; dy += 1) {
+    for (let dx = 0; dx < def.width; dx += 1) {
+      if (!isCellUnlocked(x + dx, y + dy)) return false;
+    }
+  }
+  return true;
+};
+
+const asPreviewOrigin = (x, y, previewDef, categoryColors) => ({
+  x,
+  y,
+  width: previewDef.width,
+  height: previewDef.height,
+  color: categoryColors[previewDef.category],
+});
+
+export const buildPreviewOrigin = (
+  hoverCell,
+  previewDef,
+  categoryColors,
+  isCellUnlocked,
+  previousOrigin = null,
+) => {
   if (!hoverCell || !previewDef) return null;
-  
-  const x = Math.min(hoverCell.x, BOARD_WIDTH - previewDef.width);
-  const y = Math.min(hoverCell.y, BOARD_HEIGHT - previewDef.height);
-  
-  // Check if all cells in the preview area are unlocked
-  if (typeof isCellUnlocked === "function") {
-    for (let dy = 0; dy < previewDef.height; dy++) {
-      for (let dx = 0; dx < previewDef.width; dx++) {
-        if (!isCellUnlocked(x + dx, y + dy)) {
-          return null; // Don't show preview in locked/void areas
-        }
+
+  const maxX = Math.max(0, BOARD_WIDTH - previewDef.width);
+  const maxY = Math.max(0, BOARD_HEIGHT - previewDef.height);
+  const desiredX = clampValue(hoverCell.x, 0, maxX);
+  const desiredY = clampValue(hoverCell.y, 0, maxY);
+  const canPlace = (x, y) =>
+    isPlacementUnlocked(x, y, previewDef, isCellUnlocked);
+
+  if (canPlace(desiredX, desiredY)) {
+    return asPreviewOrigin(desiredX, desiredY, previewDef, categoryColors);
+  }
+
+  const candidates = [];
+  const addCandidate = (x, y) => {
+    if (!canPlace(x, y)) return;
+    candidates.push({
+      x,
+      y,
+      score:
+        Math.abs(x - desiredX) +
+        Math.abs(y - desiredY),
+    });
+  };
+
+  if (previousOrigin) {
+    const prevX = clampValue(previousOrigin.x, 0, maxX);
+    const prevY = clampValue(previousOrigin.y, 0, maxY);
+    addCandidate(prevX, desiredY);
+    addCandidate(desiredX, prevY);
+  }
+
+  for (let dist = 0; dist <= maxX; dist += 1) {
+    const left = desiredX - dist;
+    const right = desiredX + dist;
+    if (left >= 0) addCandidate(left, desiredY);
+    if (right <= maxX && right !== left) addCandidate(right, desiredY);
+    if (candidates.length) break;
+  }
+
+  for (let dist = 0; dist <= maxY; dist += 1) {
+    const up = desiredY - dist;
+    const down = desiredY + dist;
+    if (up >= 0) addCandidate(desiredX, up);
+    if (down <= maxY && down !== up) addCandidate(desiredX, down);
+    if (candidates.length) break;
+  }
+
+  if (!candidates.length) {
+    for (let y = 0; y <= maxY; y += 1) {
+      for (let x = 0; x <= maxX; x += 1) {
+        addCandidate(x, y);
       }
     }
   }
-  
-  return {
-    x,
-    y,
-    width: previewDef.width,
-    height: previewDef.height,
-    color: categoryColors[previewDef.category],
-  };
+
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => a.score - b.score);
+  const best = candidates[0];
+  return asPreviewOrigin(best.x, best.y, previewDef, categoryColors);
 };
 
 export const findTargetInstance = (layout, x, y) =>
