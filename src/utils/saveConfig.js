@@ -651,6 +651,30 @@ export const analyzeSmallestSaveConfig = ({
     }
   };
 
+  const applySellHarvestSim = (target) => {
+    if (!target || readySim[target.id] !== true) return;
+    const lockOverride = { ...buildLocksSim, [target.id]: false };
+    const statsSnapshot = computeStatsForLayout(
+      layoutSim,
+      lockOverride,
+      effectiveConfig,
+    );
+    const delta = computeBuildingHarvest(
+      { defId: target.defId },
+      BUILT_LIBRARY_MAP,
+      statsSnapshot,
+      { qaHoursPerHarvest: getQaHoursPerStep(effectiveConfig, 12) },
+    );
+    applyResourceDeltaSim({
+      coins: delta.coins ?? 0,
+      supplies: delta.supplies ?? 0,
+      chronos: delta.chronos ?? 0,
+      quantumActions: delta.qa ?? 0,
+      goods: delta.goods ?? {},
+    });
+    readySim[target.id] = false;
+  };
+
   const minima = {
     coins: Number(resources.coins ?? 0),
     supplies: Number(resources.supplies ?? 0),
@@ -681,13 +705,14 @@ export const analyzeSmallestSaveConfig = ({
       case "sellFull":
       case "sellAdmin": {
         if (!def) break;
+        const target = findSimInstance(action);
+        applySellHarvestSim(target);
         const refund = getRefund(defId);
         if (action.type === "sell") {
           applyRefundSim(refund);
         } else if (action.type === "sellFull") {
           applyRefundSim(def.cost);
         }
-        const target = findSimInstance(action);
         if (target) removeSimInstance(target.id);
         break;
       }
