@@ -225,7 +225,8 @@ export function Board({
     !!selectedBuildingId ||
     !!carried ||
     isTouchSelection;
-  const regionInteractionsDisabled = isShopOpen || !!selectedBuildingId || isTouchSelection;
+  const regionInteractionsDisabled =
+    isShopOpen || !!selectedBuildingId || isTouchSelection;
 
   useEffect(() => {
     if (!wrapperRef.current || !onWrapperResize) return undefined;
@@ -351,11 +352,7 @@ export function Board({
         const isDebugUnlockable =
           adminMode && !isVoid && !unlocked && isNeighbor;
         const isDebugLockable =
-          adminMode &&
-          !hideAdminLockButtons &&
-          !isVoid &&
-          unlocked &&
-          !isBase;
+          adminMode && !hideAdminLockButtons && !isVoid && unlocked && !isBase;
         const clickable =
           normalClickable || isDebugUnlockable || isDebugLockable;
 
@@ -471,7 +468,8 @@ export function Board({
 
     let centerY = previewRect.y - buttonRadius - buttonMargin;
     if (centerY - buttonRadius < 0) {
-      centerY = previewRect.y + previewRect.height + buttonRadius + buttonMargin;
+      centerY =
+        previewRect.y + previewRect.height + buttonRadius + buttonMargin;
     }
     centerY = Math.min(
       boardHeightPx - buttonRadius,
@@ -491,7 +489,13 @@ export function Board({
         y: centerY,
       },
     };
-  }, [boardHeightPx, boardWidthPx, isTouchSelection, previewRect, safeCellSize]);
+  }, [
+    boardHeightPx,
+    boardWidthPx,
+    isTouchSelection,
+    previewRect,
+    safeCellSize,
+  ]);
 
   const touchActionAnchor = useMemo(() => {
     if (!previewRect || !touchActionButtons) return null;
@@ -968,6 +972,46 @@ export function Board({
     pointerStateRef.current.hasDragged = true;
   }, []);
 
+  useEffect(() => {
+    if (!isPreviewDragActive) return undefined;
+
+    const handleWindowPointerUp = (event) => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+
+      const wrapperNode = wrapperRef.current;
+      const svgNode = svgRef.current;
+      if (!wrapperNode || !svgNode) return;
+
+      const target = event.target;
+      if (target instanceof Node && svgNode.contains(target)) {
+        return;
+      }
+
+      const wrapperRect = wrapperNode.getBoundingClientRect();
+      if (
+        event.clientX < wrapperRect.left ||
+        event.clientX > wrapperRect.right ||
+        event.clientY < wrapperRect.top ||
+        event.clientY > wrapperRect.bottom
+      ) {
+        return;
+      }
+
+      const cell = resolveCellFromClient(event.clientX, event.clientY, {
+        clampToBoard: true,
+      });
+      if (!cell) return;
+
+      pointerDownCellRef.current = null;
+      handleCellClick(cell.globalCol, cell.globalRow);
+    };
+
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    return () => {
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+    };
+  }, [handleCellClick, isPreviewDragActive, resolveCellFromClient]);
+
   const handleDragOver = useCallback(
     (event) => {
       event.preventDefault();
@@ -1402,45 +1446,47 @@ export function Board({
                   <g data-layer="region-interactions">
                     {!regionInteractionsDisabled &&
                       visibleRegions
-                      .filter((region) => region.clickable)
-                      .map((region) => (
-                        <rect
-                          key={`region-hit-${region.idx}`}
-                          x={region.x}
-                          y={region.y}
-                          width={region.width}
-                          height={region.height}
-                          fill="transparent"
-                          style={{ cursor: "pointer" }}
-                          onPointerEnter={() => setHoveredRegionIdx(region.idx)}
-                          onPointerLeave={() => setHoveredRegionIdx(null)}
-                          onPointerDown={(event) => {
-                            event.stopPropagation();
-                          }}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleRegionClick(region);
-                          }}
-                        >
-                          <title>
-                            {adminMode
-                              ? region.isDebugUnlockable
-                                ? "Debug: Unlock for free"
-                                : region.isDebugLockable
-                                  ? "Debug: Lock again"
-                                  : region.isBase
-                                    ? "Base region (cannot lock)"
-                                    : region.unlocked
-                                      ? "Unlocked"
-                                      : "Locked"
-                              : region.unlocked
-                                ? "Unlocked region"
-                                : region.isNeighbor
-                                  ? "Click to unlock region"
-                                  : "Locked region (not adjacent)"}
-                          </title>
-                        </rect>
-                      ))}
+                        .filter((region) => region.clickable)
+                        .map((region) => (
+                          <rect
+                            key={`region-hit-${region.idx}`}
+                            x={region.x}
+                            y={region.y}
+                            width={region.width}
+                            height={region.height}
+                            fill="transparent"
+                            style={{ cursor: "pointer" }}
+                            onPointerEnter={() =>
+                              setHoveredRegionIdx(region.idx)
+                            }
+                            onPointerLeave={() => setHoveredRegionIdx(null)}
+                            onPointerDown={(event) => {
+                              event.stopPropagation();
+                            }}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleRegionClick(region);
+                            }}
+                          >
+                            <title>
+                              {adminMode
+                                ? region.isDebugUnlockable
+                                  ? "Debug: Unlock for free"
+                                  : region.isDebugLockable
+                                    ? "Debug: Lock again"
+                                    : region.isBase
+                                      ? "Base region (cannot lock)"
+                                      : region.unlocked
+                                        ? "Unlocked"
+                                        : "Locked"
+                                : region.unlocked
+                                  ? "Unlocked region"
+                                  : region.isNeighbor
+                                    ? "Click to unlock region"
+                                    : "Locked region (not adjacent)"}
+                            </title>
+                          </rect>
+                        ))}
                   </g>
 
                   {helpMode ? (

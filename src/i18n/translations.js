@@ -1488,6 +1488,10 @@
     DE: "Download fehlgeschlagen",
     EN: "Download failed",
   },
+  onlineLibraryLoadError: {
+    DE: "Laden fehlgeschlagen",
+    EN: "Loading failed",
+  },
   onlineLibraryRenameError: {
     DE: "Umbenennen fehlgeschlagen",
     EN: "Rename failed",

@@ -286,6 +286,7 @@ export function AppModals({
         onClose={() => setOnlineLibraryModal(false)}
         userConfig={userConfig}
         currentUsername={cloudProfile?.username || ""}
+        onLoadSharedSave={handleImportSelected}
       />
       <PastEditWarningModal
         open={pastEditModal}

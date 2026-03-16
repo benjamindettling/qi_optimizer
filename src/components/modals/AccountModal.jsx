@@ -16,6 +16,10 @@ import suppliesIcon from "/supplies.webp";
 import goodsIcon from "/goods/Kupfer.webp";
 import troopIcon from "/troop.webp";
 import shardsIcon from "/shards.webp";
+import redAttackIcon from "/fight/red_attack.webp";
+import redDefenseIcon from "/fight/red_defense.webp";
+import blueAttackIcon from "/fight/blue_attack.webp";
+import blueDefenseIcon from "/fight/blue_defense.webp";
 import qaIcon from "/quantum_actions.webp";
 import { useLang } from "../../context/LanguageContext";
 import { T } from "../../i18n/translations";
@@ -315,8 +319,12 @@ export function AccountModal({
       <div className="config-row army-row">
         <div className="army-row-fields">
           <label className="army-field">
-            <span className="army-field-label">
-              {t("accountConfigRedAttack")} (%)
+            <span className="army-field-label army-field-icon-label">
+              <img
+                src={redAttackIcon}
+                alt={t("accountConfigRedAttack")}
+                className="inline-icon"
+              />
             </span>
             <QiInput
               mode="number"
@@ -327,8 +335,12 @@ export function AccountModal({
             />
           </label>
           <label className="army-field">
-            <span className="army-field-label">
-              {t("accountConfigRedDefense")} (%)
+            <span className="army-field-label army-field-icon-label">
+              <img
+                src={redDefenseIcon}
+                alt={t("accountConfigRedDefense")}
+                className="inline-icon"
+              />
             </span>
             <QiInput
               mode="number"
@@ -347,8 +359,12 @@ export function AccountModal({
       <div className="config-row army-row">
         <div className="army-row-fields">
           <label className="army-field">
-            <span className="army-field-label">
-              {t("accountConfigBlueAttack")} (%)
+            <span className="army-field-label army-field-icon-label">
+              <img
+                src={blueAttackIcon}
+                alt={t("accountConfigBlueAttack")}
+                className="inline-icon"
+              />
             </span>
             <QiInput
               mode="number"
@@ -361,8 +377,12 @@ export function AccountModal({
             />
           </label>
           <label className="army-field">
-            <span className="army-field-label">
-              {t("accountConfigBlueDefense")} (%)
+            <span className="army-field-label army-field-icon-label">
+              <img
+                src={blueDefenseIcon}
+                alt={t("accountConfigBlueDefense")}
+                className="inline-icon"
+              />
             </span>
             <QiInput
               mode="number"

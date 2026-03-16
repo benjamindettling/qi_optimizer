@@ -110,6 +110,7 @@ export function OnlineLibraryModal({
   onClose,
   userConfig,
   currentUsername = "",
+  onLoadSharedSave,
 }) {
   const { lang } = useLang();
   const t = useCallback((key) => T[key]?.[lang] ?? T[key]?.DE ?? key, [lang]);
@@ -285,6 +286,30 @@ export function OnlineLibraryModal({
       }
     },
     [busyId, t],
+  );
+
+  const handleLoadIntoSimulator = useCallback(
+    async (save) => {
+      if (busyId) return;
+      setBusyId(save.id);
+      try {
+        const parsed = await downloadSharedSave(save.id);
+        const normalizedParsed =
+          parsed && typeof parsed === "object"
+            ? {
+                ...parsed,
+                name: parsed.name || save.title || "Import",
+              }
+            : parsed;
+        onLoadSharedSave?.([], normalizedParsed);
+      } catch (err) {
+        console.error("Load from online library failed", err);
+        alert(t("onlineLibraryLoadError"));
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [busyId, onLoadSharedSave, t],
   );
 
   const handleConfirmDelete = useCallback(
@@ -893,7 +918,7 @@ export function OnlineLibraryModal({
                     ownerUsername={!owner ? save.ownerUsername : undefined}
                     ownerUid={!owner ? save.ownerUid : undefined}
                     timestamp={save.updatedAt ?? save.uploadedAt}
-                    onLoad={() => handleDownload(save)}
+                    onLoad={() => handleLoadIntoSimulator(save)}
                     onRename={
                       owner
                         ? (newName) =>
@@ -937,7 +962,7 @@ export function OnlineLibraryModal({
                   ownerUsername={!owner ? save.ownerUsername : undefined}
                   ownerUid={!owner ? save.ownerUid : undefined}
                   timestamp={save.updatedAt ?? save.uploadedAt}
-                  onLoad={() => handleDownload(save)}
+                  onLoad={() => handleLoadIntoSimulator(save)}
                   onRename={
                     owner
                       ? (newName) => handleConfirmRenameImmediate(save, newName)

@@ -47,6 +47,8 @@
   max-height: clamp(24rem, 60vh, 34rem);
   overflow: auto;
   justify-content: start;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
 }
 
 .card {

@@ -160,6 +160,17 @@
   white-space: nowrap;
 }
 
+.account-modal .army-field-label.army-field-icon-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.account-modal .army-field-label.army-field-icon-label .inline-icon {
+  width: 18px;
+  height: 18px;
+}
+
 .account-modal .army-field .config-input {
   width: 64px;
 }

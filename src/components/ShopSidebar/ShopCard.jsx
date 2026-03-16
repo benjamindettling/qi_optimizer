@@ -38,6 +38,7 @@ const TRANSPARENT_IMG = (() => {
 
 let dragMoved = false;
 let touchMoved = false;
+const TOUCH_TAP_THRESHOLD_PX = 12;
 
 const isMhDefId = (defId) =>
   typeof defId === "string" &&
@@ -65,6 +66,8 @@ export function ShopCard({
   const [showCosts, setShowCosts] = useState(false);
   const hasCostTable = !!item.goodsCost || !!item.unitCosts;
   const titleRef = useRef(null);
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const suppressClickUntilRef = useRef(0);
 
   useLayoutEffect(() => {
     const el = titleRef.current;
@@ -292,6 +295,7 @@ export function ShopCard({
 
   const handleSelect = () => {
     if (!buildable) return;
+    if (Date.now() < suppressClickUntilRef.current) return;
     if (dragMoved) {
       dragMoved = false;
       return;
@@ -303,7 +307,7 @@ export function ShopCard({
   return (
     <div
       className={`card card-grid ${!buildable ? "disabled" : ""}`}
-      style={{ touchAction: "none" }}
+      style={{ touchAction: "auto" }}
       data-tutorial-zone={
         isMhDefId(defId)
           ? "mh-card"
@@ -347,19 +351,29 @@ export function ShopCard({
         dragMoved = false;
       }}
       onTouchStart={() => {
-        if (!buildable) return;
         touchMoved = false;
         dragMoved = false;
-        onResetModes?.();
-        onSelect?.(defId);
       }}
-      onTouchMove={() => {
-        touchMoved = true;
-        dragMoved = true;
+      onTouchStartCapture={(event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+      }}
+      onTouchMove={(event) => {
+        const touch = event.touches?.[0];
+        if (!touch) return;
+        const dx = Math.abs(touch.clientX - touchStartRef.current.x);
+        const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+        if (dx > TOUCH_TAP_THRESHOLD_PX || dy > TOUCH_TAP_THRESHOLD_PX) {
+          touchMoved = true;
+          dragMoved = true;
+        }
       }}
       onTouchEnd={() => {
+        suppressClickUntilRef.current = Date.now() + 400;
         if (!buildable) return;
         if (!touchMoved) {
+          onResetModes?.();
           onSelect?.(defId);
         }
         touchMoved = false;
