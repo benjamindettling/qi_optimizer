@@ -118,6 +118,14 @@ const loadTreeSettings = () => {
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+const INTERACTIVE_TREE_TARGET_SELECTOR =
+  ".node-group, .square-group, .triangle-group, .edge-hit, .checkpoint-marker, .checkpoint-line, .checkpoint-label";
+
+const getEventClientPoint = (event) => ({
+  x: event.clientX ?? event.touches?.[0]?.clientX ?? 0,
+  y: event.clientY ?? event.touches?.[0]?.clientY ?? 0,
+});
+
 /**
  * TreeVisualizer - A git branch-like horizontal tree for history navigation
  * With checkpoint support and auto-centering
@@ -1179,16 +1187,15 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       .scaleExtent([ZOOM_MIN_SCALE, ZOOM_MAX_SCALE])
       .filter((event) => {
         if (isDraggingRef.current || event.ctrlKey) return false;
+        const target = event.target;
+        if (
+          target instanceof Element &&
+          target.closest(INTERACTIVE_TREE_TARGET_SELECTOR)
+        ) {
+          return false;
+        }
         if (event.type === "mousedown") {
           if (event.button === 0) {
-            const target = event.target;
-            if (
-              target.closest(
-                ".node-group, .square-group, .triangle-group, .edge-hit, .checkpoint-marker, .checkpoint-line, .checkpoint-label",
-              )
-            ) {
-              return false;
-            }
           }
           return event.button === 0 || event.button === 1;
         }
@@ -1447,8 +1454,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
       isDraggingRef.current = true;
       const rect = containerRef.current?.getBoundingClientRect();
-      const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-      const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+      const point = getEventClientPoint(event);
+      const clientX = point.x;
+      const clientY = point.y;
 
       setDragState({
         nodeId,
@@ -1466,10 +1474,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const handleDragMove = useCallback(
     (event) => {
       if (!dragState || !isDraggingRef.current) return;
+      if (event.cancelable) {
+        event.preventDefault();
+      }
 
       const rect = containerRef.current?.getBoundingClientRect();
-      const clientX = event.clientX ?? event.touches?.[0]?.clientX ?? 0;
-      const clientY = event.clientY ?? event.touches?.[0]?.clientY ?? 0;
+      const point = getEventClientPoint(event);
+      const clientX = point.x;
+      const clientY = point.y;
       const x = clientX - (rect?.left ?? 0);
       const y = clientY - (rect?.top ?? 0);
 
@@ -1548,18 +1560,14 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     const handleMove = (e) => handleDragMove(e);
     const handleEnd = () => handleDragEnd();
 
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleEnd);
-    window.addEventListener("touchmove", handleMove, { passive: false });
-    window.addEventListener("touchend", handleEnd);
-    window.addEventListener("touchcancel", handleEnd);
+    window.addEventListener("pointermove", handleMove, { passive: false });
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
 
     return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleEnd);
-      window.removeEventListener("touchmove", handleMove);
-      window.removeEventListener("touchend", handleEnd);
-      window.removeEventListener("touchcancel", handleEnd);
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleEnd);
+      window.removeEventListener("pointercancel", handleEnd);
     };
   }, [dragState, handleDragMove, handleDragEnd]);
 
@@ -2134,17 +2142,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         if (!deleteMode) return;
         setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
       })
-      .on("mousedown", (event, d) => {
+      .on("pointerdown", (event, d) => {
         if (deleteMode) return;
-        // Start drag on mousedown (not click)
         if (event.button === 0 && d.id !== 0) {
-          // Left click only, not root
-          handleDragStart(d.id, event);
-        }
-      })
-      .on("touchstart", (event, d) => {
-        if (deleteMode) return;
-        if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
       });
@@ -2239,15 +2239,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         if (!deleteMode) return;
         setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
       })
-      .on("mousedown", (event, d) => {
+      .on("pointerdown", (event, d) => {
         if (deleteMode) return;
         if (event.button === 0 && d.id !== 0) {
-          handleDragStart(d.id, event);
-        }
-      })
-      .on("touchstart", (event, d) => {
-        if (deleteMode) return;
-        if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
       });
@@ -2322,15 +2316,9 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         if (!deleteMode) return;
         setDeleteHoverNodeId((prev) => (prev === d.id ? null : prev));
       })
-      .on("mousedown", (event, d) => {
+      .on("pointerdown", (event, d) => {
         if (deleteMode) return;
         if (event.button === 0 && d.id !== 0) {
-          handleDragStart(d.id, event);
-        }
-      })
-      .on("touchstart", (event, d) => {
-        if (deleteMode) return;
-        if (d.id !== 0) {
           handleDragStart(d.id, event);
         }
       });
