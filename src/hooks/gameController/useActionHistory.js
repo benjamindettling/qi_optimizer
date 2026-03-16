@@ -926,14 +926,37 @@ export const useActionHistory = ({
           const refund = defId ? getRefund(defId) : null;
           if (!refund) return;
           // sellFull gets full refund, sell gets normal refund, sellAdmin gets nothing
+          // PATCH: Always check actual building state at position before applying sell/delete
+          const id = findInstanceId(action);
+          if (id === null || id === undefined) return;
+          // Check if building is harvestable before removal
+          const layoutList = layoutRef.current || [];
+          const readySnapshot = readyMapRef.current || {};
+          const inst = layoutList.find((b) => b.id === id);
+          if (inst && readySnapshot[id]) {
+            // Harvest before delete
+            const statsSnapshot = statsRef.current || {};
+            const qaHours = qaHoursRef.current ?? 0;
+            const delta = computeBuildingHarvest(
+              { defId: inst.defId },
+              libraryMap,
+              statsSnapshot,
+              { qaHoursPerHarvest: qaHours },
+            );
+            applyHarvestDelta(delta, 1);
+            setReadyMap((prev) => {
+              const next = { ...prev };
+              next[id] = false;
+              readyMapRef.current = next;
+              return next;
+            });
+          }
           if (action.type === ACTION_SELL) {
             applyRefund(refund);
           } else if (action.type === ACTION_SELL_FULL) {
             // Full refund = original cost
             applyRefund(def.cost);
           }
-          const id = findInstanceId(action);
-          if (id === null || id === undefined) return;
           removeInstance(id);
           return;
         }
@@ -1646,12 +1669,30 @@ export const useActionHistory = ({
         case ACTION_SELL_ADMIN: {
           if (!def) break;
           const refund = getRefund(defId);
+          const target = findSimInstance(action);
+          if (target && readySim[target.id] === true) {
+            const statsSnapshot = computeStatsForLayout(layoutSim, buildLocksSim);
+            const qaHours = Number(qaHoursPerHarvest ?? 0);
+            const harvestDelta = computeBuildingHarvest(
+              { defId: target.defId },
+              libraryMap,
+              statsSnapshot,
+              { qaHoursPerHarvest: qaHours },
+            );
+            applyResourceDeltaSim({
+              coins: harvestDelta.coins ?? 0,
+              supplies: harvestDelta.supplies ?? 0,
+              chronos: harvestDelta.chronos ?? 0,
+              quantumActions: harvestDelta.qa ?? 0,
+              goods: harvestDelta.goods ?? {},
+            });
+            readySim[target.id] = false;
+          }
           if (action.type === ACTION_SELL) {
             applyRefundSim(refund);
           } else if (action.type === ACTION_SELL_FULL) {
             applyRefundSim(def.cost);
           }
-          const target = findSimInstance(action);
           if (target) removeSimInstance(target.id);
           break;
         }
@@ -2134,12 +2175,33 @@ export const useActionHistory = ({
           case ACTION_SELL_ADMIN: {
             if (!def) break;
             const refund = getRefund(defId);
+            const target = findSimInstance(action);
+            if (target && readySim[target.id] === true) {
+              const statsSnapshot = computeStatsForLayout(
+                layoutSim,
+                buildLocksSim,
+              );
+              const qaHours = Number(qaHoursPerHarvest ?? 0);
+              const harvestDelta = computeBuildingHarvest(
+                { defId: target.defId },
+                libraryMap,
+                statsSnapshot,
+                { qaHoursPerHarvest: qaHours },
+              );
+              applyResourceDeltaSim({
+                coins: harvestDelta.coins ?? 0,
+                supplies: harvestDelta.supplies ?? 0,
+                chronos: harvestDelta.chronos ?? 0,
+                quantumActions: harvestDelta.qa ?? 0,
+                goods: harvestDelta.goods ?? {},
+              });
+              readySim[target.id] = false;
+            }
             if (action.type === ACTION_SELL) {
               applyRefundSim(refund);
             } else if (action.type === ACTION_SELL_FULL) {
               applyRefundSim(def.cost);
             }
-            const target = findSimInstance(action);
             if (target) removeSimInstance(target.id);
             break;
           }

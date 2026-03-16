@@ -319,10 +319,7 @@ export function Board({
     if (
       sellMode ||
       refundMode ||
-      (!moveMode &&
-        !boostMode &&
-        !selectedBuildingId &&
-        !carried)
+      (!moveMode && !boostMode && !selectedBuildingId && !carried)
     ) {
       return;
     }
@@ -383,7 +380,9 @@ export function Board({
         continue;
       }
 
-      const target = (layoutRef.current || []).find((item) => item.id === targetId);
+      const target = (layoutRef.current || []).find(
+        (item) => item.id === targetId,
+      );
       if (!target) {
         toolState.processedIds.add(targetId);
         continue;

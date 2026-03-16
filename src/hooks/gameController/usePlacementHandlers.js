@@ -173,7 +173,11 @@ export const usePlacementHandlers = ({
         branchFromPast();
         const delta = computeSaleOrRefund(target, libraryMap, refundMode);
         if (readyMap[target.id] === true) {
-          harvestBuildings([target], "Harvest", true, true);
+          // Delete flow invariant: if target is ready, collect yield before removal.
+          const lockOverride = { ...buildLocks, [target.id]: false };
+          harvestBuildings([target], "Harvest", true, true, {
+            buildLocksOverride: lockOverride,
+          });
         }
         const label = `${refundMode ? "Rueckerstattung:" : "Verkauft:"} ${
           getBuildingName(libraryMap[target.defId], lang, "name")
