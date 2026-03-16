@@ -9,6 +9,17 @@
   align-items: center;
 }
 
+.board-wrapper,
+.board-transform-box,
+.board-frame,
+.board-svg,
+.board-svg * {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 .board-transform-box {
   position: relative;
   display: inline-block;

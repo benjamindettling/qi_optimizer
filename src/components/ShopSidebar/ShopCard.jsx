@@ -124,11 +124,15 @@ export function ShopCard({
           key="people"
           icon={populationIcon}
           label={`+${formatNumber(item.people)}`}
-        />
+        />,
       );
     if (prod.coins)
       rows.push(
-        <StatRow key="coins" icon={moneyIcon} label={formatNumber(prod.coins)} />
+        <StatRow
+          key="coins"
+          icon={moneyIcon}
+          label={formatNumber(prod.coins)}
+        />,
       );
     if (prod.supplies)
       rows.push(
@@ -136,7 +140,7 @@ export function ShopCard({
           key="supplies"
           icon={suppliesIcon}
           label={formatNumber(prod.supplies)}
-        />
+        />,
       );
     if (prod.chronos)
       rows.push(
@@ -144,7 +148,7 @@ export function ShopCard({
           key="chronos"
           icon={chronosIcon}
           label={formatNumber(prod.chronos)}
-        />
+        />,
       );
     if (item.coinBoost)
       rows.push(
@@ -152,7 +156,7 @@ export function ShopCard({
           key="coinBoost"
           icon={moneyIcon}
           label={`+${formatNumber(Math.round((item.coinBoost ?? 0) * 100))}%`}
-        />
+        />,
       );
     if (item.supplyBoost)
       rows.push(
@@ -160,7 +164,7 @@ export function ShopCard({
           key="supplyBoost"
           icon={suppliesIcon}
           label={`+${formatNumber(Math.round((item.supplyBoost ?? 0) * 100))}%`}
-        />
+        />,
       );
     if (item.happiness)
       rows.push(
@@ -168,7 +172,7 @@ export function ShopCard({
           key="happy"
           icon={happinessIcon}
           label={formatNumber(item.happiness)}
-        />
+        />,
       );
     if (item.happinessCost)
       rows.push(
@@ -177,7 +181,7 @@ export function ShopCard({
           icon={happinessIcon}
           label={`-${formatNumber(item.happinessCost)}`}
           danger
-        />
+        />,
       );
     if (item.quantumActions)
       rows.push(
@@ -185,7 +189,7 @@ export function ShopCard({
           key="qa"
           icon={qaIcon}
           label={`${formatNumber(item.quantumActions)}`}
-        />
+        />,
       );
     if (item.attack)
       rows.push(
@@ -193,7 +197,7 @@ export function ShopCard({
           key="atk"
           icon={null}
           label={`Attack +${formatNumber(item.attack)}%`}
-        />
+        />,
       );
     if (item.armyBoost) {
       Object.entries(item.armyBoost).forEach(([type, val]) => {
@@ -202,7 +206,7 @@ export function ShopCard({
             key={`army-${type}`}
             icon={type === "red" ? armyRedIcon : armyBlueIcon}
             label={`+${formatNumber(Math.round((val ?? 0) * 100))}%`}
-          />
+          />,
         );
       });
     }
@@ -222,10 +226,7 @@ export function ShopCard({
             Kosten
           </button>
           {showCosts && (
-            <div
-              className="cost-flyout"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="cost-flyout" onClick={(e) => e.stopPropagation()}>
               {item.goodsCost ? (
                 <div className="goods-table">
                   <div className="goods-row header">
@@ -287,7 +288,7 @@ export function ShopCard({
               ) : null}
             </div>
           )}
-        </div>
+        </div>,
       );
     }
     return rows.length ? <div className="card-benefits">{rows}</div> : null;
@@ -315,7 +316,7 @@ export function ShopCard({
             ? "gutshaus-card"
             : isChurchDefId(defId)
               ? "church-card"
-            : undefined
+              : undefined
       }
       role="button"
       tabIndex={0}
