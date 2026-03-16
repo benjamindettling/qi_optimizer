@@ -1136,6 +1136,7 @@ export function Board({
 
   const handlePointerMove = useCallback(
     (event) => {
+      if (isShopOpen) return;
       const cell = resolveCellFromClient(event.clientX, event.clientY, {
         clampToBoard: true,
       });
@@ -1188,6 +1189,7 @@ export function Board({
     },
     [
       enqueueToolDragTarget,
+      isShopOpen,
       processDrawPlacement,
       resolveCellFromClient,
       setHoverCell,
@@ -1196,6 +1198,7 @@ export function Board({
 
   const handlePointerDown = useCallback(
     (event) => {
+      if (isShopOpen) return;
       if (event.button !== 0 && event.pointerType !== "touch") return;
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell) return;
@@ -1332,6 +1335,7 @@ export function Board({
     },
     [
       isTouchSelection,
+      isShopOpen,
       isPreviewDragActive,
       boostMode,
       carried,
@@ -1354,6 +1358,7 @@ export function Board({
 
   const handlePointerUp = useCallback(
     (event) => {
+      if (isShopOpen) return;
       const down = pointerDownCellRef.current;
       pointerDownCellRef.current = null;
       const drawState = drawPlacementRef.current;
@@ -1414,6 +1419,7 @@ export function Board({
       resetDrawPlacement,
       carried,
       handleCellClick,
+      isShopOpen,
       isTouchSelection,
       previewOrigin,
       resolveCellFromClient,
@@ -1431,6 +1437,7 @@ export function Board({
 
   useEffect(() => {
     const handleWindowPointerUp = (event) => {
+      if (isShopOpen) return;
       if (event.pointerType !== "mouse" || event.button !== 0) return;
 
       if (pointerStateRef.current.handledMouseBuildOnDown) {
@@ -1474,6 +1481,7 @@ export function Board({
     };
   }, [
     handleCellClick,
+    isShopOpen,
     resetDrawPlacement,
     resetToolDrag,
     resolveCellFromClient,
@@ -1481,6 +1489,7 @@ export function Board({
 
   const handleDragOver = useCallback(
     (event) => {
+      if (isShopOpen) return;
       event.preventDefault();
       const cell = resolveCellFromClient(event.clientX, event.clientY, {
         clampToBoard: true,
@@ -1488,18 +1497,19 @@ export function Board({
       if (!cell) return;
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
     },
-    [resolveCellFromClient, setHoverCell],
+    [isShopOpen, resolveCellFromClient, setHoverCell],
   );
 
   const handleDrop = useCallback(
     (event) => {
+      if (isShopOpen) return;
       event.preventDefault();
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell) return;
       handleCellClick(cell.globalCol, cell.globalRow);
       onDropComplete?.();
     },
-    [handleCellClick, onDropComplete, resolveCellFromClient],
+    [handleCellClick, isShopOpen, onDropComplete, resolveCellFromClient],
   );
 
   const assignBoardRef = useCallback(
@@ -1523,6 +1533,7 @@ export function Board({
   const handleTouchConfirm = useCallback(
     (event) => {
       stopTouchActionEvent(event);
+      if (isShopOpen) return;
       if (!previewOrigin) return;
 
       const result = handleCellClick(previewOrigin.x, previewOrigin.y);
@@ -1541,6 +1552,7 @@ export function Board({
     [
       carried,
       handleCellClick,
+      isShopOpen,
       onDropComplete,
       previewOrigin,
       selectedBuildingId,

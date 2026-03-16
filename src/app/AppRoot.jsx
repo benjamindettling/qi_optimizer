@@ -942,6 +942,7 @@ export function AppRoot() {
   const guardedCellClick = useCallback(
     (col, row) => {
       if (boardLocked) return { ok: false, done: false, kind: "locked" };
+      if (isShopOpen) return { ok: false, done: false, kind: "shop-open" };
       if (isTutorialActive) {
         const step = TUTORIAL_STEPS[currentStepIndex];
         if (step?.id === "board-place-mh-sequence") {
@@ -1008,6 +1009,7 @@ export function AppRoot() {
       boardLocked,
       controller,
       currentStepIndex,
+      isShopOpen,
       isTutorialActive,
       mhPlacedCount,
       churchPlacedCount,
