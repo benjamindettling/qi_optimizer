@@ -1,5 +1,11 @@
 ﻿// Stats panel for TopBar - resources, goods, army, happiness
-import { useRef, useState, useEffect, useCallback } from "react";
+import {
+  useRef,
+  useState,
+  useEffect,
+  useCallback,
+  useLayoutEffect,
+} from "react";
 import moneyIcon from "/money.webp";
 import suppliesIcon from "/supplies.webp";
 import chronosIcon from "/chronos.webp";
@@ -56,6 +62,13 @@ export function StatsPanel({
     observer.observe(containerRef.current);
     return () => observer.disconnect();
   }, [updateScale]);
+
+  useLayoutEffect(() => {
+    const rafId = requestAnimationFrame(() => {
+      updateScale();
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [updateScale, resources, stats, happyInfo, config, lang]);
 
   const adminEnabled = adminMode && !editingLocked;
   const valueClassFor = (value) => ((value ?? 0) < 0 ? "text-negative" : "");
@@ -174,7 +187,9 @@ export function StatsPanel({
   const blueAttackTotal = decorationBoostBlue + blueAttackCfg;
   const blueDefenseTotal = decorationBoostBlue + blueDefenseCfg;
 
-  const attackPct = Math.round((isBlue ? blueAttackTotal : redAttackTotal) * 100);
+  const attackPct = Math.round(
+    (isBlue ? blueAttackTotal : redAttackTotal) * 100,
+  );
   const defensePct = Math.round(
     (isBlue ? blueDefenseTotal : redDefenseTotal) * 100,
   );
@@ -182,7 +197,11 @@ export function StatsPanel({
   const defenseIcon = isBlue ? blueDefenseIcon : redDefenseIcon;
 
   return (
-    <div className="stats-panel-container" ref={containerRef} data-tutorial-zone="topbar-stats">
+    <div
+      className="stats-panel-container"
+      ref={containerRef}
+      data-tutorial-zone="topbar-stats"
+    >
       <div
         className="stats-panel"
         ref={innerRef}
@@ -216,4 +235,3 @@ export function StatsPanel({
     </div>
   );
 }
-

@@ -97,6 +97,7 @@ export const useGameController = () => {
 
   const statsApi = useGameStats({
     layout: state.layout,
+    carried: state.carried,
     buildLocks: state.buildLocks,
     libraryMap: state.libraryMap,
     config: state.config,

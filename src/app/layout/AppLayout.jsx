@@ -607,6 +607,7 @@ export function AppLayout({
             onOpenSettings={wrappedTopBarOpenSettings}
             onStartTutorial={wrappedTopBarStartTutorial}
             hasUnsavedChanges={topBarProps.hasUnsavedChanges}
+            onVisiblePanelsChange={topBarProps.onVisiblePanelsChange}
           />
         </div>
 

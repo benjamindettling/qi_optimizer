@@ -9,6 +9,11 @@
   pointer-events: none;
 }
 
+.floating-page-controls--bottom-right {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+}
+
 .floating-page-btn {
   width: 44px;
   height: 44px;

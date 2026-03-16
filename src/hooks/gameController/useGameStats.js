@@ -5,7 +5,22 @@ import { getBuildingName, getCurrentLang } from "../../utils/buildingName";
 import { getOutsideQaPerHour } from "../../utils/qaAccounting";
 
 // Derives stats, boosts, and helper computations from the current layout.
-export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstModal }) => {
+export const useGameStats = ({
+  layout,
+  carried,
+  buildLocks,
+  libraryMap,
+  config,
+  setWorstModal,
+}) => {
+  const effectiveLayout = useMemo(() => {
+    if (!carried?.instance) return layout;
+    const carriedId = carried.instance.id;
+    const alreadyPresent = (layout || []).some((b) => b.id === carriedId);
+    if (alreadyPresent) return layout;
+    return [...(layout || []), carried.instance];
+  }, [carried, layout]);
+
   const computeLockedPeopleReq = useCallback(
     (layoutList, locks) =>
       (layoutList || []).reduce((acc, inst) => {
@@ -30,8 +45,8 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
   );
 
   const baseStats = useMemo(
-    () => computeStatsWithLockedPeopleReq(layout, buildLocks),
-    [layout, buildLocks, computeStatsWithLockedPeopleReq],
+    () => computeStatsWithLockedPeopleReq(effectiveLayout, buildLocks),
+    [effectiveLayout, buildLocks, computeStatsWithLockedPeopleReq],
   );
 
   const coinBoostCfg = Number(config?.coinBoost ?? 0) / 100;
@@ -54,11 +69,11 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
   const qaHoursPerHarvest = Number(config?.qaHarvestHours ?? 12);
   const qaRateFromBuildings = useMemo(
     () =>
-      layout.reduce(
+      effectiveLayout.reduce(
         (acc, b) => acc + (libraryMap[b.defId]?.quantumActions ?? 0),
         0,
       ),
-    [layout, libraryMap],
+    [effectiveLayout, libraryMap],
   );
   const qaPerHour = qaBasePerHour + qaRateFromBuildings;
   const statsWithConfig = applyConfigBoosts(baseStats);
@@ -90,7 +105,7 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
 
   const openWorstModal = useCallback(() => {
     const lang = getCurrentLang();
-    const activeLayout = layout.filter((b) => !buildLocks[b.id]);
+    const activeLayout = effectiveLayout.filter((b) => !buildLocks[b.id]);
     const housingDefs = Array.from(
       new Set(
         activeLayout
@@ -132,7 +147,7 @@ export const useGameStats = ({ layout, buildLocks, libraryMap, config, setWorstM
       housing: housingList,
       production: productionList,
     });
-  }, [layout, buildLocks, libraryMap, harvestWithConfig, setWorstModal]);
+  }, [effectiveLayout, buildLocks, libraryMap, harvestWithConfig, setWorstModal]);
 
   return {
     stats,

@@ -99,6 +99,7 @@ export function AppRoot() {
   const [isShopOpen, setIsShopOpen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState("config");
+  const [topBarVisiblePanels, setTopBarVisiblePanels] = useState(3);
   const navigate = useNavigate();
   const location = useLocation();
   const isSimulator = location.pathname === "/simulator";
@@ -935,6 +936,7 @@ export function AppRoot() {
     onSetShardUnlocks: controller.setShardUnlocks,
     hasUnsavedChanges: controller.hasUnsavedChanges,
     onStartTutorial: handleStartTutorialFromTopBar,
+    onVisiblePanelsChange: setTopBarVisiblePanels,
   };
 
   const guardedCellClick = useCallback(
@@ -1227,7 +1229,9 @@ export function AppRoot() {
         <Route path="/privacy" element={<LegalPage type="privacy" />} />
       </Routes>
       {isSimulator && (
-        <div className="floating-page-controls">
+        <div
+          className={`floating-page-controls${topBarVisiblePanels === 1 ? " floating-page-controls--bottom-right" : ""}`}
+        >
           <LanguageToggle
             className="floating-page-btn floating-page-btn--lang"
             dataHelpId="btn-language"

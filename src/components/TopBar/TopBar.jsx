@@ -52,6 +52,7 @@ export function TopBar({
   onOpenSettings,
   onStartTutorial,
   hasUnsavedChanges,
+  onVisiblePanelsChange,
 }) {
   const { lang } = useLang();
   const topbarLocked = useTutorialGate("topbar");
@@ -85,6 +86,10 @@ export function TopBar({
     observer.observe(pagerRef.current);
     return () => observer.disconnect();
   }, [calculateVisiblePanels]);
+
+  useEffect(() => {
+    onVisiblePanelsChange?.(visiblePanels);
+  }, [onVisiblePanelsChange, visiblePanels]);
 
   const maxPage = 3 - visiblePanels;
   const canGoLeft = pageIndex > 0;
