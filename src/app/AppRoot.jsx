@@ -1040,6 +1040,11 @@ export function AppRoot() {
     setHoverCell: controller.setHoverCell,
     onDropComplete: () => controller.setSelectedBuildingId(null),
     onCancelAction: controller.onCancelAction,
+    onIllegalDrawPlacement: () => {
+      if (controller.historyIndex != null && controller.historyIndex !== 0) {
+        controller.deleteNode?.(controller.historyIndex, true);
+      }
+    },
     boardRef,
     highlightedIds,
     layout: controller.layout,

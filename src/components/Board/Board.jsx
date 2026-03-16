@@ -9,6 +9,8 @@ import {
 } from "react";
 import { Check, X } from "lucide-react";
 import {
+  BOARD_HEIGHT,
+  BOARD_WIDTH,
   REGION_SIZE,
   REGION_COLS,
   REGION_ROWS,
@@ -17,6 +19,7 @@ import {
 import { findTargetInstance } from "../../domain/placement/placementController";
 import { useLang } from "../../context/LanguageContext";
 import { getBuildingName } from "../../utils/buildingName";
+import { isAreaFree } from "../../utils/layoutUtils";
 import { PRIMARY_COLORS } from "../../config/colors";
 import { getBoostInteractionState } from "../../utils/shards";
 import "./Board.css";
@@ -153,6 +156,39 @@ const SVG_TEXT_STACK = "Helvetica, Arial, sans-serif";
 // Single source of truth for all rounded corners (relative to one board cell).
 const CORNER_RADIUS = 0.75;
 const sanitizeSvgId = (rawId) => String(rawId).replace(/[^a-zA-Z0-9_-]/g, "");
+const rectanglesOverlap = (a, b) => {
+  if (!a || !b) return false;
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  );
+};
+const createDrawPlacementState = () => ({
+  active: false,
+  pointerId: null,
+  anchorX: 0,
+  anchorY: 0,
+  stepWidth: 1,
+  stepHeight: 1,
+  targetGridX: 0,
+  targetGridY: 0,
+  lastGridX: 0,
+  lastGridY: 0,
+  placementInFlight: false,
+  lastPlacedRect: null,
+  attemptedKeys: new Set(),
+});
+const createToolDragState = () => ({
+  active: false,
+  pointerId: null,
+  mode: null,
+  defId: null,
+  inFlight: false,
+  pendingIds: [],
+  processedIds: new Set(),
+});
 
 export function Board({
   viewRotation,
@@ -169,6 +205,7 @@ export function Board({
   setHoverCell,
   onDropComplete,
   onCancelAction,
+  onIllegalDrawPlacement,
   layout,
   libraryMap,
   categoryColors,
@@ -203,6 +240,8 @@ export function Board({
   const wrapperRef = useRef(null);
   const svgRef = useRef(null);
   const boardSpaceRef = useRef(null);
+  const layoutRef = useRef(layout);
+  const readyMapRef = useRef(readyMap);
   const pointerDownCellRef = useRef(null);
   const pointerStateRef = useRef({
     pointerType: "mouse",
@@ -212,9 +251,17 @@ export function Board({
     ghostAtStart: null,
     startScrollX: 0,
     startScrollY: 0,
+    handledMouseBuildOnDown: false,
   });
+  const drawPlacementRef = useRef(createDrawPlacementState());
+  const toolDragRef = useRef(createToolDragState());
   const [isTouchSelection, setIsTouchSelection] = useState(false);
   const [hoveredRegionIdx, setHoveredRegionIdx] = useState(null);
+  const selectedBuildDef = useMemo(
+    () =>
+      selectedBuildingId ? (libraryMap?.[selectedBuildingId] ?? null) : null,
+    [libraryMap, selectedBuildingId],
+  );
   const isPreviewDragActive = !!selectedBuildingId || !!carried;
   const hideAdminLockButtons =
     moveMode ||
@@ -245,6 +292,149 @@ export function Board({
       setIsTouchSelection(false);
     }
   }, [carried, previewOrigin, selectedBuildingId]);
+
+  const resetDrawPlacement = useCallback(() => {
+    drawPlacementRef.current = createDrawPlacementState();
+  }, []);
+
+  const resetToolDrag = useCallback(() => {
+    toolDragRef.current = createToolDragState();
+  }, []);
+
+  useEffect(() => {
+    layoutRef.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
+    readyMapRef.current = readyMap;
+  }, [readyMap]);
+
+  useEffect(() => {
+    if (selectedBuildingId) return;
+    pointerStateRef.current.handledMouseBuildOnDown = false;
+    resetDrawPlacement();
+  }, [resetDrawPlacement, selectedBuildingId]);
+
+  useEffect(() => {
+    if (
+      sellMode ||
+      refundMode ||
+      (!moveMode &&
+        !boostMode &&
+        !selectedBuildingId &&
+        !carried)
+    ) {
+      return;
+    }
+    resetToolDrag();
+  }, [
+    boostMode,
+    carried,
+    moveMode,
+    refundMode,
+    resetToolDrag,
+    sellMode,
+    selectedBuildingId,
+  ]);
+
+  const isDrawPlacementUnlocked = useCallback(
+    (x, y, width, height) => {
+      for (let dy = 0; dy < height; dy += 1) {
+        for (let dx = 0; dx < width; dx += 1) {
+          if (!isCellUnlocked(x + dx, y + dy)) return false;
+        }
+      }
+      return true;
+    },
+    [isCellUnlocked],
+  );
+
+  const canDrawPlaceAt = useCallback(
+    (x, y) => {
+      if (!selectedBuildDef) return false;
+      if (
+        x < 0 ||
+        y < 0 ||
+        x > BOARD_WIDTH - selectedBuildDef.width ||
+        y > BOARD_HEIGHT - selectedBuildDef.height
+      ) {
+        return false;
+      }
+      return isAreaFree(
+        layout,
+        x,
+        y,
+        selectedBuildDef.width,
+        selectedBuildDef.height,
+        undefined,
+        isCellUnlocked,
+      );
+    },
+    [isCellUnlocked, layout, selectedBuildDef],
+  );
+
+  const processToolDragQueue = useCallback(() => {
+    const toolState = toolDragRef.current;
+    if (!toolState.active || toolState.inFlight) return;
+
+    while (toolState.pendingIds.length > 0) {
+      const targetId = toolState.pendingIds.shift();
+      if (toolState.processedIds.has(targetId)) {
+        continue;
+      }
+
+      const target = (layoutRef.current || []).find((item) => item.id === targetId);
+      if (!target) {
+        toolState.processedIds.add(targetId);
+        continue;
+      }
+
+      if (toolState.mode === "delete" && target.defId !== toolState.defId) {
+        toolState.processedIds.add(targetId);
+        continue;
+      }
+
+      if (toolState.mode === "harvest" && !readyMapRef.current?.[target.id]) {
+        toolState.processedIds.add(targetId);
+        continue;
+      }
+
+      const result = handleCellClick(target.x, target.y);
+      toolState.processedIds.add(targetId);
+      if (result?.ok) {
+        toolState.inFlight = true;
+        return;
+      }
+    }
+  }, [handleCellClick]);
+
+  useEffect(() => {
+    const toolState = toolDragRef.current;
+    if (!toolState.active) return;
+    toolState.inFlight = false;
+    processToolDragQueue();
+  }, [layout, readyMap, processToolDragQueue]);
+
+  const enqueueToolDragTarget = useCallback(
+    (target) => {
+      const toolState = toolDragRef.current;
+      if (!toolState.active || !target) return;
+      if (toolState.processedIds.has(target.id)) return;
+      if (toolState.pendingIds.includes(target.id)) return;
+
+      if (toolState.mode === "delete" && target.defId !== toolState.defId) {
+        return;
+      }
+
+      if (toolState.mode === "harvest" && !readyMapRef.current?.[target.id]) {
+        return;
+      }
+
+      toolState.pendingIds.push(target.id);
+      processToolDragQueue();
+    },
+    [processToolDragQueue],
+  );
 
   useEffect(() => {
     if (regionInteractionsDisabled) {
@@ -843,12 +1033,146 @@ export function Board({
     ],
   );
 
+  const processDrawPlacement = useCallback(() => {
+    const drawState = drawPlacementRef.current;
+    if (!drawState.active || drawState.placementInFlight) return;
+
+    const deltaGridX = drawState.targetGridX - drawState.lastGridX;
+    const deltaGridY = drawState.targetGridY - drawState.lastGridY;
+    const steps = Math.max(Math.abs(deltaGridX), Math.abs(deltaGridY));
+
+    if (steps <= 0) {
+      const hoverX =
+        drawState.anchorX + drawState.targetGridX * drawState.stepWidth;
+      const hoverY =
+        drawState.anchorY + drawState.targetGridY * drawState.stepHeight;
+      setHoverCell({ x: hoverX, y: hoverY });
+      return;
+    }
+
+    let finalHoverX =
+      drawState.anchorX + drawState.targetGridX * drawState.stepWidth;
+    let finalHoverY =
+      drawState.anchorY + drawState.targetGridY * drawState.stepHeight;
+    let prevGridX = drawState.lastGridX;
+    let prevGridY = drawState.lastGridY;
+
+    for (let step = 1; step <= steps; step += 1) {
+      const gridX = prevGridX + Math.round((deltaGridX * step) / steps);
+      const gridY = prevGridY + Math.round((deltaGridY * step) / steps);
+      if (gridX === drawState.lastGridX && gridY === drawState.lastGridY) {
+        continue;
+      }
+      const candidateX = drawState.anchorX + gridX * drawState.stepWidth;
+      const candidateY = drawState.anchorY + gridY * drawState.stepHeight;
+      finalHoverX = candidateX;
+      finalHoverY = candidateY;
+      drawState.lastGridX = gridX;
+      drawState.lastGridY = gridY;
+
+      const key = `${candidateX},${candidateY}`;
+      if (drawState.attemptedKeys.has(key)) {
+        continue;
+      }
+
+      drawState.attemptedKeys.add(key);
+      if (!canDrawPlaceAt(candidateX, candidateY)) {
+        continue;
+      }
+
+      const result = handleCellClick(candidateX, candidateY);
+      if (result?.ok) {
+        drawState.placementInFlight = true;
+        drawState.lastPlacedRect = {
+          x: candidateX,
+          y: candidateY,
+          width: drawState.stepWidth,
+          height: drawState.stepHeight,
+        };
+        setHoverCell({ x: candidateX, y: candidateY });
+        return;
+      }
+    }
+
+    setHoverCell({ x: finalHoverX, y: finalHoverY });
+  }, [canDrawPlaceAt, handleCellClick, setHoverCell]);
+
+  useEffect(() => {
+    const drawState = drawPlacementRef.current;
+    if (!drawState.active && !drawState.lastPlacedRect) return;
+
+    const placedRect = drawState.lastPlacedRect;
+    if (placedRect) {
+      const overlappingCount = (layout || []).filter((item) =>
+        rectanglesOverlap(placedRect, item),
+      ).length;
+      const unlocked = isDrawPlacementUnlocked(
+        placedRect.x,
+        placedRect.y,
+        placedRect.width,
+        placedRect.height,
+      );
+
+      if (!unlocked || overlappingCount > 1) {
+        pointerStateRef.current.handledMouseBuildOnDown = false;
+        resetDrawPlacement();
+        onIllegalDrawPlacement?.();
+        return;
+      }
+
+      drawState.lastPlacedRect = null;
+    }
+
+    if (drawState.active) {
+      drawState.placementInFlight = false;
+      processDrawPlacement();
+    }
+  }, [
+    isDrawPlacementUnlocked,
+    layout,
+    onIllegalDrawPlacement,
+    processDrawPlacement,
+    resetDrawPlacement,
+  ]);
+
   const handlePointerMove = useCallback(
     (event) => {
       const cell = resolveCellFromClient(event.clientX, event.clientY, {
         clampToBoard: true,
       });
       if (!cell) return;
+
+      const drawState = drawPlacementRef.current;
+      if (
+        event.pointerType === "mouse" &&
+        drawState.active &&
+        drawState.pointerId === event.pointerId
+      ) {
+        drawState.targetGridX = Math.floor(
+          (cell.globalCol - drawState.anchorX) / drawState.stepWidth,
+        );
+        drawState.targetGridY = Math.floor(
+          (cell.globalRow - drawState.anchorY) / drawState.stepHeight,
+        );
+        processDrawPlacement();
+        return;
+      }
+
+      const toolState = toolDragRef.current;
+      if (
+        event.pointerType === "mouse" &&
+        toolState.active &&
+        toolState.pointerId === event.pointerId
+      ) {
+        const target = findTargetInstance(
+          layoutRef.current,
+          cell.globalCol,
+          cell.globalRow,
+        );
+        setHoverCell({ x: cell.globalCol, y: cell.globalRow });
+        enqueueToolDragTarget(target);
+        return;
+      }
 
       if (
         event.pointerType === "touch" ||
@@ -863,7 +1187,12 @@ export function Board({
 
       setHoverCell({ x: cell.globalCol, y: cell.globalRow });
     },
-    [resolveCellFromClient, setHoverCell],
+    [
+      enqueueToolDragTarget,
+      processDrawPlacement,
+      resolveCellFromClient,
+      setHoverCell,
+    ],
   );
 
   const handlePointerDown = useCallback(
@@ -881,6 +1210,7 @@ export function Board({
         ghostAtStart: previewOrigin ? { ...previewOrigin } : null,
         startScrollX: typeof window !== "undefined" ? window.scrollX : 0,
         startScrollY: typeof window !== "undefined" ? window.scrollY : 0,
+        handledMouseBuildOnDown: false,
       };
 
       if (
@@ -890,8 +1220,107 @@ export function Board({
         setIsTouchSelection(true);
       }
 
-      pointerDownCellRef.current = cell;
-      setHoverCell({ x: cell.globalCol, y: cell.globalRow });
+      if (
+        event.pointerType === "mouse" &&
+        selectedBuildingId &&
+        selectedBuildDef
+      ) {
+        const anchorX = previewOrigin?.x ?? cell.globalCol;
+        const anchorY = previewOrigin?.y ?? cell.globalRow;
+        pointerStateRef.current.handledMouseBuildOnDown = true;
+        pointerDownCellRef.current = null;
+        setHoverCell({ x: anchorX, y: anchorY });
+
+        if (!canDrawPlaceAt(anchorX, anchorY)) {
+          pointerStateRef.current.handledMouseBuildOnDown = false;
+          resetDrawPlacement();
+          return;
+        }
+
+        const result = handleCellClick(anchorX, anchorY);
+        if (result?.ok) {
+          drawPlacementRef.current = {
+            active: true,
+            pointerId: event.pointerId,
+            anchorX,
+            anchorY,
+            stepWidth: selectedBuildDef.width,
+            stepHeight: selectedBuildDef.height,
+            targetGridX: 0,
+            targetGridY: 0,
+            lastGridX: 0,
+            lastGridY: 0,
+            placementInFlight: true,
+            lastPlacedRect: {
+              x: anchorX,
+              y: anchorY,
+              width: selectedBuildDef.width,
+              height: selectedBuildDef.height,
+            },
+            attemptedKeys: new Set([`${anchorX},${anchorY}`]),
+          };
+        } else {
+          resetDrawPlacement();
+        }
+      } else if (
+        event.pointerType === "mouse" &&
+        (sellMode || refundMode) &&
+        target
+      ) {
+        pointerStateRef.current.handledMouseBuildOnDown = true;
+        pointerDownCellRef.current = null;
+        setHoverCell({ x: cell.globalCol, y: cell.globalRow });
+
+        const result = handleCellClick(target.x, target.y);
+        if (result?.ok) {
+          toolDragRef.current = {
+            active: true,
+            pointerId: event.pointerId,
+            mode: "delete",
+            defId: target.defId,
+            inFlight: true,
+            pendingIds: [],
+            processedIds: new Set([target.id]),
+          };
+        } else {
+          pointerStateRef.current.handledMouseBuildOnDown = false;
+          resetToolDrag();
+        }
+      } else if (
+        event.pointerType === "mouse" &&
+        !moveMode &&
+        !sellMode &&
+        !refundMode &&
+        !boostMode &&
+        !selectedBuildingId &&
+        !carried &&
+        target &&
+        readyMapRef.current?.[target.id] === true
+      ) {
+        pointerStateRef.current.handledMouseBuildOnDown = true;
+        pointerDownCellRef.current = null;
+        setHoverCell({ x: cell.globalCol, y: cell.globalRow });
+
+        const result = handleCellClick(target.x, target.y);
+        if (result?.ok) {
+          toolDragRef.current = {
+            active: true,
+            pointerId: event.pointerId,
+            mode: "harvest",
+            defId: null,
+            inFlight: true,
+            pendingIds: [],
+            processedIds: new Set([target.id]),
+          };
+        } else {
+          pointerStateRef.current.handledMouseBuildOnDown = false;
+          resetToolDrag();
+        }
+      } else {
+        pointerDownCellRef.current = cell;
+        setHoverCell({ x: cell.globalCol, y: cell.globalRow });
+      }
+
       const shouldCapturePointer =
         event.pointerType !== "touch" || isPreviewDragActive;
       if (shouldCapturePointer) {
@@ -905,11 +1334,21 @@ export function Board({
     [
       isTouchSelection,
       isPreviewDragActive,
+      boostMode,
+      carried,
       layout,
       moveMode,
       previewOrigin,
+      readyMapRef,
+      resetDrawPlacement,
+      resetToolDrag,
       resolveCellFromClient,
+      refundMode,
       selectedBuildingId,
+      selectedBuildDef,
+      sellMode,
+      canDrawPlaceAt,
+      handleCellClick,
       setHoverCell,
     ],
   );
@@ -918,6 +1357,21 @@ export function Board({
     (event) => {
       const down = pointerDownCellRef.current;
       pointerDownCellRef.current = null;
+      const drawState = drawPlacementRef.current;
+      const toolState = toolDragRef.current;
+      if (
+        event.pointerType === "mouse" &&
+        pointerStateRef.current.handledMouseBuildOnDown
+      ) {
+        pointerStateRef.current.handledMouseBuildOnDown = false;
+        if (drawState.active && drawState.pointerId === event.pointerId) {
+          resetDrawPlacement();
+        }
+        if (toolState.active && toolState.pointerId === event.pointerId) {
+          resetToolDrag();
+        }
+        return;
+      }
       const cell = resolveCellFromClient(event.clientX, event.clientY);
       if (!cell || !down) return;
 
@@ -958,6 +1412,7 @@ export function Board({
       handleCellClick(cell.globalCol, cell.globalRow);
     },
     [
+      resetDrawPlacement,
       carried,
       handleCellClick,
       isTouchSelection,
@@ -970,13 +1425,21 @@ export function Board({
   const handlePointerCancel = useCallback(() => {
     pointerDownCellRef.current = null;
     pointerStateRef.current.hasDragged = true;
-  }, []);
+    pointerStateRef.current.handledMouseBuildOnDown = false;
+    resetDrawPlacement();
+    resetToolDrag();
+  }, [resetDrawPlacement, resetToolDrag]);
 
   useEffect(() => {
-    if (!isPreviewDragActive) return undefined;
-
     const handleWindowPointerUp = (event) => {
       if (event.pointerType !== "mouse" || event.button !== 0) return;
+
+      if (pointerStateRef.current.handledMouseBuildOnDown) {
+        pointerStateRef.current.handledMouseBuildOnDown = false;
+        resetDrawPlacement();
+        resetToolDrag();
+        return;
+      }
 
       const wrapperNode = wrapperRef.current;
       const svgNode = svgRef.current;
@@ -1010,7 +1473,12 @@ export function Board({
     return () => {
       window.removeEventListener("pointerup", handleWindowPointerUp);
     };
-  }, [handleCellClick, isPreviewDragActive, resolveCellFromClient]);
+  }, [
+    handleCellClick,
+    resetDrawPlacement,
+    resetToolDrag,
+    resolveCellFromClient,
+  ]);
 
   const handleDragOver = useCallback(
     (event) => {
