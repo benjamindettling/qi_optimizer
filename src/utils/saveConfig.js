@@ -535,7 +535,7 @@ export const analyzeSmallestSaveConfig = ({
   const applyFinishProductionsSim = () => {
     const finishStats = computeStatsForLayout(layoutSim, {}, effectiveConfig);
     const qaHoursPerStep = getQaHoursPerStep(effectiveConfig, 12);
-    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+    const { cultureIds, total: cultureTotal } =
       getCultureAutoHarvest(
         layoutSim,
         BUILT_LIBRARY_MAP,
@@ -554,8 +554,8 @@ export const analyzeSmallestSaveConfig = ({
     cultureIds.forEach((id) => {
       readySim[id] = false;
     });
-    lockedCultureIds.forEach((id) => {
-      buildLocksSim[id] = false;
+    Object.keys(buildLocksSim).forEach((id) => {
+      if (buildLocksSim[id]) buildLocksSim[id] = false;
     });
     const nextStep = Math.min(23, (timeStepSim ?? 1) + 1);
     const outsideQaDelta = getOutsideQaDeltaForStepChange({

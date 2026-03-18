@@ -855,7 +855,7 @@ export const useActionHistory = ({
     const finishStats = applyConfigBoosts(
       computeStats(layoutList, libraryMap),
     );
-    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+    const { cultureIds, total: cultureTotal } =
       getCultureAutoHarvest(layoutList, libraryMap, buildLocksSnapshot, finishStats, {
         qaHoursPerHarvest: qaHoursRef.current ?? 0,
       });
@@ -870,16 +870,18 @@ export const useActionHistory = ({
     });
     readyMapRef.current = nextReady;
     setReadyMap(nextReady);
-    if (lockedCultureIds.length) {
-      setBuildLocks((prev) => {
-        const next = { ...prev };
-        lockedCultureIds.forEach((id) => {
+    setBuildLocks((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(next).forEach((id) => {
+        if (next[id]) {
           next[id] = false;
-        });
-        buildLocksRef.current = next;
-        return next;
+          changed = true;
+        }
       });
-    }
+      buildLocksRef.current = changed ? next : prev;
+      return changed ? next : prev;
+    });
     const currentStep = timeStepRef.current ?? 1;
     const nextStep = Math.min(23, currentStep + 1);
     const outsideQaDelta = getOutsideQaDeltaForStepChange({
@@ -1678,7 +1680,7 @@ export const useActionHistory = ({
         qaOutsidePerHour: qaBasePerHour,
         qaHoursPerStep: qaHoursPerHarvest ?? 0,
       });
-      const { cultureIds, lockedCultureIds, total: cultureTotal } =
+      const { cultureIds, total: cultureTotal } =
         getCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, finishStats, {
           qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
         });
@@ -1691,8 +1693,8 @@ export const useActionHistory = ({
       cultureIds.forEach((id) => {
         readySim[id] = false;
       });
-      lockedCultureIds.forEach((id) => {
-        buildLocksSim[id] = false;
+      Object.keys(buildLocksSim).forEach((id) => {
+        if (buildLocksSim[id]) buildLocksSim[id] = false;
       });
       const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
       if (!skipResources) {
@@ -2204,7 +2206,7 @@ export const useActionHistory = ({
           qaOutsidePerHour: qaBasePerHour,
           qaHoursPerStep: qaHoursPerHarvest ?? 0,
         });
-        const { cultureIds, lockedCultureIds, total: cultureTotal } =
+        const { cultureIds, total: cultureTotal } =
           getCultureAutoHarvest(layoutSim, libraryMap, buildLocksSim, finishStats, {
             qaHoursPerHarvest: qaHoursPerHarvest ?? 0,
           });
@@ -2217,8 +2219,8 @@ export const useActionHistory = ({
         cultureIds.forEach((id) => {
           readySim[id] = false;
         });
-        lockedCultureIds.forEach((id) => {
-          buildLocksSim[id] = false;
+        Object.keys(buildLocksSim).forEach((id) => {
+          if (buildLocksSim[id]) buildLocksSim[id] = false;
         });
         const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
         if (!skipResources) {

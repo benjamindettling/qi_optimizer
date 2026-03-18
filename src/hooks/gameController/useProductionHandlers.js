@@ -145,7 +145,7 @@ export const useProductionHandlers = ({
     setEditUnlocked(false);
     const label = "Beende alle Prod.";
     const finishStats = applyConfigBoosts(computeStats(layout, libraryMap));
-    const { cultureIds, lockedCultureIds, total: cultureTotal } =
+    const { cultureIds, total: cultureTotal } =
       getCultureAutoHarvest(layout, libraryMap, buildLocks, finishStats, {
         qaHoursPerHarvest,
       });
@@ -167,15 +167,17 @@ export const useProductionHandlers = ({
       });
       return next;
     });
-    if (lockedCultureIds.length) {
-      setBuildLocks((prev) => {
-        const next = { ...prev };
-        lockedCultureIds.forEach((id) => {
+    setBuildLocks((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.keys(next).forEach((id) => {
+        if (next[id]) {
           next[id] = false;
-        });
-        return next;
+          changed = true;
+        }
       });
-    }
+      return changed ? next : prev;
+    });
     const totalQa = (cultureTotal.qa ?? 0) + outsideQaDelta;
     const hasCultureDelta =
       (cultureTotal.coins ?? 0) !== 0 ||

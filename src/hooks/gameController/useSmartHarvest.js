@@ -76,7 +76,7 @@ export const useSmartHarvest = ({
       let simTimeStep = startTimeStep;
 
       const finishStats = applyConfigBoosts(computeStats(simLayout, libraryMap));
-      const { cultureIds, lockedCultureIds, total: cultureTotal } =
+      const { cultureIds, total: cultureTotal } =
         getCultureAutoHarvest(simLayout, libraryMap, simBuildLocks, finishStats, {
           qaHoursPerHarvest,
         });
@@ -89,8 +89,8 @@ export const useSmartHarvest = ({
       cultureIds.forEach((id) => {
         simReadyMap[id] = false;
       });
-      lockedCultureIds.forEach((id) => {
-        simBuildLocks[id] = false;
+      Object.keys(simBuildLocks).forEach((id) => {
+        if (simBuildLocks[id]) simBuildLocks[id] = false;
       });
       const nextTimeStep = Math.min(23, simTimeStep + 1);
       const outsideQaDelta = getOutsideQaDeltaForStepChange({

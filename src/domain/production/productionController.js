@@ -99,11 +99,11 @@ export const finishProductionsReadyMap = (
         def.category === "culture");
     const prev = prevReadyMap[b.id] ?? false;
     if (buildLocks[b.id]) {
-      acc[b.id] = true;
+      // Freshly unlocked buildings should not be harvestable on the same jump.
+      acc[b.id] = false;
     } else {
       acc[b.id] = allowed ? true : prev;
     }
-    // keep locked flag implied via buildLocks map; ready state still true for housing/production
     return acc;
   }, {});
 
