@@ -53,6 +53,7 @@ export const usePlacementHandlers = ({
   isPast,
   nextIdRef,
   recordHistoryAction,
+  createOverlayBuildBranch,
   moveChainRef,
   applySnapshot,
   clearMoveChain,
@@ -280,6 +281,15 @@ export const usePlacementHandlers = ({
         }
         const adjustedX = Math.min(x, BOARD_WIDTH - selectedDef.width);
         const adjustedY = Math.min(y, BOARD_HEIGHT - selectedDef.height);
+        const overlayTarget = findTargetInstance(layout, adjustedX, adjustedY);
+        const canOverlayBuild =
+          !!overlayTarget &&
+          selectedDef.width <= overlayTarget.width &&
+          selectedDef.height <= overlayTarget.height &&
+          adjustedX >= overlayTarget.x &&
+          adjustedY >= overlayTarget.y &&
+          adjustedX + selectedDef.width <= overlayTarget.x + overlayTarget.width &&
+          adjustedY + selectedDef.height <= overlayTarget.y + overlayTarget.height;
         if (
           !isAreaFree(
             layout,
@@ -291,6 +301,24 @@ export const usePlacementHandlers = ({
             isCellUnlocked,
           )
         ) {
+          if (canOverlayBuild && createOverlayBuildBranch) {
+            const branchResult = createOverlayBuildBranch({
+              sourceInstanceId: overlayTarget.id,
+              sourceDefId: overlayTarget.defId,
+              newDefId: selectedDef.defId,
+              newShortId: selectedDef.shortId ?? null,
+              newX: adjustedX,
+              newY: adjustedY,
+              buildType: infiniteResources ? "buildAdmin" : "build",
+            });
+            if (branchResult?.ok) {
+              updateStatus(
+                `Gekauft: ${getBuildingName(selectedDef, getCurrentLang(), "name")}`,
+              );
+              requestAutoSnapshot();
+              return { ok: true, done: true, kind: "buildOverlay" };
+            }
+          }
           updateStatus("Blocked or locked area.");
           return { ok: false, done: false, kind: "build" };
         }
@@ -431,6 +459,7 @@ export const usePlacementHandlers = ({
       setUnitModal,
       nextIdRef,
       recordHistoryAction,
+      createOverlayBuildBranch,
       recordMovePosition,
       finishMove,
     ],

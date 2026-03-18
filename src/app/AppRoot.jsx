@@ -1137,6 +1137,7 @@ export function AppRoot() {
     historyIndex: controller.historyIndex,
     historyTree: controller.historyTree,
     historyNodes: controller.historyNodes,
+    branchComparisonHighlight: controller.branchComparisonHighlight,
     historyInvalidSteps: controller.historyInvalidSteps,
     historyChecking: controller.historyChecking,
     onJumpHistory: controller.jumpToHistory,

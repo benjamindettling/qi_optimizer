@@ -374,6 +374,7 @@ export const useGameController = () => {
     isPast: snapshotApi.isPast,
     nextIdRef: state.nextIdRef,
     recordHistoryAction: historyApi.recordHistoryAction,
+    createOverlayBuildBranch: historyApi.createOverlayBuildBranch,
     moveChainRef,
     applySnapshot: snapshotApi.applySnapshot,
     clearMoveChain,

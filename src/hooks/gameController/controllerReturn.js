@@ -207,6 +207,7 @@ export const buildControllerReturn = ({
   setHistoryTree: historyApi?.setHistoryTree,
   setSelectedNodeId: historyApi?.setSelectedNodeId,
   historyNodes: historyApi?.historyNodes ?? (() => []),
+  branchComparisonHighlight: historyApi?.branchComparisonHighlight ?? null,
   historyInvalidSteps: historyApi?.historyInvalidSteps ?? [],
   historyChecking: historyApi?.historyChecking ?? false,
   jumpToHistory: historyApi?.jumpToHistory,

@@ -770,6 +770,7 @@ export function AppLayout({
                 ref={treeRef}
                 nodes={treeNodes}
                 selectedId={historyProps.historyIndex}
+                branchComparisonHighlight={historyProps.branchComparisonHighlight}
                 onSelectNode={wrappedJumpHistory}
                 onMakeTop={(id) => {
                   clearExclusiveModes();

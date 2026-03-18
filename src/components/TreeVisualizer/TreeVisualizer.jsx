@@ -63,12 +63,19 @@ const REGION_UNLOCK_GROUP = new Set([
 ]);
 
 // Get the bundle key for an action type
+// Build/sell nodes bundle together (normalized actionTypes coming from mapActionToType)
+const BUILD_SELL_GROUP = new Set(["build", "sell"]);
+// Boost-single and collect-single (single harvest) nodes bundle together
+const BOOST_HARVEST_GROUP = new Set(["boostSingle", "collectSingle"]);
+
 // Returns the key used to determine if two actions can be bundled together
 const getBundleKey = (actionType) => {
   if (NEVER_BUNDLE.has(actionType)) return null; // Never bundle
   if (ADMIN_ADJUST_GROUP.has(actionType)) return "adminAdjust"; // Group these together
   if (REGION_UNLOCK_GROUP.has(actionType)) return "regionUnlock";
-  return actionType; // Exact match required
+  if (BUILD_SELL_GROUP.has(actionType)) return "buildSell";
+  if (BOOST_HARVEST_GROUP.has(actionType)) return "boostHarvest";
+  return actionType;
 };
 
 const ZOOM_MIN_SCALE = 0.05;
@@ -134,6 +141,7 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   {
     nodes = [],
     selectedId = null,
+    branchComparisonHighlight = null,
     onSelectNode,
     onMakeTop,
     onCopyBranch, // (sourceNodeId, targetNodeId) => void - copy sourceNode as child of targetNode
@@ -200,6 +208,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const currentTransformRef = useRef(d3.zoomIdentity);
   const selectionFocusModeRef = useRef(true);
   const prevRelativeZoomRef = useRef(1);
+  const verticalAnchorRef = useRef(null);
+  const preserveVerticalAnchorOnSyncRef = useRef(false);
 
   // Store positions for fix button overlay
   const [nodePositions, setNodePositions] = useState(new Map());
@@ -459,10 +469,24 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             bundleType: curBundleKey,
           });
         }
+
+        // For buildSell bundles, track whether the chain has builds, sells, or both
+        let buildSellFlags;
+        if (curBundleKey === "buildSell") {
+          let hasBuilds = false;
+          let hasSells = false;
+          for (const nodeId of bundle) {
+            const n = nodeMap.get(nodeId);
+            if (n?.actionType === "build") hasBuilds = true;
+            if (n?.actionType === "sell") hasSells = true;
+          }
+          buildSellFlags = { hasBuilds, hasSells };
+        }
         info.set(bundle[bundle.length - 1], {
           bundleCount: bundle.length,
           isHidden: false,
           bundleType: curBundleKey,
+          buildSellFlags,
         });
 
         const lastInBundle = bundle[bundle.length - 1];
@@ -565,6 +589,37 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
   const bundleInfo = collapseModel.bundleInfo;
   const activeNodeIds = collapseModel.displayNodeIds;
 
+  const branchComparisonStyles = useMemo(() => {
+    const nodeColorMap = new Map();
+    const edgeColorMap = new Map();
+    if (!branchComparisonHighlight) {
+      return { nodeColorMap, edgeColorMap };
+    }
+
+    const resolveBranchColor = (key) => {
+      if (key === "green") return actionColors.build || ACTION_COLORS.build;
+      if (key === "red") return actionColors.sell || ACTION_COLORS.sell;
+      if (key === "yellow")
+        return actionColors.boostSingle || ACTION_COLORS.boostSingle;
+      return null;
+    };
+
+    const appendBranch = (branch) => {
+      const color = resolveBranchColor(branch?.color);
+      if (!color) return;
+      (branch?.nodeIds ?? []).forEach((nodeId) => {
+        nodeColorMap.set(nodeId, color);
+      });
+      (branch?.edgeKeys ?? []).forEach((edgeKey) => {
+        edgeColorMap.set(edgeKey, color);
+      });
+    };
+
+    appendBranch(branchComparisonHighlight.original);
+    appendBranch(branchComparisonHighlight.copied);
+    return { nodeColorMap, edgeColorMap };
+  }, [branchComparisonHighlight, actionColors]);
+
   const resolveCollapsedSelection = useCallback(
     (nodeId) => {
       if (!horizontalCollapse || nodeId == null) return nodeId;
@@ -640,28 +695,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
     return { checkpointsBefore, maxGroup };
   }, [activeChildrenMap, activeRootId, nodeMap]);
-
-  // Navigation: step forward along main branch from a node
-  const stepForward = useCallback(
-    (fromNodeId) => {
-      const fromId = resolveCollapsedSelection(fromNodeId);
-      const kids = activeChildrenMap.get(fromId) ?? [];
-      if (kids.length === 0) return null;
-      if (kids.length === 1) return resolveCollapsedSelection(kids[0].id);
-      // Multiple children - return info for popup
-      return { branch: true, parentId: fromId, children: kids };
-    },
-    [activeChildrenMap, resolveCollapsedSelection],
-  );
-
-  // Navigation: step backward along the path
-  const stepBackward = useCallback(
-    (fromNodeId) => {
-      const fromId = resolveCollapsedSelection(fromNodeId);
-      return activeParentMap.get(fromId) ?? null;
-    },
-    [activeParentMap, resolveCollapsedSelection],
-  );
 
   // Navigation: jump to previous checkpoint's parent
   const jumpToPrevCheckpoint = useCallback(
@@ -1195,8 +1228,6 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           return false;
         }
         if (event.type === "mousedown") {
-          if (event.button === 0) {
-          }
           return event.button === 0 || event.button === 1;
         }
         return true;
@@ -1730,6 +1761,15 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
           const kids = activeChildrenMap.get(sId) ?? [];
           if (kids[highlightedEdge.childIndex]?.id === tId) return "#000000";
         }
+        const comparisonEdgeColor = branchComparisonStyles.edgeColorMap.get(
+          linkKey(sId, tId),
+        );
+        if (comparisonEdgeColor) return comparisonEdgeColor;
+        const sourceBranchColor = branchComparisonStyles.nodeColorMap.get(sId);
+        const targetBranchColor = branchComparisonStyles.nodeColorMap.get(tId);
+        if (sourceBranchColor && sourceBranchColor === targetBranchColor) {
+          return sourceBranchColor;
+        }
         return idx === 0 ? "#ffffff" : "#9aa4b2";
       });
 
@@ -1912,8 +1952,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         .attr("stroke", "transparent")
         .attr("stroke-width", 18)
         .attr("opacity", 0)
-        .style("pointer-events", "stroke")
-        .style("cursor", "pointer")
+        .style("pointer-events", deleteMode ? "none" : "stroke")
+        .style("cursor", deleteMode ? "default" : "pointer")
         .on("mouseenter", () => setHoveredCheckpointMarker(d.key))
         .on("mouseleave", () =>
           setHoveredCheckpointMarker((prev) => (prev === d.key ? null : prev)),
@@ -1944,8 +1984,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         .attr("fill", isHovered ? "#ffffff" : markerColor)
         .attr("font-size", isHovered ? "15px" : "14px")
         .attr("font-weight", "bold")
-        .style("pointer-events", "auto")
-        .style("cursor", "pointer")
+        .style("pointer-events", deleteMode ? "none" : "auto")
+        .style("cursor", deleteMode ? "default" : "pointer")
         .text(d.label)
         .on("mouseenter", () => setHoveredCheckpointMarker(d.key))
         .on("mouseleave", () =>
@@ -1978,6 +2018,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       if (d.unfixable || d.orderUnfixable) return "#ef4444"; // Red for unfixable
       if (d.orderTBD || d.orderFixable) return "#f97316"; // Orange for order issues
       if (d.configFixable) return "#ec4899"; // Pink for configFixable
+      const comparisonNodeColor = branchComparisonStyles.nodeColorMap.get(d.id);
+      if (comparisonNodeColor) return comparisonNodeColor;
       return "#ffffff";
     };
     const getNodeStrokeWidth = (d) => {
@@ -1997,6 +2039,22 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       return 2;
     };
     const getNodeFill = (d) => {
+      const bundle = bundleInfo.get(d.id);
+      // buildSell bundle: sell (red) as base when sells present; overlay arc adds build (green)
+      if (bundle?.buildSellFlags && bundle.bundleCount > 1) {
+        const { hasSells } = bundle.buildSellFlags;
+        const baseColor = hasSells
+          ? (actionColors["sell"] || "#E5533D")
+          : (actionColors["build"] || "#03d839");
+        if (!deleteMode || !highlightedDeleteNodes.has(d.id)) return baseColor;
+        return d3.interpolateRgb(baseColor, "#ef4444")(0.32);
+      }
+      // boostHarvest bundle: always yellow (boost color) for the cluster representative
+      if (bundle?.bundleType === "boostHarvest" && bundle.bundleCount > 1) {
+        const baseColor = actionColors["boostSingle"] || "#F2B705";
+        if (!deleteMode || !highlightedDeleteNodes.has(d.id)) return baseColor;
+        return d3.interpolateRgb(baseColor, "#ef4444")(0.32);
+      }
       if (!deleteMode || !highlightedDeleteNodes.has(d.id)) return d.color;
       const mixed = d3.interpolateRgb(d.color || "#1f2937", "#ef4444")(0.32);
       return mixed;
@@ -2032,7 +2090,13 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
       const bundle = bundleInfo.get(d.id);
       if (bundle && bundle.bundleCount > 1) {
         // Show bundle count + action type (use bundleType which normalizes adminAdjust group)
-        const typeLabel = bundle.bundleType || d.actionType || "action";
+        let typeLabel = bundle.bundleType || d.actionType || "action";
+        if (bundle.bundleType === "buildSell") {
+          const { hasBuilds, hasSells } = bundle.buildSellFlags || {};
+          typeLabel = hasBuilds && hasSells ? "build/sell" : hasBuilds ? "build" : "sell";
+        } else if (bundle.bundleType === "boostHarvest") {
+          typeLabel = "boost/harvest";
+        }
         return `${bundle.bundleCount} ${typeLabel}`;
       }
       return d.data?.actionTooltip || "";
@@ -2057,7 +2121,25 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
             .attr("stroke-width", getNodeStrokeWidth)
             .style("cursor", getNodeCursor);
 
-          // Add text label if present
+          // Mixed build+sell bundles use a diagonal split:
+          // red base for the upper-left side and green overlay for the lower-right side.
+          const splitRadius = cfg.nodeRadius;
+          const splitOffset = +(splitRadius / Math.SQRT2).toFixed(3);
+          const lowerRightHalfPath = `M ${splitOffset} ${-splitOffset} A ${splitRadius} ${splitRadius} 0 0 1 ${-splitOffset} ${splitOffset} Z`;
+          g.filter((d) => {
+            const bundle = bundleInfo.get(d.id);
+            return bundle?.buildSellFlags?.hasBuilds && bundle?.buildSellFlags?.hasSells;
+          })
+            .append("path")
+            .attr("class", "split-circle-overlay")
+            .attr("d", lowerRightHalfPath)
+            .attr("fill", (d) => {
+              const buildColor = actionColors["build"] || "#03d839";
+              if (!deleteMode || !highlightedDeleteNodes.has(d.id)) return buildColor;
+              return d3.interpolateRgb(buildColor, "#ef4444")(0.32);
+            })
+            .attr("pointer-events", "none");
+
           g.filter((d) => !!getDisplayNodeLabel(d))
             .append("text")
             .attr("class", "node-label")
@@ -2352,59 +2434,233 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     handleSelectCheckpointTarget,
     hoveredCheckpointMarker,
     activeRootId,
+    branchComparisonStyles,
   ]);
+
+  const getCurrentActionNodeId = useCallback(() => {
+    if (selectedId != null && nodeMap.has(selectedId)) return selectedId;
+    if (internalSelected != null && nodeMap.has(internalSelected))
+      return internalSelected;
+    return activeRootId;
+  }, [selectedId, internalSelected, nodeMap, activeRootId]);
+
+  const getAlignmentForVisibleNode = useCallback(
+    (visibleNodeId) => {
+      if (visibleNodeId == null) return null;
+      const { depthSinceCheckpoint, checkpointsBefore } = computeDepths();
+      return {
+        checkpointGroup: checkpointsBefore.get(visibleNodeId) ?? 0,
+        depthSinceCheckpoint: depthSinceCheckpoint.get(visibleNodeId) ?? 0,
+      };
+    },
+    [computeDepths],
+  );
+
+  const setVerticalAnchorFromNode = useCallback(
+    (nodeId) => {
+      const visibleNodeId = resolveCollapsedSelection(nodeId);
+      const alignment = getAlignmentForVisibleNode(visibleNodeId);
+      if (!alignment) return;
+      verticalAnchorRef.current = alignment;
+    },
+    [resolveCollapsedSelection, getAlignmentForVisibleNode],
+  );
+
+  useEffect(() => {
+    if (selectedId == null || !nodeMap.has(selectedId)) return;
+    if (preserveVerticalAnchorOnSyncRef.current) {
+      preserveVerticalAnchorOnSyncRef.current = false;
+      return;
+    }
+    setVerticalAnchorFromNode(selectedId);
+  }, [selectedId, nodeMap, setVerticalAnchorFromNode]);
+
+  const selectActionNode = useCallback(
+    (targetId, { preserveVerticalAnchor = false } = {}) => {
+      if (targetId == null || !nodeMap.has(targetId)) return false;
+      const resolvedTarget = resolveCollapsedSelection(targetId);
+      if (resolvedTarget == null) return false;
+
+      if (preserveVerticalAnchor) {
+        preserveVerticalAnchorOnSyncRef.current = true;
+      } else {
+        preserveVerticalAnchorOnSyncRef.current = false;
+        setVerticalAnchorFromNode(targetId);
+      }
+
+      setBranchPopup(null);
+      setInternalSelected(resolvedTarget);
+      setSelectedEdge(null);
+      onSelectNode?.(targetId);
+      return true;
+    },
+    [nodeMap, onSelectNode, resolveCollapsedSelection, setVerticalAnchorFromNode],
+  );
+
+  const stepActionBackward = useCallback(
+    (fromNodeId) => {
+      if (fromNodeId == null) return null;
+      const parentId = nodeMap.get(fromNodeId)?.data?.parentId;
+      return parentId ?? null;
+    },
+    [nodeMap],
+  );
+
+  const stepActionForward = useCallback(
+    (fromNodeId) => {
+      if (fromNodeId == null) return null;
+      const kids = childrenMap.get(fromNodeId) ?? [];
+      return kids.length > 0 ? kids[0].id : null;
+    },
+    [childrenMap],
+  );
+
+  const getRenderableChildren = useCallback(
+    (parentId, visibleNodes, showAll) =>
+      (activeChildrenMap.get(parentId) ?? []).filter((kid) =>
+        isNodeRenderable(kid.id, visibleNodes, showAll),
+      ),
+    [activeChildrenMap, isNodeRenderable],
+  );
+
+  const findAdjacentBranchRoot = useCallback(
+    (fromVisibleId, direction, visibleNodes, showAll) => {
+      let cursor = fromVisibleId;
+      const offset = direction === "down" ? 1 : -1;
+
+      while (cursor != null) {
+        const parentId = activeParentMap.get(cursor);
+        if (parentId == null) return null;
+        const siblings = getRenderableChildren(parentId, visibleNodes, showAll);
+        const index = siblings.findIndex((s) => s.id === cursor);
+        if (index >= 0) {
+          const nextIndex = index + offset;
+          if (nextIndex >= 0 && nextIndex < siblings.length) {
+            return siblings[nextIndex].id;
+          }
+        }
+        cursor = parentId;
+      }
+
+      return null;
+    },
+    [activeParentMap, getRenderableChildren],
+  );
+
+  const buildMainPathFromBranchRoot = useCallback(
+    (startId, visibleNodes, showAll) => {
+      const path = [];
+      const visited = new Set();
+      let cursor = startId;
+
+      while (cursor != null && !visited.has(cursor)) {
+        visited.add(cursor);
+        if (isNodeRenderable(cursor, visibleNodes, showAll)) {
+          path.push(cursor);
+        }
+        const kids = getRenderableChildren(cursor, visibleNodes, showAll);
+        cursor = kids.length > 0 ? kids[0].id : null;
+      }
+
+      return path;
+    },
+    [getRenderableChildren, isNodeRenderable],
+  );
+
+  const resolveVerticalJumpTarget = useCallback(
+    (direction) => {
+      const currentActionId = getCurrentActionNodeId();
+      if (currentActionId == null) return null;
+
+      const currentVisibleId = resolveCollapsedSelection(currentActionId);
+      if (currentVisibleId == null) return null;
+
+      const { visibleNodes, showAll } = computeVisibility();
+      const { depthSinceCheckpoint, checkpointsBefore } = computeDepths();
+      const branchRootId = findAdjacentBranchRoot(
+        currentVisibleId,
+        direction,
+        visibleNodes,
+        showAll,
+      );
+      if (branchRootId == null) return null;
+
+      const branchPath = buildMainPathFromBranchRoot(
+        branchRootId,
+        visibleNodes,
+        showAll,
+      );
+      if (branchPath.length === 0) return null;
+
+      let anchor = verticalAnchorRef.current;
+      if (!anchor) {
+        anchor = getAlignmentForVisibleNode(currentVisibleId);
+        if (!anchor) return branchPath[branchPath.length - 1];
+        verticalAnchorRef.current = anchor;
+      }
+
+      const alignedTarget = branchPath.find((nodeId) => {
+        const cpGroup = checkpointsBefore.get(nodeId) ?? 0;
+        const depth = depthSinceCheckpoint.get(nodeId) ?? 0;
+        return (
+          cpGroup === anchor.checkpointGroup &&
+          depth === anchor.depthSinceCheckpoint
+        );
+      });
+
+      return alignedTarget ?? branchPath[branchPath.length - 1];
+    },
+    [
+      getCurrentActionNodeId,
+      resolveCollapsedSelection,
+      computeVisibility,
+      computeDepths,
+      findAdjacentBranchRoot,
+      buildMainPathFromBranchRoot,
+      getAlignmentForVisibleNode,
+    ],
+  );
 
   // Navigation handlers
   const handleStepBack = useCallback(() => {
-    setBranchPopup(null);
-    const target = stepBackward(internalSelected);
-    if (target != null) {
-      setInternalSelected(target);
-      setSelectedEdge(null);
-      onSelectNode?.(target);
-    }
-  }, [internalSelected, stepBackward, onSelectNode]);
+    const currentActionId = getCurrentActionNodeId();
+    const target = stepActionBackward(currentActionId);
+    if (target == null) return;
+    selectActionNode(target);
+  }, [getCurrentActionNodeId, stepActionBackward, selectActionNode]);
 
   const handleStepForward = useCallback(() => {
-    const result = stepForward(internalSelected);
-    if (result === null) return;
-
-    if (typeof result === "object" && result.branch) {
-      // Multiple branches - show popup
-      setBranchPopup({
-        parentId: result.parentId,
-        children: result.children,
-        selectedIndex: 0,
-      });
-      setSelectedEdge(null);
-    } else {
-      // Single child - navigate directly
-      setBranchPopup(null);
-      setInternalSelected(result);
-      setSelectedEdge(null);
-      onSelectNode?.(result);
-    }
-  }, [internalSelected, stepForward, onSelectNode]);
+    const currentActionId = getCurrentActionNodeId();
+    const target = stepActionForward(currentActionId);
+    if (target == null) return;
+    selectActionNode(target);
+  }, [getCurrentActionNodeId, stepActionForward, selectActionNode]);
 
   const handleJumpPrevCheckpoint = useCallback(() => {
-    setBranchPopup(null);
-    const target = jumpToPrevCheckpoint(internalSelected);
-    if (target != null) {
-      setInternalSelected(target);
-      setSelectedEdge(null);
-      onSelectNode?.(target);
-    }
-  }, [internalSelected, jumpToPrevCheckpoint, onSelectNode]);
+    const currentActionId = getCurrentActionNodeId();
+    const target = jumpToPrevCheckpoint(currentActionId);
+    if (target == null) return;
+    selectActionNode(target);
+  }, [getCurrentActionNodeId, jumpToPrevCheckpoint, selectActionNode]);
 
   const handleJumpNextCheckpoint = useCallback(() => {
-    setBranchPopup(null);
-    const target = jumpToNextCheckpoint(internalSelected);
-    if (target != null) {
-      setInternalSelected(target);
-      setSelectedEdge(null);
-      onSelectNode?.(target);
-    }
-  }, [internalSelected, jumpToNextCheckpoint, onSelectNode]);
+    const currentActionId = getCurrentActionNodeId();
+    const target = jumpToNextCheckpoint(currentActionId);
+    if (target == null) return;
+    selectActionNode(target);
+  }, [getCurrentActionNodeId, jumpToNextCheckpoint, selectActionNode]);
+
+  const handleJumpBranchUp = useCallback(() => {
+    const target = resolveVerticalJumpTarget("up");
+    if (target == null) return;
+    selectActionNode(target, { preserveVerticalAnchor: true });
+  }, [resolveVerticalJumpTarget, selectActionNode]);
+
+  const handleJumpBranchDown = useCallback(() => {
+    const target = resolveVerticalJumpTarget("down");
+    if (target == null) return;
+    selectActionNode(target, { preserveVerticalAnchor: true });
+  }, [resolveVerticalJumpTarget, selectActionNode]);
 
   // Popup branch selection
   const handleSelectBranch = useCallback(
@@ -2448,29 +2704,15 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
 
       // If popup is open, handle popup navigation
       if (branchPopup) {
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          const newIdx = Math.max(0, branchPopup.selectedIndex - 1);
-          setBranchPopup((prev) =>
-            prev ? { ...prev, selectedIndex: newIdx } : null,
-          );
-        } else if (e.key === "ArrowDown") {
-          e.preventDefault();
-          const newIdx = Math.min(
-            branchPopup.children.length - 1,
-            branchPopup.selectedIndex + 1,
-          );
-          setBranchPopup((prev) =>
-            prev ? { ...prev, selectedIndex: newIdx } : null,
-          );
-        } else if (e.key === " " || e.key === "ArrowRight") {
+        if (e.key === " " || e.key === "ArrowRight") {
           e.preventDefault();
           handleSelectBranch(branchPopup.selectedIndex);
+          return;
         } else if (e.key === "Escape" || e.key === "ArrowLeft") {
           e.preventDefault();
           setBranchPopup(null);
+          return;
         }
-        return;
       }
 
       // Regular navigation
@@ -2488,6 +2730,12 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
         } else {
           handleStepForward();
         }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        handleJumpBranchUp();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        handleJumpBranchDown();
       }
     };
 
@@ -2500,6 +2748,8 @@ export const TreeVisualizer = forwardRef(function TreeVisualizer(
     handleStepForward,
     handleJumpPrevCheckpoint,
     handleJumpNextCheckpoint,
+    handleJumpBranchUp,
+    handleJumpBranchDown,
     handleSelectBranch,
     deleteMode,
     clearDeleteHover,

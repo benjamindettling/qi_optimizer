@@ -56,6 +56,19 @@ const ACTION_GOODS_PURCHASE_ADMIN = "goodsPurchaseAdmin";
 const ACTION_UNIT_PURCHASE = "unitPurchase";
 const ACTION_UNIT_PURCHASE_ADMIN = "unitPurchaseAdmin";
 
+const SELL_ACTION_TYPES = new Set([
+  ACTION_SELL,
+  ACTION_SELL_FULL,
+  ACTION_SELL_ADMIN,
+]);
+
+const BOOST_ACTION_TYPES = new Set([
+  ACTION_BOOST_UNLOCK,
+  ACTION_BOOST_UNLOCK_ADMIN,
+  ACTION_BOOST_READY,
+  ACTION_BOOST_READY_ADMIN,
+]);
+
 const isBuildActionType = (type) =>
   type === ACTION_BUILD || type === ACTION_BUILD_ADMIN;
 
@@ -171,6 +184,23 @@ const extractQuantityMapFromAction = (action) => {
   return { [String(amount)]: Math.floor(rawCount) };
 };
 
+const actionMatchesTrackedBuilding = ({
+  action,
+  trackedOriginalX,
+  trackedOriginalY,
+  originalDefId,
+  shortIdMap,
+}) => {
+  if (!action) return false;
+  if (Number(action.x) !== trackedOriginalX || Number(action.y) !== trackedOriginalY) {
+    return false;
+  }
+  const actionDefId =
+    action.defId || (action.shortId ? shortIdMap?.[action.shortId] : null);
+  if (!originalDefId || !actionDefId) return true;
+  return actionDefId === originalDefId;
+};
+
 export const useActionHistory = ({
   layout,
   readyMap,
@@ -209,6 +239,8 @@ export const useActionHistory = ({
   const [selectedNodeId, setSelectedNodeId] = useState(0);
   const [invalidSteps, setInvalidSteps] = useState([]);
   const [historyChecking, setHistoryChecking] = useState(false);
+  const [branchComparisonHighlight, setBranchComparisonHighlight] = useState(null);
+  const [pendingBranchComparison, setPendingBranchComparison] = useState(null);
   
   // Node verification flags: Map<nodeId, { unfixable?, configFixable?, orderTBD?, greyedOut? }>
   const [nodeFlags, setNodeFlags] = useState(new Map());
@@ -293,6 +325,128 @@ export const useActionHistory = ({
   }, [qaHoursPerHarvest]);
 
   // ============ TREE HELPER FUNCTIONS ============
+
+  const getPathToRootFromNodes = useCallback((nodesMap, nodeId) => {
+    if (!nodesMap?.has?.(nodeId)) return [];
+    const path = [];
+    let current = nodeId;
+    while (current !== null && current !== undefined) {
+      path.unshift(current);
+      const node = nodesMap.get(current);
+      if (!node) break;
+      current = node.parentId ?? null;
+    }
+    return path;
+  }, []);
+
+  const buildMainPathToEnd = useCallback((nodesMap, startNodeId) => {
+    if (!nodesMap?.has?.(startNodeId)) return [];
+    const path = [];
+    let current = startNodeId;
+    const visited = new Set();
+    while (current != null && nodesMap.has(current) && !visited.has(current)) {
+      visited.add(current);
+      path.push(current);
+      const currentNode = nodesMap.get(current);
+      const nextId =
+        Array.isArray(currentNode?.childrenIds) && currentNode.childrenIds.length > 0
+          ? currentNode.childrenIds[0]
+          : null;
+      current = nextId;
+    }
+    return path;
+  }, []);
+
+  const findLowestCommonAncestor = useCallback(
+    (nodesMap, nodeAId, nodeBId) => {
+      const pathA = getPathToRootFromNodes(nodesMap, nodeAId);
+      const pathB = getPathToRootFromNodes(nodesMap, nodeBId);
+      const maxShared = Math.min(pathA.length, pathB.length);
+      let lcaId = null;
+      for (let i = 0; i < maxShared; i += 1) {
+        if (pathA[i] !== pathB[i]) break;
+        lcaId = pathA[i];
+      }
+      return lcaId;
+    },
+    [getPathToRootFromNodes],
+  );
+
+  const buildBranchHighlightPath = useCallback(
+    (nodesMap, lcaId, selectedId) => {
+      const pathToSelected = getPathToRootFromNodes(nodesMap, selectedId);
+      if (!pathToSelected.length) {
+        return { nodeIds: [], edgeKeys: [] };
+      }
+
+      let tailPath = pathToSelected;
+      if (lcaId != null) {
+        const lcaIndex = pathToSelected.indexOf(lcaId);
+        if (lcaIndex >= 0) {
+          tailPath = pathToSelected.slice(lcaIndex + 1);
+        }
+      }
+
+      const nodeIds = [];
+      const edgeKeys = [];
+      const nodeSeen = new Set();
+      const edgeSeen = new Set();
+      const addNode = (nodeId) => {
+        if (nodeId == null || nodeId === lcaId) return;
+        if (nodeSeen.has(nodeId)) return;
+        nodeSeen.add(nodeId);
+        nodeIds.push(nodeId);
+      };
+      const addEdge = (parentId, childId) => {
+        if (parentId == null || childId == null) return;
+        const key = `${parentId}|${childId}`;
+        if (edgeSeen.has(key)) return;
+        edgeSeen.add(key);
+        edgeKeys.push(key);
+      };
+
+      if (tailPath.length > 0 && lcaId != null) {
+        addEdge(lcaId, tailPath[0]);
+      }
+      for (let i = 0; i < tailPath.length; i += 1) {
+        const nodeId = tailPath[i];
+        addNode(nodeId);
+        if (i > 0) {
+          addEdge(tailPath[i - 1], nodeId);
+        }
+      }
+
+      const mainPath = buildMainPathToEnd(nodesMap, selectedId);
+      for (let i = 0; i < mainPath.length; i += 1) {
+        const nodeId = mainPath[i];
+        addNode(nodeId);
+        if (i > 0) {
+          addEdge(mainPath[i - 1], nodeId);
+        }
+      }
+
+      return { nodeIds, edgeKeys };
+    },
+    [buildMainPathToEnd, getPathToRootFromNodes],
+  );
+
+  const compareResourceTriplet = useCallback((left, right) => {
+    const keys = ["coins", "supplies", "chronos"];
+    const leftVals = keys.map((key) => Number(left?.[key] ?? 0));
+    const rightVals = keys.map((key) => Number(right?.[key] ?? 0));
+    const allEqual = leftVals.every((value, idx) => value === rightVals[idx]);
+    if (allEqual) return "tie";
+
+    const leftBetterOrEqual = leftVals.every((value, idx) => value >= rightVals[idx]);
+    const leftStrictlyBetter = leftVals.some((value, idx) => value > rightVals[idx]);
+    if (leftBetterOrEqual && leftStrictlyBetter) return "left-better";
+
+    const rightBetterOrEqual = rightVals.every((value, idx) => value >= leftVals[idx]);
+    const rightStrictlyBetter = rightVals.some((value, idx) => value > leftVals[idx]);
+    if (rightBetterOrEqual && rightStrictlyBetter) return "right-better";
+
+    return "inbalance";
+  }, []);
   
   // Get path from root (node 0) to a given nodeId
   const getPathToNode = useCallback((nodeId) => {
@@ -2931,6 +3085,103 @@ export const useActionHistory = ({
     return () => clearTimeout(timer);
   }, [pendingVerification, verifySubtree]);
 
+  useEffect(() => {
+    if (!pendingBranchComparison) return;
+
+    const originalSelectedNodeId = pendingBranchComparison.originalSelectedNodeId;
+    const copiedSelectedNodeId = pendingBranchComparison.copiedSelectedNodeId;
+    const nodes = historyTree?.nodes;
+    if (
+      !nodes?.has?.(originalSelectedNodeId) ||
+      !nodes?.has?.(copiedSelectedNodeId)
+    ) {
+      setPendingBranchComparison(null);
+      setBranchComparisonHighlight(null);
+      return;
+    }
+
+    const originalMainPath = buildMainPathToEnd(nodes, originalSelectedNodeId);
+    const copiedMainPath = buildMainPathToEnd(nodes, copiedSelectedNodeId);
+    if (!originalMainPath.length || !copiedMainPath.length) {
+      setPendingBranchComparison(null);
+      setBranchComparisonHighlight(null);
+      return;
+    }
+
+    const originalEndNodeId = originalMainPath[originalMainPath.length - 1];
+    const copiedEndNodeId = copiedMainPath[copiedMainPath.length - 1];
+    const originalState = computeStateAtNode(originalEndNodeId);
+    const copiedState = computeStateAtNode(copiedEndNodeId);
+    const comparison = compareResourceTriplet(
+      originalState?.resources,
+      copiedState?.resources,
+    );
+    const commonParentId = findLowestCommonAncestor(
+      nodes,
+      originalSelectedNodeId,
+      copiedSelectedNodeId,
+    );
+    const originalBranch = buildBranchHighlightPath(
+      nodes,
+      commonParentId,
+      originalSelectedNodeId,
+    );
+    const copiedBranch = buildBranchHighlightPath(
+      nodes,
+      commonParentId,
+      copiedSelectedNodeId,
+    );
+
+    let originalColor = "yellow";
+    let copiedColor = "yellow";
+    let verdict = "inbalance";
+    let betterBranch = null;
+    if (comparison === "tie") {
+      verdict = "tie";
+      originalColor = "green";
+      copiedColor = "green";
+    } else if (comparison === "left-better") {
+      verdict = "win";
+      betterBranch = "original";
+      originalColor = "green";
+      copiedColor = "red";
+    } else if (comparison === "right-better") {
+      verdict = "win";
+      betterBranch = "copied";
+      originalColor = "red";
+      copiedColor = "green";
+    }
+
+    setBranchComparisonHighlight({
+      verdict,
+      betterBranch,
+      commonParentId,
+      original: {
+        selectedNodeId: originalSelectedNodeId,
+        endNodeId: originalEndNodeId,
+        color: originalColor,
+        nodeIds: originalBranch.nodeIds,
+        edgeKeys: originalBranch.edgeKeys,
+      },
+      copied: {
+        selectedNodeId: copiedSelectedNodeId,
+        endNodeId: copiedEndNodeId,
+        color: copiedColor,
+        nodeIds: copiedBranch.nodeIds,
+        edgeKeys: copiedBranch.edgeKeys,
+      },
+    });
+    setPendingBranchComparison(null);
+  }, [
+    pendingBranchComparison,
+    historyTree,
+    computeStateAtNode,
+    buildMainPathToEnd,
+    findLowestCommonAncestor,
+    buildBranchHighlightPath,
+    compareResourceTriplet,
+  ]);
+
   // Re-evaluate entire tree when config changes (account config or savefile config)
   useEffect(() => {
     if (configRevision === undefined || configRevision === null) return;
@@ -2964,6 +3215,8 @@ export const useActionHistory = ({
 
   const recordHistoryAction = useCallback(
     (action) => {
+      setBranchComparisonHighlight(null);
+      setPendingBranchComparison(null);
       const startNodeIdRaw = selectedNodeIdRef.current;
       const startNodeId = Number.isFinite(startNodeIdRaw)
         ? startNodeIdRaw
@@ -3169,6 +3422,8 @@ export const useActionHistory = ({
 
   // Load a serialized tree (from saved data)
   const loadHistoryTree = useCallback((serializedTree, targetNodeId = 0) => {
+    setBranchComparisonHighlight(null);
+    setPendingBranchComparison(null);
     setHistoryTree(serializedTree);
     const safeTargetId =
       serializedTree?.nodes?.has?.(targetNodeId) ? targetNodeId : 0;
@@ -3180,6 +3435,8 @@ export const useActionHistory = ({
   const copyBranchTo = useCallback((sourceNodeId, targetNodeId) => {
     if (sourceNodeId == null || targetNodeId == null) return;
     if (sourceNodeId === 0 || sourceNodeId === targetNodeId) return;
+    setBranchComparisonHighlight(null);
+    setPendingBranchComparison(null);
     
     setHistoryTree((prev) => {
       const nodes = new Map(prev.nodes);
@@ -3259,6 +3516,264 @@ export const useActionHistory = ({
     // Trigger verification for the newly copied subtree (starting from target node)
     setPendingVerification(targetNodeId);
   }, []);
+
+  const createOverlayBuildBranch = useCallback(
+    ({
+      sourceInstanceId,
+      sourceDefId,
+      newDefId,
+      newShortId,
+      newX,
+      newY,
+      buildType = ACTION_BUILD,
+    }) => {
+      if (sourceInstanceId == null || sourceDefId == null || newDefId == null) {
+        return { ok: false, reason: "invalid-input" };
+      }
+      setBranchComparisonHighlight(null);
+      setPendingBranchComparison(null);
+
+      const tree = historyTreeRef.current;
+      const nodes = tree?.nodes;
+      const currentNodeId = selectedNodeIdRef.current;
+      if (!nodes?.has(currentNodeId)) {
+        return { ok: false, reason: "missing-selected-node" };
+      }
+
+      const path = [];
+      let cursor = currentNodeId;
+      while (cursor !== null && cursor !== undefined) {
+        path.unshift(cursor);
+        cursor = nodes.get(cursor)?.parentId ?? null;
+      }
+
+      let buildNodeId = null;
+      let originalBuildX = null;
+      let originalBuildY = null;
+      for (let i = 1; i < path.length; i += 1) {
+        const nodeId = path[i];
+        const prevNodeId = path[i - 1];
+        const nodeState = computeStateAtNode(nodeId);
+        const prevState = computeStateAtNode(prevNodeId);
+        const hasTarget = (nodeState.layout ?? []).some(
+          (inst) => inst.id === sourceInstanceId,
+        );
+        const hadTargetBefore = (prevState.layout ?? []).some(
+          (inst) => inst.id === sourceInstanceId,
+        );
+        if (!hasTarget || hadTargetBefore) continue;
+        const node = nodes.get(nodeId);
+        if (!isBuildActionType(node?.action?.type)) continue;
+        buildNodeId = nodeId;
+        originalBuildX = Number(node.action.x);
+        originalBuildY = Number(node.action.y);
+        break;
+      }
+
+      if (buildNodeId == null) {
+        return { ok: false, reason: "build-node-not-found" };
+      }
+
+      const buildNode = nodes.get(buildNodeId);
+      const buildParentId = buildNode?.parentId;
+      if (buildParentId == null || !nodes.has(buildParentId)) {
+        return { ok: false, reason: "missing-build-parent" };
+      }
+
+      const subtreeHasCurrentSelection = (() => {
+        let walk = currentNodeId;
+        while (walk != null) {
+          if (walk === buildNodeId) return true;
+          walk = nodes.get(walk)?.parentId ?? null;
+        }
+        return false;
+      })();
+
+      const prevTree = historyTreeRef.current;
+      const draftNodes = new Map(prevTree.nodes);
+      let nextNodeId = prevTree.nextNodeId;
+
+      const sourceRoot = draftNodes.get(buildNodeId);
+      const sourceParent = draftNodes.get(buildParentId);
+      if (!sourceRoot || !sourceParent) {
+        return { ok: false, reason: "missing-source-nodes" };
+      }
+
+      const idMapping = new Map();
+      const queue = [buildNodeId];
+      const copied = [];
+      while (queue.length > 0) {
+        const oldId = queue.shift();
+        const oldNode = draftNodes.get(oldId);
+        if (!oldNode) continue;
+        const newId = nextNodeId;
+        nextNodeId += 1;
+        idMapping.set(oldId, newId);
+        copied.push({
+          oldId,
+          newId,
+          oldParentId: oldNode.parentId,
+          oldChildrenIds: [...(oldNode.childrenIds ?? [])],
+          action: oldNode.action ? { ...oldNode.action } : null,
+        });
+        oldNode.childrenIds.forEach((childId) => queue.push(childId));
+      }
+
+      copied.forEach((entry) => {
+        const parentId =
+          entry.oldId === buildNodeId
+            ? buildParentId
+            : idMapping.get(entry.oldParentId);
+        const childrenIds = entry.oldChildrenIds
+          .map((childId) => idMapping.get(childId))
+          .filter((id) => id != null);
+        draftNodes.set(entry.newId, {
+          id: entry.newId,
+          parentId,
+          action: entry.action,
+          childrenIds,
+        });
+      });
+
+      const newRootId = idMapping.get(buildNodeId);
+      const newRoot = draftNodes.get(newRootId);
+      if (!newRoot?.action) {
+        return { ok: false, reason: "missing-new-root-action" };
+      }
+
+      const replacementAction = {
+        ...newRoot.action,
+        type: buildType,
+        x: newX,
+        y: newY,
+      };
+      if (newShortId) {
+        replacementAction.shortId = newShortId;
+        delete replacementAction.defId;
+      } else {
+        replacementAction.defId = newDefId;
+        delete replacementAction.shortId;
+      }
+      draftNodes.set(newRootId, { ...newRoot, action: replacementAction });
+
+      const updatedParent = {
+        ...sourceParent,
+        childrenIds: [...sourceParent.childrenIds, newRootId],
+      };
+      draftNodes.set(buildParentId, updatedParent);
+
+      const traversalQueue = [
+        {
+          nodeId: newRootId,
+          originalX: originalBuildX,
+          originalY: originalBuildY,
+          currentX: Number(newX),
+          currentY: Number(newY),
+          active: true,
+        },
+      ];
+
+      while (traversalQueue.length > 0) {
+        const state = traversalQueue.shift();
+        const node = draftNodes.get(state.nodeId);
+        if (!node) continue;
+
+        let nextState = { ...state };
+        if (state.nodeId !== newRootId && state.active) {
+          const action = node.action ? { ...node.action } : null;
+          if (action) {
+            if (action.type === ACTION_MOVE) {
+              const positions = normalizeMovePositions(action);
+              const moveIndex = positions.findIndex(
+                ([fromX, fromY]) =>
+                  fromX === state.originalX && fromY === state.originalY,
+              );
+              if (moveIndex >= 0) {
+                const [, , toX, toY] = positions[moveIndex];
+                positions[moveIndex] = [state.currentX, state.currentY, toX, toY];
+                action.positions = positions;
+                delete action.x;
+                delete action.y;
+                delete action.xn;
+                delete action.yn;
+                nextState = {
+                  ...nextState,
+                  originalX: toX,
+                  originalY: toY,
+                  currentX: toX,
+                  currentY: toY,
+                };
+              }
+            } else if (
+              (BOOST_ACTION_TYPES.has(action.type) ||
+                action.type === ACTION_HARVEST) &&
+              actionMatchesTrackedBuilding({
+                action,
+                trackedOriginalX: state.originalX,
+                trackedOriginalY: state.originalY,
+                originalDefId: sourceDefId,
+                shortIdMap,
+              })
+            ) {
+              action.x = state.currentX;
+              action.y = state.currentY;
+              if (newShortId) {
+                action.shortId = newShortId;
+                delete action.defId;
+              } else {
+                action.defId = newDefId;
+                delete action.shortId;
+              }
+            } else if (
+              SELL_ACTION_TYPES.has(action.type) &&
+              actionMatchesTrackedBuilding({
+                action,
+                trackedOriginalX: state.originalX,
+                trackedOriginalY: state.originalY,
+                originalDefId: sourceDefId,
+                shortIdMap,
+              })
+            ) {
+              action.x = state.currentX;
+              action.y = state.currentY;
+              if (newShortId) {
+                action.shortId = newShortId;
+                delete action.defId;
+              } else {
+                action.defId = newDefId;
+                delete action.shortId;
+              }
+              nextState = { ...nextState, active: false };
+            }
+            draftNodes.set(state.nodeId, { ...node, action });
+          }
+        }
+
+        node.childrenIds.forEach((childId) => {
+          traversalQueue.push({ ...nextState, nodeId: childId });
+        });
+      }
+
+      let nextSelectedNodeId = newRootId;
+      if (subtreeHasCurrentSelection) {
+        const mappedSelected = idMapping.get(currentNodeId);
+        if (mappedSelected != null) {
+          nextSelectedNodeId = mappedSelected;
+        }
+      }
+
+      setHistoryTree({ nodes: draftNodes, nextNodeId });
+
+      setSelectedNodeId(nextSelectedNodeId);
+      setPendingVerification(buildParentId);
+      setPendingBranchComparison({
+        originalSelectedNodeId: currentNodeId,
+        copiedSelectedNodeId: nextSelectedNodeId,
+      });
+      return { ok: true, selectedNodeId: nextSelectedNodeId };
+    },
+    [computeStateAtNode, shortIdMap],
+  );
 
   // Delete a node and optionally its entire subtree
   // If deleteSubtree is true: delete node and all descendants
@@ -3387,6 +3902,8 @@ export const useActionHistory = ({
   // - legacy single-node fixedLayout fallback
   const applyLayoutFix = useCallback((nodeId, fixedLayout, fixPlan = null) => {
     if (nodeId == null || nodeId === 0) return;
+    setBranchComparisonHighlight(null);
+    setPendingBranchComparison(null);
 
     setHistoryTree((prev) => {
       const nodes = new Map(prev.nodes);
@@ -3507,6 +4024,7 @@ export const useActionHistory = ({
     setHistoryTree,
     setSelectedNodeId,
     historyNodes: getTreeNodesForVisualizer,
+    branchComparisonHighlight,
     historyInvalidSteps: invalidSteps,
     historyChecking,
     recordHistoryAction,
@@ -3514,6 +4032,7 @@ export const useActionHistory = ({
     makeTopBranch,
     loadHistoryTree,
     copyBranchTo,
+    createOverlayBuildBranch,
     deleteNode,
     applyLayoutFix,
     nodeFlags,

@@ -23,14 +23,16 @@ const getBundleKey = (actionType) => {
 
 export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = true, horizontalCollapse = false) {
   // Build parent/children maps from nodes
-  const { childrenMap, nodeMap, rootId } = useMemo(() => {
+  const { childrenMap, parentMap, nodeMap, rootId } = useMemo(() => {
     const childrenMap = new Map();
+    const parentMap = new Map();
     const nodeMap = new Map();
     let rootId = null;
 
     for (const node of nodes) {
       nodeMap.set(node.id, node);
       if (node.parentId != null) {
+        parentMap.set(node.id, node.parentId);
         if (!childrenMap.has(node.parentId)) {
           childrenMap.set(node.parentId, []);
         }
@@ -40,7 +42,7 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
       }
     }
 
-    return { childrenMap, nodeMap, rootId };
+    return { childrenMap, parentMap, nodeMap, rootId };
   }, [nodes]);
 
   const collapseModel = useMemo(() => {
@@ -150,20 +152,24 @@ export function useTreeNavigation(nodes, selectedId, onSelectNode, skipToEnd = t
 
   const { resolveVisible, activeChildrenMap, activeParentMap, activeRootId } = collapseModel;
   const activeSelectedId = resolveVisible(selectedId);
+  const selectedNodeId =
+    selectedId != null && nodeMap.has(selectedId)
+      ? selectedId
+      : activeSelectedId;
 
-  // Step forward along main branch
+  // Step forward by one real action (within collapsed bundles too).
   const stepForward = useCallback(() => {
-    const kids = activeChildrenMap.get(activeSelectedId) ?? [];
+    const kids = childrenMap.get(selectedNodeId) ?? [];
     if (kids.length === 0) return;
     onSelectNode?.(kids[0].id);
-  }, [activeChildrenMap, activeSelectedId, onSelectNode]);
+  }, [childrenMap, selectedNodeId, onSelectNode]);
 
-  // Step backward
+  // Step backward by one real action (within collapsed bundles too).
   const stepBackward = useCallback(() => {
-    const parent = activeParentMap.get(activeSelectedId);
+    const parent = parentMap.get(selectedNodeId);
     if (parent == null) return;
     onSelectNode?.(parent);
-  }, [activeParentMap, activeSelectedId, onSelectNode]);
+  }, [parentMap, selectedNodeId, onSelectNode]);
 
 // Outer left skip:
 // - skipToEnd=true: checkpoint mode (jump across checkpoints)
@@ -274,7 +280,9 @@ const jumpToPrevCheckpoint = useCallback(() => {
     stepBackward,
     jumpToPrevCheckpoint,
     jumpToNextCheckpoint,
-    hasParent: activeParentMap.has(activeSelectedId),
-    hasChildren: (activeChildrenMap.get(activeSelectedId)?.length ?? 0) > 0,
+    hasParent: selectedNodeId != null && parentMap.has(selectedNodeId),
+    hasChildren:
+      selectedNodeId != null &&
+      (childrenMap.get(selectedNodeId)?.length ?? 0) > 0,
   };
 }

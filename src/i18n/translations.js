@@ -1158,6 +1158,10 @@
     DE: "beschleunigen",
     EN: "boost",
   },
+  logBoostHarvestAction: {
+    DE: "beschleunigen & einsammeln",
+    EN: "boost & harvest",
+  },
   logGoodsLabel: {
     DE: "Güter",
     EN: "Goods",

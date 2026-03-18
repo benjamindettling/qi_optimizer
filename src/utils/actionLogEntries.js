@@ -142,7 +142,8 @@ function getChainDescriptor(action, meta, libraryMap, shortIdMap, lang, t) {
       lang,
     );
     return {
-      chainKind: "build",
+      chainKind: "buildSell",
+      actionKind: "build",
       bucketKey: buildingName,
       color: "green",
       textForCount: (count) => `+${count} ${buildingName}`,
@@ -157,7 +158,8 @@ function getChainDescriptor(action, meta, libraryMap, shortIdMap, lang, t) {
       lang,
     );
     return {
-      chainKind: "sell",
+      chainKind: "buildSell",
+      actionKind: "sell",
       bucketKey: buildingName,
       color: "red",
       textForCount: (count) => `-${count} ${buildingName}`,
@@ -175,7 +177,8 @@ function getChainDescriptor(action, meta, libraryMap, shortIdMap, lang, t) {
       ? ` ${formatAmountLabel(meta.value, meta.unitLabel)}`
       : "";
     return {
-      chainKind: type,
+      chainKind: "boostHarvest",
+      actionKind: "boost",
       bucketKey: buildingName,
       color: "yellow",
       addCost: true,
@@ -216,7 +219,8 @@ function getChainDescriptor(action, meta, libraryMap, shortIdMap, lang, t) {
       lang,
     );
     return {
-      chainKind: "harvest",
+      chainKind: "boostHarvest",
+      actionKind: "harvest",
       bucketKey: buildingName,
       color: "harvest",
       textForCount: (count) => `${count}x ${t("logHarvestAction")} ${buildingName}`,
@@ -312,6 +316,205 @@ function formatAction(action, meta, libraryMap, shortIdMap, lang, t) {
   }
 
   return null;
+}
+
+function createPendingChain(kind) {
+  if (kind === "buildSell") {
+    return {
+      kind,
+      buckets: new Map(),
+      sellOrder: [],
+      buildOrder: [],
+    };
+  }
+  if (kind === "boostHarvest") {
+    return {
+      kind,
+      events: [],
+    };
+  }
+  return {
+    kind,
+    order: [],
+    buckets: new Map(),
+  };
+}
+
+function appendCost(existing, costMeta) {
+  if (!costMeta?.unitLabel) return existing ?? null;
+  if (!existing?.unitLabel) {
+    return { value: costMeta.value ?? 0, unitLabel: costMeta.unitLabel };
+  }
+  return {
+    value: (existing.value ?? 0) + (costMeta.value ?? 0),
+    unitLabel: existing.unitLabel,
+  };
+}
+
+function flushGenericChain(chain, targetEntries) {
+  for (const key of chain.order) {
+    const bucket = chain.buckets.get(key);
+    if (!bucket) continue;
+    targetEntries.push({
+      text: bucket.textForCount(bucket.count, bucket.totalCost),
+      color: bucket.color,
+      nodeId: bucket.lastNodeId,
+      isHighlighted: bucket.includesSelected,
+    });
+  }
+}
+
+function flushBuildSellChain(chain, targetEntries) {
+  const orderedBucketIds = [...chain.sellOrder, ...chain.buildOrder];
+  for (const bucketId of orderedBucketIds) {
+    const bucket = chain.buckets.get(bucketId);
+    if (!bucket) continue;
+    targetEntries.push({
+      text: bucket.textForCount(bucket.count),
+      color: bucket.color,
+      nodeId: bucket.lastNodeId,
+      isHighlighted: bucket.includesSelected,
+    });
+  }
+}
+
+function upsertLogBucket(map, bucketKey, createBucket) {
+  const existing = map.get(bucketKey);
+  if (existing) return existing;
+  const created = createBucket();
+  map.set(bucketKey, created);
+  return created;
+}
+
+function flushBoostHarvestChain(chain, targetEntries, t) {
+  const boostQueueByBuilding = new Map();
+  const boostOnlyByBuilding = new Map();
+  const harvestOnlyByBuilding = new Map();
+  const comboByBuilding = new Map();
+
+  chain.events.forEach((event, index) => {
+    if (event.actionKind === "boost") {
+      if (!boostQueueByBuilding.has(event.buildingName)) {
+        boostQueueByBuilding.set(event.buildingName, []);
+      }
+      boostQueueByBuilding.get(event.buildingName).push({ ...event, index });
+      return;
+    }
+
+    if (event.actionKind !== "harvest") return;
+    const queue = boostQueueByBuilding.get(event.buildingName) ?? [];
+    if (queue.length > 0) {
+      const matchedBoost = queue.shift();
+      const combo = upsertLogBucket(
+        comboByBuilding,
+        event.buildingName,
+        () => ({
+          type: "combo",
+          buildingName: event.buildingName,
+          count: 0,
+          totalCost: null,
+          color: "yellow",
+          firstIndex: matchedBoost.index,
+          lastNodeId: event.nodeId,
+          includesSelected: false,
+        }),
+      );
+      combo.count += 1;
+      combo.totalCost = appendCost(combo.totalCost, matchedBoost.costMeta);
+      combo.firstIndex = Math.min(combo.firstIndex, matchedBoost.index);
+      combo.lastNodeId = event.nodeId;
+      combo.includesSelected =
+        combo.includesSelected ||
+        matchedBoost.includesSelected ||
+        event.includesSelected;
+      return;
+    }
+
+    const harvestOnly = upsertLogBucket(
+      harvestOnlyByBuilding,
+      event.buildingName,
+      () => ({
+        type: "harvestOnly",
+        buildingName: event.buildingName,
+        count: 0,
+        color: "harvest",
+        firstIndex: index,
+        lastNodeId: event.nodeId,
+        includesSelected: false,
+      }),
+    );
+    harvestOnly.count += 1;
+    harvestOnly.firstIndex = Math.min(harvestOnly.firstIndex, index);
+    harvestOnly.lastNodeId = event.nodeId;
+    harvestOnly.includesSelected =
+      harvestOnly.includesSelected || event.includesSelected;
+  });
+
+  for (const [buildingName, queue] of boostQueueByBuilding) {
+    for (const boostEvent of queue) {
+      const boostOnly = upsertLogBucket(
+        boostOnlyByBuilding,
+        buildingName,
+        () => ({
+          type: "boostOnly",
+          buildingName,
+          count: 0,
+          totalCost: null,
+          color: "yellow",
+          firstIndex: boostEvent.index,
+          lastNodeId: boostEvent.nodeId,
+          includesSelected: false,
+        }),
+      );
+      boostOnly.count += 1;
+      boostOnly.totalCost = appendCost(boostOnly.totalCost, boostEvent.costMeta);
+      boostOnly.firstIndex = Math.min(boostOnly.firstIndex, boostEvent.index);
+      boostOnly.lastNodeId = boostEvent.nodeId;
+      boostOnly.includesSelected =
+        boostOnly.includesSelected || boostEvent.includesSelected;
+    }
+  }
+
+  const mergedBuckets = [
+    ...boostOnlyByBuilding.values(),
+    ...comboByBuilding.values(),
+    ...harvestOnlyByBuilding.values(),
+  ].sort((a, b) => a.firstIndex - b.firstIndex);
+
+  for (const bucket of mergedBuckets) {
+    if (bucket.type === "boostOnly") {
+      const amountSuffix = bucket.totalCost?.unitLabel
+        ? ` ${formatAmountLabel(bucket.totalCost.value, bucket.totalCost.unitLabel)}`
+        : "";
+      targetEntries.push({
+        text: `${bucket.count}x ${t("logBoostAction")} ${bucket.buildingName}${amountSuffix}`,
+        color: bucket.color,
+        nodeId: bucket.lastNodeId,
+        isHighlighted: bucket.includesSelected,
+      });
+      continue;
+    }
+
+    if (bucket.type === "combo") {
+      const amountSuffix = bucket.totalCost?.unitLabel
+        ? ` ${formatAmountLabel(bucket.totalCost.value, bucket.totalCost.unitLabel)}`
+        : "";
+      targetEntries.push({
+        text: `${bucket.count}x ${t("logBoostHarvestAction")} ${bucket.buildingName}${amountSuffix}`,
+        color: bucket.color,
+        nodeId: bucket.lastNodeId,
+        isHighlighted: bucket.includesSelected,
+      });
+      continue;
+    }
+
+    targetEntries.push({
+      text: `${bucket.count}x ${t("logHarvestAction")} ${bucket.buildingName}`,
+      color: bucket.color,
+      nodeId: bucket.lastNodeId,
+      isHighlighted: bucket.includesSelected,
+    });
+  }
 }
 
 export function buildActionLogEntries({
@@ -413,15 +616,12 @@ export function buildActionLogEntries({
 
   const flushPendingChain = () => {
     if (!pendingChain) return;
-    for (const key of pendingChain.order) {
-      const bucket = pendingChain.buckets.get(key);
-      if (!bucket) continue;
-      logEntries.push({
-        text: bucket.textForCount(bucket.count, bucket.totalCost),
-        color: bucket.color,
-        nodeId: bucket.lastNodeId,
-        isHighlighted: bucket.includesSelected,
-      });
+    if (pendingChain.kind === "buildSell") {
+      flushBuildSellChain(pendingChain, logEntries);
+    } else if (pendingChain.kind === "boostHarvest") {
+      flushBoostHarvestChain(pendingChain, logEntries, t);
+    } else {
+      flushGenericChain(pendingChain, logEntries);
     }
     pendingChain = null;
   };
@@ -442,14 +642,28 @@ export function buildActionLogEntries({
     if (descriptor) {
       if (!pendingChain || pendingChain.kind !== descriptor.chainKind) {
         flushPendingChain();
-        pendingChain = {
-          kind: descriptor.chainKind,
-          order: [],
-          buckets: new Map(),
-        };
+        pendingChain = createPendingChain(descriptor.chainKind);
       }
 
-      const existing = pendingChain.buckets.get(descriptor.bucketKey);
+      if (pendingChain.kind === "boostHarvest") {
+        pendingChain.events.push({
+          actionKind: descriptor.actionKind,
+          buildingName: descriptor.bucketKey,
+          costMeta:
+            descriptor.addCost && meta?.unitLabel
+              ? { value: meta.value ?? 0, unitLabel: meta.unitLabel }
+              : null,
+          nodeId,
+          includesSelected: nodeId === selectedNodeId,
+        });
+        continue;
+      }
+
+      const bucketId =
+        pendingChain.kind === "buildSell"
+          ? `${descriptor.actionKind}:${descriptor.bucketKey}`
+          : descriptor.bucketKey;
+      const existing = pendingChain.buckets.get(bucketId);
       if (existing) {
         existing.count += 1;
         existing.lastNodeId = nodeId;
@@ -461,8 +675,16 @@ export function buildActionLogEntries({
           };
         }
       } else {
-        pendingChain.order.push(descriptor.bucketKey);
-        pendingChain.buckets.set(descriptor.bucketKey, {
+        if (pendingChain.kind === "buildSell") {
+          if (descriptor.actionKind === "sell") {
+            pendingChain.sellOrder.push(bucketId);
+          } else {
+            pendingChain.buildOrder.push(bucketId);
+          }
+        } else {
+          pendingChain.order.push(bucketId);
+        }
+        pendingChain.buckets.set(bucketId, {
           count: 1,
           color: descriptor.color,
           textForCount: descriptor.textForCount,

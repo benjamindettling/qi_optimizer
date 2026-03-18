@@ -1233,14 +1233,12 @@ export function Board({
         pointerDownCellRef.current = null;
         setHoverCell({ x: anchorX, y: anchorY });
 
-        if (!canDrawPlaceAt(anchorX, anchorY)) {
-          pointerStateRef.current.handledMouseBuildOnDown = false;
-          resetDrawPlacement();
-          return;
-        }
-
         const result = handleCellClick(anchorX, anchorY);
-        if (result?.ok) {
+        if (
+          result?.ok &&
+          result?.kind === "build" &&
+          canDrawPlaceAt(anchorX, anchorY)
+        ) {
           drawPlacementRef.current = {
             active: true,
             pointerId: event.pointerId,
