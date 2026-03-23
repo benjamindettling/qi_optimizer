@@ -14,6 +14,7 @@ import { useCheckpointTools } from "./useCheckpointTools";
 import { useProductionHandlers } from "./useProductionHandlers";
 import { useSmartHarvest } from "./useSmartHarvest";
 import { useSmartInvest } from "./useSmartInvest";
+import { useSupplyOptimizer } from "./useSupplyOptimizer";
 import { usePlacementHandlers } from "./usePlacementHandlers";
 import { useViewHandlers } from "./useViewHandlers";
 import { useNotesHandlers } from "./useNotesHandlers";
@@ -332,6 +333,14 @@ export const useGameController = () => {
     requestAutoSnapshot: snapshotApi.requestAutoSnapshot,
   });
 
+  const supplyOptimizerApi = useSupplyOptimizer({
+    layout: state.layout,
+    resources: state.resources,
+    libraryMap: state.libraryMap,
+    isCellUnlockedFn: isCellUnlocked,
+    nextIdRef: state.nextIdRef,
+  });
+
   const placementApi = usePlacementHandlers({
     layout: state.layout,
     carried: state.carried,
@@ -451,6 +460,7 @@ export const useGameController = () => {
     productionApi,
     smartHarvestApi,
     smartInvestApi,
+    supplyOptimizerApi,
     notesApi,
     economyApi,
     adminEditors,

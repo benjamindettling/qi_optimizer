@@ -565,6 +565,9 @@ export function AppRoot() {
         case "smartInvestModal":
           controller.closeSmartInvestModal?.();
           return true;
+        case "supplyOptimizerModal":
+          controller.closeSupplyOptimizer?.();
+          return true;
         case "goodsModal":
           controller.setGoodsModal(null);
           return true;
@@ -622,6 +625,7 @@ export function AppRoot() {
       "fastBuyModal",
       "unlockGoodSelect",
       "unlockChoice",
+      "supplyOptimizerModal",
       "loadSavesModal",
       "helpModal",
       "settingsModal",
@@ -639,6 +643,7 @@ export function AppRoot() {
         fastBuyModal: !!controller.fastBuyModal,
         unlockGoodSelect: !!controller.unlockGoodSelect,
         unlockChoice: !!controller.unlockChoice,
+        supplyOptimizerModal: !!controller.supplyOptimizerModalOpen,
         loadSavesModal: !!controller.loadSavesModal,
         helpModal: !!controller.helpModal,
         settingsModal: !!settingsModalOpen,
@@ -664,6 +669,7 @@ export function AppRoot() {
     controller.fastBuyModal,
     controller.helpModal,
     controller.loadSavesModal,
+    controller.supplyOptimizerModalOpen,
     controller.unlockChoice,
     controller.unlockGoodSelect,
     controller.worstModal,
@@ -683,6 +689,7 @@ export function AppRoot() {
       harvestModal: !!controller.harvestModal,
       smartHarvestModal: !!controller.smartHarvestModal,
       smartInvestModal: !!controller.smartInvestModal,
+      supplyOptimizerModal: !!controller.supplyOptimizerModalOpen,
       goodsModal: !!controller.goodsModal,
       unitModal: !!controller.unitModal,
       fastBuyModal: !!controller.fastBuyModal,
@@ -866,6 +873,7 @@ export function AppRoot() {
     controller.setGoodsModal?.(null);
     controller.setUnitModal?.(null);
     controller.setSelectedBuildingId?.(null);
+    controller.closeSupplyOptimizer?.();
   }, [completionCount, controller]);
 
   // Check if we're in placement mode (a building is selected for placement)
@@ -1106,6 +1114,8 @@ export function AppRoot() {
     onToggleHighlightMode: toggleHighlightMode,
     onPrintBoard: handlePrint,
     onFindWorst: controller.openWorstModal,
+    onOpenSupplyOptimizer: controller.openSupplyOptimizer,
+    supplyOptimizerRunning: controller.supplyOptimizerRunning,
     timeStep: controller.timeStep,
     canTimeBack: controller.canTimeBack,
     canTimeForward: controller.canTimeForward,

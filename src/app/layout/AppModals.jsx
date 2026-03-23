@@ -6,6 +6,7 @@ import { FastBuyModal } from "../../components/modals/FastBuyModal";
 import { HarvestModal } from "../../components/modals/HarvestModal";
 import { SmartHarvestModal } from "../../components/modals/SmartHarvestModal";
 import { SmartInvestModal } from "../../components/modals/SmartInvestModal";
+import { SupplyOptimizerModal } from "../../components/modals/SupplyOptimizerModal";
 import { HelpModal } from "../../components/modals/HelpModal";
 import { SettingsModal } from "../../components/modals/SettingsModal";
 import { EditGoodModal } from "../../components/modals/EditGoodModal";
@@ -67,6 +68,12 @@ export function AppModals({
     applySmartInvestResult,
     continueSmartInvest,
     closeSmartInvestModal,
+    supplyOptimizerModalOpen,
+    supplyOptimizerState,
+    stepSupplyOptimizerOnce,
+    stepSupplyOptimizerFew,
+    finishSupplyOptimizer,
+    closeSupplyOptimizer,
     goodsModal,
     setGoodsModal,
     handleGoodsPurchase,
@@ -185,6 +192,14 @@ export function AppModals({
         onClose={closeSmartInvestModal}
         onApplyResult={applySmartInvestResult}
         onContinue={continueSmartInvest}
+      />
+      <SupplyOptimizerModal
+        open={!!supplyOptimizerModalOpen}
+        onClose={closeSupplyOptimizer}
+        optimizerState={supplyOptimizerState}
+        onStepOnce={stepSupplyOptimizerOnce}
+        onStepFew={stepSupplyOptimizerFew}
+        onFinish={finishSupplyOptimizer}
       />
 
       <GoodsPurchaseModal

@@ -397,6 +397,11 @@ export function AppLayout({
     toolbarProps.onFindWorst?.();
   }, [clearExclusiveModes, toolbarProps]);
 
+  const wrappedOpenSupplyOptimizer = useCallback(() => {
+    clearExclusiveModes();
+    toolbarProps.onOpenSupplyOptimizer?.();
+  }, [clearExclusiveModes, toolbarProps]);
+
   const wrappedBoardRegionClick = useCallback(
     (...args) => {
       clearExclusiveModes();
@@ -833,6 +838,8 @@ export function AppLayout({
             onPrintBoard={wrappedPrintBoard}
             onExportPdf={wrappedExportPdf}
             onFindWorst={wrappedFindWorst}
+            onOpenSupplyOptimizer={wrappedOpenSupplyOptimizer}
+            supplyOptimizerRunning={toolbarProps.supplyOptimizerRunning}
             isPast={toolbarProps.isPast}
           />
         </div>

@@ -2,7 +2,9 @@
 import { useEffect, useState } from "react";
 import { ActionLog } from "./ActionLog";
 import { ACTION_COLORS } from "../../config/colors";
+import { useLang } from "../../context/LanguageContext";
 import { useTutorialGate } from "../../hooks/useTutorialGate";
+import { T } from "../../i18n/translations";
 import "./LogAndTools.css";
 
 const EXTRA_TOOLS_STORAGE_KEY = "qi_extraToolsCollapsed";
@@ -21,10 +23,14 @@ export function LogAndTools({
   onPrintBoard,
   onExportPdf,
   onFindWorst,
+  onOpenSupplyOptimizer,
+  supplyOptimizerRunning = false,
   // Past mode (reserved for future use)
   // eslint-disable-next-line no-unused-vars
   isPast = false,
 }) {
+  const { lang } = useLang();
+  const t = (key) => T[key]?.[lang] ?? T[key]?.DE ?? key;
   const notesLocked = useTutorialGate("notes");
   const [extraToolsCollapsed, setExtraToolsCollapsed] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -116,6 +122,14 @@ export function LogAndTools({
               data-help-id="notes-tool-pdf"
             >
               File -&gt; PDF
+            </button>
+            <button
+              className={`nc-btn ${supplyOptimizerRunning ? "active-mode" : ""}`}
+              onClick={onOpenSupplyOptimizer}
+              title={t("supplyOptimizerButtonTitle")}
+              data-help-id="notes-tool-supply-optimizer"
+            >
+              {t("supplyOptimizerButtonLabel")}
             </button>
             <button
               className="nc-btn"

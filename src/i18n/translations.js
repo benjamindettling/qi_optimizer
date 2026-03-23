@@ -1230,6 +1230,27 @@
   // === NOTES SECTION ===
   notesLabel: { DE: "Notizen", EN: "Notes" },
   notesPlaceholder: { DE: "Füge Notizen hinzu", EN: "Add notes" },
+  supplyOptimizerButtonLabel: { DE: "Supply Optimizer", EN: "Supply Optimizer" },
+  supplyOptimizerButtonTitle: {
+    DE: "Optimiert Gebaeudeplatzierung fuer maximale Supplies",
+    EN: "Optimizes building placement for maximum supplies",
+  },
+  supplyOptimizerModalTitle: { DE: "Supply Optimizer", EN: "Supply Optimizer" },
+  supplyOptimizerOneStep: { DE: "One Step", EN: "One Step" },
+  supplyOptimizerFewSteps: { DE: "Few Steps", EN: "Few Steps" },
+  supplyOptimizerFinish: { DE: "Finish", EN: "Finish" },
+  supplyOptimizerEvalCount: {
+    DE: "Evaluations this run: {count}",
+    EN: "Evaluations this run: {count}",
+  },
+  supplyOptimizerCurrentSetup: { DE: "Current Setup", EN: "Current Setup" },
+  supplyOptimizerBestSetup: { DE: "Best Setup", EN: "Best Setup" },
+  supplyOptimizerScoreLabel: { DE: "Supply_Harvest", EN: "Supply_Harvest" },
+  supplyOptimizerNoBuildings: { DE: "Keine Gebaeude", EN: "No buildings" },
+  supplyOptimizerNoResult: { DE: "Kein Ergebnis", EN: "No result" },
+  supplyOptimizerRunning: { DE: "Running...", EN: "Running..." },
+  supplyOptimizerSearchComplete: { DE: "Search complete.", EN: "Search complete." },
+  supplyOptimizerClose: { DE: "Schliessen", EN: "Close" },
 
   // === BOARD – EXPANSION COST NOTICE ===
   expansionCostLabel: {
