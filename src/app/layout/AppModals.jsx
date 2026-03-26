@@ -6,7 +6,7 @@ import { FastBuyModal } from "../../components/modals/FastBuyModal";
 import { HarvestModal } from "../../components/modals/HarvestModal";
 import { SmartHarvestModal } from "../../components/modals/SmartHarvestModal";
 import { SmartInvestModal } from "../../components/modals/SmartInvestModal";
-import { SupplyOptimizerModal } from "../../components/modals/SupplyOptimizerModal";
+import { OptimizerModal } from "../../components/modals/OptimizerModal";
 import { HelpModal } from "../../components/modals/HelpModal";
 import { SettingsModal } from "../../components/modals/SettingsModal";
 import { EditGoodModal } from "../../components/modals/EditGoodModal";
@@ -68,12 +68,17 @@ export function AppModals({
     applySmartInvestResult,
     continueSmartInvest,
     closeSmartInvestModal,
-    supplyOptimizerModalOpen,
+    optimizerModalOpen,
     supplyOptimizerState,
+    moneyOptimizerState,
     stepSupplyOptimizerOnce,
     stepSupplyOptimizerFew,
     finishSupplyOptimizer,
-    closeSupplyOptimizer,
+    stepMoneyOptimizerOnce,
+    stepMoneyOptimizerFew,
+    finishMoneyOptimizer,
+    closeOptimizer,
+    resetOptimizer,
     goodsModal,
     setGoodsModal,
     handleGoodsPurchase,
@@ -137,6 +142,17 @@ export function AppModals({
     }
   };
 
+  const supplyDone = supplyOptimizerState?.phase === "done";
+  const supplyBestSetupForModal = supplyOptimizerState?.bestSetup || null;
+  const activeStepOnce = supplyDone
+    ? stepMoneyOptimizerOnce
+    : stepSupplyOptimizerOnce;
+  const activeStepFew = supplyDone ? stepMoneyOptimizerFew : stepSupplyOptimizerFew;
+  const activeFinish = supplyDone ? finishMoneyOptimizer : finishSupplyOptimizer;
+  const finishLabelKey = supplyDone
+    ? "optimizerFinishMoney"
+    : "optimizerFinishSupplies";
+
   return (
     <>
       <UnlockRegionModal
@@ -193,13 +209,17 @@ export function AppModals({
         onApplyResult={applySmartInvestResult}
         onContinue={continueSmartInvest}
       />
-      <SupplyOptimizerModal
-        open={!!supplyOptimizerModalOpen}
-        onClose={closeSupplyOptimizer}
-        optimizerState={supplyOptimizerState}
-        onStepOnce={stepSupplyOptimizerOnce}
-        onStepFew={stepSupplyOptimizerFew}
-        onFinish={finishSupplyOptimizer}
+      <OptimizerModal
+        open={!!optimizerModalOpen}
+        onClose={closeOptimizer}
+        supplyOptimizerState={supplyOptimizerState}
+        frozenSupplyBestSetup={supplyBestSetupForModal}
+        moneyOptimizerState={moneyOptimizerState}
+        onStepOnce={activeStepOnce}
+        onStepFew={activeStepFew}
+        onFinish={activeFinish}
+        finishLabelKey={finishLabelKey}
+        onNew={resetOptimizer}
       />
 
       <GoodsPurchaseModal

@@ -16,6 +16,7 @@ const DEF_IDS = {
   CULTURE_PILLORY: "culture:pranger",
   CULTURE_GALLOW: "culture:galgen",
   CULTURE_CHURCH: "culture:kirche",
+  TOWNHALL: "townhall:rathaus",
 };
 
 const BASE_ALCHEMIST_SUPPLIES = 14400;
@@ -64,6 +65,12 @@ const CONTROLLED_BUILDING_ORDER = [
 
 const CONTROLLED_HOUSING_SET = new Set(HOUSING_PRIORITY);
 const CONTROLLED_CULTURE_SET = new Set(CULTURE_PRIORITY);
+const SUPPLY_CHEAP_SET = new Set([
+  DEF_IDS.HOUSING_MULTI,
+  "housing:gutshaus",
+  DEF_IDS.CULTURE_CHURCH,
+  DEF_IDS.BREWERY,
+]);
 
 const initialOptimizerState = {
   running: false,
@@ -71,6 +78,8 @@ const initialOptimizerState = {
   evalCount: 0,
   currentSetup: null,
   bestSetup: null,
+  finalResources: null,
+  debugEvents: [],
 };
 
 const toNumber = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
@@ -86,6 +95,15 @@ const normalizeCost = (cost) => ({
   supplies: toNumber(cost?.supplies),
   chronos: toNumber(cost?.chronos),
 });
+
+const getSellCost = (cost) => {
+  const normalizedCost = normalizeCost(cost);
+  return {
+    coins: Math.floor(normalizedCost.coins * 0.25),
+    supplies: Math.floor(normalizedCost.supplies * 0.25),
+    chronos: Math.floor(normalizedCost.chronos * 0.25),
+  };
+};
 
 const canAffordCost = (resources, cost) => {
   const normalizedCost = normalizeCost(cost);
@@ -119,7 +137,7 @@ const getLang = () => {
   }
 };
 
-const normalizeInstance = (instance, libraryMap) => {
+export const normalizeOptimizerInstance = (instance, libraryMap) => {
   if (!instance?.defId) return null;
   const def = libraryMap?.[instance.defId];
   const width = toNumber(instance.width) || toNumber(def?.size?.[0]) || toNumber(def?.width);
@@ -160,6 +178,58 @@ const cloneSetupSnapshot = (snapshot) => {
     ...snapshot,
     buildings: (snapshot.buildings || []).map((entry) => ({ ...entry })),
   };
+};
+
+const cloneLayoutSnapshot = (layout) =>
+  (layout || []).map((instance) => ({ ...instance }));
+
+const cloneSupplyResultPayload = (payload) => {
+  if (!payload) return null;
+  return {
+    supplyResultLayout: cloneLayoutSnapshot(payload.supplyResultLayout),
+    supplyResultResources: cloneResources(payload.supplyResultResources),
+    preExistingLayout: cloneLayoutSnapshot(payload.preExistingLayout),
+    originalStartLayout: cloneLayoutSnapshot(payload.originalStartLayout),
+    bestSupplyHarvest: payload.bestSupplyHarvest ?? null,
+    bestHarvestResults: payload.bestHarvestResults
+      ? { ...payload.bestHarvestResults }
+      : null,
+  };
+};
+
+const getCount = (map, defId) => map[defId] || 0;
+
+const adjustCount = (map, defId, delta) => {
+  map[defId] = Math.max(0, getCount(map, defId) + delta);
+};
+
+const getAddCostForDefId = (ctx, defId) => {
+  const def = ctx.defById[defId] || ctx.libraryMap?.[defId];
+  if (!def) return null;
+  if (SUPPLY_CHEAP_SET.has(defId)) {
+    return normalizeCost(def.cost);
+  }
+  const soldCount = getCount(ctx.soldAtStartCountByDefId, defId);
+  const restoredCount = getCount(ctx.restoredActiveCountByDefId, defId);
+  if (restoredCount < soldCount) {
+    return getSellCost(def.cost);
+  }
+  return normalizeCost(def.cost);
+};
+
+const pickRemovalIndexForRequestedEntry = (ctx, requestedIndex) => {
+  if (requestedIndex < 0 || requestedIndex >= ctx.controlledList.length) return -1;
+  const requested = ctx.controlledList[requestedIndex];
+  if (!requested) return -1;
+  if (SUPPLY_CHEAP_SET.has(requested.defId)) return requestedIndex;
+  if (requested.origin !== "restored") return requestedIndex;
+  for (let i = ctx.controlledList.length - 1; i >= 0; i -= 1) {
+    const candidate = ctx.controlledList[i];
+    if (!candidate) continue;
+    if (candidate.defId !== requested.defId) continue;
+    if (candidate.origin === "new") return i;
+  }
+  return requestedIndex;
 };
 
 const getStats = (preExistingLayout, controlledList, libraryMap) => {
@@ -206,35 +276,153 @@ const runFitsCheck = (mask, fullLayout) => {
   return placements !== null;
 };
 
-const computeSupplyHarvest = (stats, currentResources) =>
-  (1.5 + 0.1 * stats.numbAlchemists + 0.2 * stats.numbBreweries) *
-    (BASE_BAKERY_SUPPLIES * stats.numbBakeries +
-      BASE_ALCHEMIST_SUPPLIES * stats.numbAlchemists) +
-  50000 +
-  toNumber(currentResources.supplies);
+const computeSupplyHarvest = (stats) => {
+  const supplyMult = 1.5 + 0.1 * stats.numbAlchemists + 0.2 * stats.numbBreweries;
+  return Math.round(BASE_BAKERY_SUPPLIES * supplyMult) * stats.numbBakeries +
+    Math.round(BASE_ALCHEMIST_SUPPLIES * supplyMult) * stats.numbAlchemists;
+};
+
+/**
+ * Compute the post-harvest resource totals for the supply result layout.
+ * Supply stage applies supply output and chronos from supply-producing buildings.
+ * Coin harvesting is deferred to the money stage.
+ *
+ * Returns counts of FH, CH, MH, EH for use by money optimizer.
+ */
+const computeHarvestResults = (
+  fullLayout,
+  libraryMap,
+  currentResources,
+  supplyHarvest,
+  debugEvents,
+  supplyMult,
+) => {
+  const HAPPINESS_MULT = 1.5;
+  const coins = toNumber(currentResources.coins);
+  let totalChronos = 0;
+  let fhCount = 0;
+  let chCount = 0;
+  let mhCount = 0;
+  let ehCount = 0;
+
+  fullLayout.forEach((instance) => {
+    const def = libraryMap?.[instance.defId];
+    if (!def) return;
+
+    // Track housing counts
+    if (instance.defId === "housing:fachwerkhaus") fhCount += 1;
+    else if (instance.defId === "housing:schindelhaus") chCount += 1;
+    else if (instance.defId === "housing:mehrgeschossiges_haus") mhCount += 1;
+    else if (instance.defId === "housing:gutshaus") ehCount += 1;
+
+    const name = debugEvents ? getBuildingName(def, getLang(), "name") : "";
+    let supBase = 0;
+    let supResult = 0;
+    let chronBase = 0;
+    let chronResult = 0;
+
+    if (instance.defId === DEF_IDS.ALCHEMIST) {
+      supBase = BASE_ALCHEMIST_SUPPLIES;
+      supResult = Math.round(supBase * (supplyMult ?? 0));
+    } else if (instance.defId === DEF_IDS.BAKERY) {
+      supBase = BASE_BAKERY_SUPPLIES;
+      supResult = Math.round(supBase * (supplyMult ?? 0));
+    }
+
+    if (
+      instance.defId === DEF_IDS.ALCHEMIST ||
+      instance.defId === DEF_IDS.BAKERY
+    ) {
+      chronBase = toNumber(def.production?.chronos);
+      if (chronBase > 0) {
+        chronResult = Math.round(chronBase * HAPPINESS_MULT);
+        totalChronos += chronResult;
+      }
+    }
+
+    if (debugEvents && (supBase > 0 || chronBase > 0)) {
+      debugEvents.push({
+        type: "supply_building",
+        name,
+        defId: instance.defId,
+        supplyBase: supBase,
+        supplyMult: supplyMult ?? 0,
+        supplyResult: supResult,
+        chronosBase: chronBase,
+        chronosMult: HAPPINESS_MULT,
+        chronosResult: chronResult,
+      });
+    }
+  });
+
+  const chronos = toNumber(currentResources.chronos) + totalChronos;
+
+  if (debugEvents) {
+    debugEvents.push({
+      type: "supply_harvest_totals",
+      supplyMult: supplyMult ?? 0,
+      supplyHarvest: toNumber(supplyHarvest),
+      totalCoins: 0,
+      totalChronos,
+      chronosMult: HAPPINESS_MULT,
+    });
+  }
+
+  return {
+    coins,
+    supplies: toNumber(supplyHarvest),
+    chronos,
+    chronosHarvest: totalChronos,
+    fhCount,
+    chCount,
+    mhCount,
+    ehCount,
+  };
+};
 
 const addControlledBuilding = (ctx, defId) => {
   const def = ctx.defById[defId];
   if (!def) return false;
-  if (!canAffordCost(ctx.currentResources, def.cost)) return false;
-  spendCost(ctx.currentResources, def.cost);
+  const addCost = getAddCostForDefId(ctx, defId);
+  if (!addCost || !canAffordCost(ctx.currentResources, addCost)) return false;
+  spendCost(ctx.currentResources, addCost);
+  const soldCount = getCount(ctx.soldAtStartCountByDefId, defId);
+  const restoredCount = getCount(ctx.restoredActiveCountByDefId, defId);
+  const origin =
+    !SUPPLY_CHEAP_SET.has(defId) && restoredCount < soldCount ? "restored" : "new";
+  if (origin === "restored") {
+    adjustCount(ctx.restoredActiveCountByDefId, defId, 1);
+  } else {
+    adjustCount(ctx.newActiveCountByDefId, defId, 1);
+  }
   ctx.controlledList.push({
     id: ctx.syntheticNextId++,
     defId,
     width: toNumber(def.size?.[0]) || toNumber(def.width),
     height: toNumber(def.size?.[1]) || toNumber(def.height),
+    origin,
   });
   return true;
 };
 
 const removeControlledAtIndex = (ctx, index) => {
-  if (index < 0 || index >= ctx.controlledList.length) return null;
-  const removed = ctx.controlledList[index];
-  const def = ctx.defById[removed.defId];
+  const effectiveIndex = pickRemovalIndexForRequestedEntry(ctx, index);
+  if (effectiveIndex < 0 || effectiveIndex >= ctx.controlledList.length) return null;
+  const removed = ctx.controlledList[effectiveIndex];
+  const def = ctx.defById[removed.defId] || ctx.libraryMap?.[removed.defId];
   if (def) {
-    refundCost(ctx.currentResources, def.cost);
+    if (SUPPLY_CHEAP_SET.has(removed.defId)) {
+      refundCost(ctx.currentResources, def.cost);
+      adjustCount(ctx.newActiveCountByDefId, removed.defId, -1);
+    } else if (removed.origin === "restored") {
+      refundCost(ctx.currentResources, getSellCost(def.cost));
+      adjustCount(ctx.restoredActiveCountByDefId, removed.defId, -1);
+    } else {
+      refundCost(ctx.currentResources, def.cost);
+      adjustCount(ctx.newActiveCountByDefId, removed.defId, -1);
+    }
   }
-  ctx.controlledList.splice(index, 1);
+  ctx.controlledList.splice(effectiveIndex, 1);
   return removed;
 };
 
@@ -255,6 +443,51 @@ const addHighestAffordableFromList = (ctx, list) => {
     if (addControlledBuilding(ctx, list[i])) return list[i];
   }
   return null;
+};
+
+const hasAnyAffordableFromList = (ctx, resources, defIds) =>
+  defIds.some((defId) => {
+    const addCost = getAddCostForDefId(ctx, defId);
+    return !!addCost && canAffordCost(resources, addCost);
+  });
+
+const canAdvanceAfterAddingBrewery = (ctx) => {
+  const breweryDef = ctx.defById[DEF_IDS.BREWERY];
+  if (!breweryDef || !canAffordCost(ctx.currentResources, breweryDef.cost)) {
+    return false;
+  }
+
+  const nextResources = cloneResources(ctx.currentResources);
+  spendCost(nextResources, breweryDef.cost);
+
+  const previewControlled = ctx.controlledList
+    .filter(
+      (entry) =>
+        !CONTROLLED_HOUSING_SET.has(entry.defId) &&
+        !CONTROLLED_CULTURE_SET.has(entry.defId),
+    )
+    .map((entry) => ({ ...entry }));
+  previewControlled.push({
+    id: -1,
+    defId: DEF_IDS.BREWERY,
+    width: toNumber(breweryDef.size?.[0]) || toNumber(breweryDef.width),
+    height: toNumber(breweryDef.size?.[1]) || toNumber(breweryDef.height),
+  });
+
+  const previewStats = getStats(ctx.currentLayout, previewControlled, ctx.libraryMap);
+  if (
+    previewStats.freePop < 0 &&
+    !hasAnyAffordableFromList(ctx, nextResources, HOUSING_PRIORITY)
+  ) {
+    return false;
+  }
+  if (
+    !previewStats.hasHappiness150 &&
+    !hasAnyAffordableFromList(ctx, nextResources, CULTURE_PRIORITY)
+  ) {
+    return false;
+  }
+  return true;
 };
 
 const removeOneLowestPriorityCultureNotChurch = (ctx) => {
@@ -318,17 +551,44 @@ const addHousingOfPriorityUntilSatisfied = (ctx, targetPriority) => {
 };
 
 const evaluateCurrentSetup = (ctx, stats) => {
-  const supplyHarvest = computeSupplyHarvest(stats, ctx.currentResources);
+  const supplyMult = 1.5 + 0.1 * stats.numbAlchemists + 0.2 * stats.numbBreweries;
+  const supplyHarvestNet = computeSupplyHarvest(stats);
   ctx.currentSetup = buildSetupSnapshot(
     ctx.controlledList,
     ctx.libraryMap,
-    supplyHarvest,
+    supplyHarvestNet,
   );
 
-  if (ctx.bestSetup === null || supplyHarvest > ctx.bestSupplyHarvest) {
-    ctx.bestSupplyHarvest = supplyHarvest;
+  const isBestEval = ctx.bestSetup === null || supplyHarvestNet > ctx.bestSupplyHarvest;
+  ctx.debugEvents.push({
+    type: "evaluation",
+    supplyHarvest: supplyHarvestNet,
+    isBest: isBestEval,
+    alchemists: stats.numbAlchemists,
+    breweries: stats.numbBreweries,
+    resources: cloneResources(ctx.currentResources),
+  });
+
+  if (isBestEval) {
+    ctx.bestSupplyHarvest = supplyHarvestNet;
     ctx.bestSetup = cloneSetupSnapshot(ctx.currentSetup);
+    ctx.bestControlledList = ctx.controlledList.map((entry) => ({ ...entry }));
+    ctx.bestResources = cloneResources(ctx.currentResources);
     ctx.bestAlchemists = stats.numbAlchemists;
+
+    const supplyHarvestAbsolute = supplyHarvestNet + toNumber(ctx.currentResources.supplies);
+    ctx.bestHarvestResults = computeHarvestResults(
+      stats.fullLayout,
+      ctx.libraryMap,
+      ctx.currentResources,
+      supplyHarvestAbsolute,
+      ctx.debugEvents,
+      supplyMult,
+    );
+
+    // Store chronosHarvest in bestSetup for display
+    ctx.bestSetup.chronosHarvest = ctx.bestHarvestResults.chronosHarvest;
+
     return;
   }
 
@@ -362,6 +622,11 @@ const runSingleDecisionStep = (ctx) => {
     const evaluationAlchemists = stats.numbAlchemists;
 
     if (ctx.done) {
+      return { evaluated: true, evaluationAlchemists };
+    }
+
+    if (!canAdvanceAfterAddingBrewery(ctx)) {
+      terminate(ctx);
       return { evaluated: true, evaluationAlchemists };
     }
 
@@ -457,7 +722,7 @@ const makeRunContext = ({ layout, resources, libraryMap, isCellUnlockedFn, nextI
   }, {});
 
   const currentLayout = (layout || [])
-    .map((instance) => normalizeInstance(instance, libraryMap))
+    .map((instance) => normalizeOptimizerInstance(instance, libraryMap))
     .filter(Boolean);
 
   const maxExistingId = currentLayout.reduce(
@@ -477,11 +742,20 @@ const makeRunContext = ({ layout, resources, libraryMap, isCellUnlockedFn, nextI
     controlledList: [],
     currentSetup: null,
     bestSetup: null,
+    bestControlledList: [],
+    bestResources: null,
     bestSupplyHarvest: Number.NEGATIVE_INFINITY,
+    bestHarvestResults: null,
     bestAlchemists: 0,
     done: false,
+    finalResources: null,
     mask: buildTilingMask(BOARD_WIDTH, BOARD_HEIGHT, isCellUnlockedFn),
     syntheticNextId,
+    originalStartLayout: currentLayout.map((instance) => ({ ...instance })),
+    soldAtStartCountByDefId: {},
+    restoredActiveCountByDefId: {},
+    newActiveCountByDefId: {},
+    debugEvents: [],
   };
 
   const hasRequiredDefs = requiredDefIds.every((defId) => !!ctx.defById[defId]);
@@ -489,6 +763,22 @@ const makeRunContext = ({ layout, resources, libraryMap, isCellUnlockedFn, nextI
     ctx.done = true;
     return ctx;
   }
+
+  const fixedLayout = [];
+  ctx.currentLayout.forEach((instance) => {
+    if (instance.defId === DEF_IDS.TOWNHALL) {
+      fixedLayout.push(instance);
+      return;
+    }
+    const def = ctx.libraryMap?.[instance.defId];
+    if (!def) {
+      fixedLayout.push(instance);
+      return;
+    }
+    adjustCount(ctx.soldAtStartCountByDefId, instance.defId, 1);
+    refundCost(ctx.currentResources, getSellCost(def.cost));
+  });
+  ctx.currentLayout = fixedLayout;
 
   while (addControlledBuilding(ctx, DEF_IDS.ALCHEMIST)) {
     // Add as many alchemists as possible.
@@ -508,6 +798,7 @@ export const useSupplyOptimizer = ({
   libraryMap,
   isCellUnlockedFn,
   nextIdRef,
+  onSupplyComplete,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [optimizerState, setOptimizerState] = useState(initialOptimizerState);
@@ -562,6 +853,10 @@ export const useSupplyOptimizer = ({
       evalCount: evalCountRef.current,
       currentSetup: cloneSetupSnapshot(context?.currentSetup) || prev.currentSetup,
       bestSetup: cloneSetupSnapshot(context?.bestSetup) || prev.bestSetup,
+      finalResources: context?.finalResources
+        ? cloneResources(context.finalResources)
+        : prev.finalResources,
+      debugEvents: context?.debugEvents ? [...context.debugEvents] : [],
     }));
   }, []);
 
@@ -581,6 +876,7 @@ export const useSupplyOptimizer = ({
               ).numbAlchemists
           : null;
 
+      context.debugEvents = [];
       evalCountRef.current = 0;
       runningRef.current = true;
 
@@ -591,18 +887,25 @@ export const useSupplyOptimizer = ({
         evalCount: 0,
         currentSetup: createdNew ? null : prev.currentSetup,
         bestSetup: createdNew ? null : prev.bestSetup,
+        finalResources: createdNew ? null : prev.finalResources,
       }));
 
       if (liveCounterTimerRef.current) {
         clearInterval(liveCounterTimerRef.current);
       }
       liveCounterTimerRef.current = setInterval(() => {
+        const liveContext = contextRef.current;
         setOptimizerState((prev) =>
           prev.phase !== "running"
             ? prev
             : {
                 ...prev,
                 evalCount: evalCountRef.current,
+                currentSetup:
+                  cloneSetupSnapshot(liveContext?.currentSetup) ||
+                  prev.currentSetup,
+                bestSetup:
+                  cloneSetupSnapshot(liveContext?.bestSetup) || prev.bestSetup,
               },
         );
       }, 200);
@@ -630,7 +933,43 @@ export const useSupplyOptimizer = ({
         }
 
         if (context.done) {
+          const bestControlledList =
+            context.bestControlledList?.length > 0
+              ? context.bestControlledList
+              : context.controlledList;
+          const supplyResultLayout = [...context.currentLayout, ...bestControlledList]
+            .map((instance) =>
+              normalizeOptimizerInstance(instance, context.libraryMap),
+            )
+            .filter(Boolean)
+            .map((instance) => ({ ...instance }));
+          const preExistingLayout = context.currentLayout
+            .map((instance) =>
+              normalizeOptimizerInstance(instance, context.libraryMap),
+            )
+            .filter(Boolean)
+            .map((instance) => ({ ...instance }));
+          const supplyResultResources = cloneResources(
+            context.bestResources || context.currentResources,
+          );
+          const supplyResultPayload = {
+            supplyResultLayout,
+            supplyResultResources,
+            preExistingLayout,
+            originalStartLayout: context.originalStartLayout,
+            bestSupplyHarvest: context.bestSupplyHarvest,
+            bestHarvestResults: context.bestHarvestResults
+              ? { ...context.bestHarvestResults }
+              : null,
+          };
+          context.finalResources = context.bestHarvestResults
+            ? { ...context.bestHarvestResults }
+            : cloneResources(supplyResultResources);
           applyPauseOrDoneState("done");
+          onSupplyComplete?.(
+            cloneSupplyResultPayload(supplyResultPayload),
+            mode,
+          );
         } else {
           applyPauseOrDoneState("paused");
         }
@@ -642,7 +981,7 @@ export const useSupplyOptimizer = ({
         }
       }
     },
-    [applyPauseOrDoneState, ensureContext],
+    [applyPauseOrDoneState, ensureContext, onSupplyComplete],
   );
 
   const openSupplyOptimizer = useCallback(() => {
@@ -656,6 +995,16 @@ export const useSupplyOptimizer = ({
   const stepOnce = useCallback(() => runMode("once"), [runMode]);
   const stepFew = useCallback(() => runMode("few"), [runMode]);
   const finish = useCallback(() => runMode("finish"), [runMode]);
+  const reset = useCallback(() => {
+    contextRef.current = null;
+    evalCountRef.current = 0;
+    runningRef.current = false;
+    if (liveCounterTimerRef.current) {
+      clearInterval(liveCounterTimerRef.current);
+      liveCounterTimerRef.current = null;
+    }
+    setOptimizerState(initialOptimizerState);
+  }, []);
 
   return {
     modalOpen,
@@ -665,5 +1014,6 @@ export const useSupplyOptimizer = ({
     stepOnce,
     stepFew,
     finish,
+    reset,
   };
 };

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { useGameState } from "./useGameState";
 import { useResourceControls } from "./useResourceControls";
 import { useSnapshotManager } from "./useSnapshotManager";
@@ -14,6 +14,7 @@ import { useCheckpointTools } from "./useCheckpointTools";
 import { useProductionHandlers } from "./useProductionHandlers";
 import { useSmartHarvest } from "./useSmartHarvest";
 import { useSmartInvest } from "./useSmartInvest";
+import { useMoneyOptimizer } from "./useMoneyOptimizer";
 import { useSupplyOptimizer } from "./useSupplyOptimizer";
 import { usePlacementHandlers } from "./usePlacementHandlers";
 import { useViewHandlers } from "./useViewHandlers";
@@ -22,6 +23,31 @@ import { useSaveTransfer } from "./useSaveTransfer";
 import { useMoveEscape } from "./useMoveEscape";
 import { useActionHistory } from "./useActionHistory";
 import { buildControllerReturn } from "./controllerReturn";
+
+const toNumber = (value) => (Number.isFinite(Number(value)) ? Number(value) : 0);
+
+const cloneOptimizerResources = (resources) => ({
+  coins: toNumber(resources?.coins),
+  supplies: toNumber(resources?.supplies),
+  chronos: toNumber(resources?.chronos),
+});
+
+const cloneOptimizerLayout = (layout) =>
+  (layout || []).map((instance) => ({ ...instance }));
+
+const cloneSupplyOptimizerResult = (payload) => {
+  if (!payload?.supplyResultResources) return null;
+  return {
+    supplyResultLayout: cloneOptimizerLayout(payload.supplyResultLayout),
+    supplyResultResources: cloneOptimizerResources(payload.supplyResultResources),
+    preExistingLayout: cloneOptimizerLayout(payload.preExistingLayout),
+    originalStartLayout: cloneOptimizerLayout(payload.originalStartLayout),
+    bestSupplyHarvest: payload.bestSupplyHarvest ?? null,
+    bestHarvestResults: payload.bestHarvestResults
+      ? { ...payload.bestHarvestResults }
+      : null,
+  };
+};
 
 // Primary controller that exposes all state and actions for the app.
 export const useGameController = () => {
@@ -34,6 +60,7 @@ export const useGameController = () => {
   // Ref for loadHistoryTree - will be set after historyApi is created
   const loadHistoryTreeRef = useRef(null);
   const historyTreeRef = useRef(null);
+  const [optimizerSupplyResult, setOptimizerSupplyResult] = useState(null);
 
   const resourceApi = useResourceControls({
     resources: state.resources,
@@ -333,13 +360,72 @@ export const useGameController = () => {
     requestAutoSnapshot: snapshotApi.requestAutoSnapshot,
   });
 
+  const moneyOptimizerApi = useMoneyOptimizer({
+    supplyResultLayout: null,
+    supplyResultResources: null,
+    preExistingLayout: state.layout,
+    libraryMap: state.libraryMap,
+    isCellUnlockedFn: isCellUnlocked,
+    nextIdRef: state.nextIdRef,
+  });
+
+  const handleSupplyOptimizerComplete = useCallback((payload) => {
+    setOptimizerSupplyResult(cloneSupplyOptimizerResult(payload));
+  }, []);
+
   const supplyOptimizerApi = useSupplyOptimizer({
     layout: state.layout,
     resources: state.resources,
     libraryMap: state.libraryMap,
     isCellUnlockedFn: isCellUnlocked,
     nextIdRef: state.nextIdRef,
+    onSupplyComplete: handleSupplyOptimizerComplete,
   });
+
+  const runMoneyOptimizer = useCallback(
+    (mode) => {
+      const mappedMode =
+        mode === "once" || mode === "few" || mode === "finish" ? mode : "finish";
+      const phase = moneyOptimizerApi.optimizerState?.phase ?? "idle";
+      if (phase === "running" || phase === "done") return;
+
+      if (phase === "idle") {
+        const frozenSupplyResult = cloneSupplyOptimizerResult(optimizerSupplyResult);
+        if (!frozenSupplyResult?.supplyResultResources) return;
+        moneyOptimizerApi.startFromSupplyResult(frozenSupplyResult, mappedMode);
+        return;
+      }
+
+      if (mappedMode === "once") {
+        moneyOptimizerApi.stepOnce();
+      } else if (mappedMode === "few") {
+        moneyOptimizerApi.stepFew();
+      } else {
+        moneyOptimizerApi.finish();
+      }
+    },
+    [moneyOptimizerApi, optimizerSupplyResult],
+  );
+
+  const stepMoneyOptimizerOnce = useCallback(() => {
+    runMoneyOptimizer("once");
+  }, [runMoneyOptimizer]);
+
+  const stepMoneyOptimizerFew = useCallback(() => {
+    runMoneyOptimizer("few");
+  }, [runMoneyOptimizer]);
+
+  const finishMoneyOptimizer = useCallback(() => {
+    runMoneyOptimizer("finish");
+  }, [runMoneyOptimizer]);
+
+  const [resetOptimizerToken, setResetOptimizerToken] = useState(0);
+  const resetOptimizer = useCallback(() => {
+    supplyOptimizerApi.reset();
+    moneyOptimizerApi.reset();
+    setOptimizerSupplyResult(null);
+    setResetOptimizerToken((t) => t + 1);
+  }, [moneyOptimizerApi, supplyOptimizerApi]);
 
   const placementApi = usePlacementHandlers({
     layout: state.layout,
@@ -450,6 +536,13 @@ export const useGameController = () => {
     setActiveSaveConfig: state.setActiveSaveConfig,
   });
 
+  const optimizerMoneyApi = {
+    ...moneyOptimizerApi,
+    stepOnce: stepMoneyOptimizerOnce,
+    stepFew: stepMoneyOptimizerFew,
+    finish: finishMoneyOptimizer,
+  };
+
   return buildControllerReturn({
     state,
     statsApi,
@@ -460,7 +553,10 @@ export const useGameController = () => {
     productionApi,
     smartHarvestApi,
     smartInvestApi,
+    moneyOptimizerApi: optimizerMoneyApi,
     supplyOptimizerApi,
+    resetOptimizer,
+    resetOptimizerToken,
     notesApi,
     economyApi,
     adminEditors,

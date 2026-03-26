@@ -23,8 +23,8 @@ export function LogAndTools({
   onPrintBoard,
   onExportPdf,
   onFindWorst,
-  onOpenSupplyOptimizer,
-  supplyOptimizerRunning = false,
+  onOpenOptimizer,
+  optimizerRunning = false,
   // Past mode (reserved for future use)
   // eslint-disable-next-line no-unused-vars
   isPast = false,
@@ -124,12 +124,12 @@ export function LogAndTools({
               File -&gt; PDF
             </button>
             <button
-              className={`nc-btn ${supplyOptimizerRunning ? "active-mode" : ""}`}
-              onClick={onOpenSupplyOptimizer}
-              title={t("supplyOptimizerButtonTitle")}
+              className={`nc-btn ${optimizerRunning ? "active-mode" : ""}`}
+              onClick={onOpenOptimizer}
+              title={t("optimizerButtonTitle")}
               data-help-id="notes-tool-supply-optimizer"
             >
-              {t("supplyOptimizerButtonLabel")}
+              {t("optimizerButtonLabel")}
             </button>
             <button
               className="nc-btn"

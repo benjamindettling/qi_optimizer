@@ -1230,6 +1230,35 @@
   // === NOTES SECTION ===
   notesLabel: { DE: "Notizen", EN: "Notes" },
   notesPlaceholder: { DE: "Füge Notizen hinzu", EN: "Add notes" },
+  optimizerButtonLabel: { DE: "Optimizer", EN: "Optimizer" },
+  optimizerButtonTitle: {
+    DE: "Optimiert Gebaeude fuer maximale Supplies und Muenzen",
+    EN: "Optimizes buildings for maximum supplies and coins",
+  },
+  optimizerModalTitle: { DE: "Optimizer", EN: "Optimizer" },
+  optimizerNew: { DE: "Neu", EN: "New" },
+  moneyOptimizerTitle: { DE: "Money Optimizer", EN: "Money Optimizer" },
+  moneyOptimizerScoreLabel: { DE: "Money_Harvest", EN: "Money_Harvest" },
+  moneyChronosHarvestLabel: { DE: "Chronos_Harvest", EN: "Chronos_Harvest" },
+  moneyOptimizerStartMH: { DE: "Start MH", EN: "Start MH" },
+  moneyOptimizerStartEH: { DE: "Start EH", EN: "Start EH" },
+  moneyOptimizerChurches: { DE: "Kirchen gekauft", EN: "Churches bought" },
+  moneyOptimizerGeomCount: {
+    DE: "Geom checks: {count}",
+    EN: "Geom checks: {count}",
+  },
+  moneyOptimizerHarvestCount: {
+    DE: "Harvest iterations: {count}",
+    EN: "Harvest iterations: {count}",
+  },
+  optimizerFinalResources: { DE: "Endressourcen", EN: "Final Resources" },
+  optimizerFinalCoins: { DE: "Muenzen", EN: "Coins" },
+  optimizerFinalSupplies: { DE: "Vorraete", EN: "Supplies" },
+  optimizerFinalChronos: { DE: "Chronos", EN: "Chronos" },
+  debugMode: { DE: "Debug", EN: "Debug" },
+  debugSectionSupply: { DE: "Supply Optimizer \u2013 Schritte", EN: "Supply Optimizer \u2013 Steps" },
+  debugSectionMoney: { DE: "Geld Optimizer \u2013 Schritte", EN: "Money Optimizer \u2013 Steps" },
+  debugNoEvents: { DE: "Keine Schritte aufgezeichnet", EN: "No steps recorded" },
   supplyOptimizerButtonLabel: { DE: "Supply Optimizer", EN: "Supply Optimizer" },
   supplyOptimizerButtonTitle: {
     DE: "Optimiert Gebaeudeplatzierung fuer maximale Supplies",
@@ -1239,6 +1268,14 @@
   supplyOptimizerOneStep: { DE: "One Step", EN: "One Step" },
   supplyOptimizerFewSteps: { DE: "Few Steps", EN: "Few Steps" },
   supplyOptimizerFinish: { DE: "Finish", EN: "Finish" },
+  optimizerFinishSupplies: {
+    DE: "Supplies abschliessen",
+    EN: "Finish supplies",
+  },
+  optimizerFinishMoney: {
+    DE: "Muenzen abschliessen",
+    EN: "Finish money",
+  },
   supplyOptimizerEvalCount: {
     DE: "Evaluations this run: {count}",
     EN: "Evaluations this run: {count}",
@@ -1246,6 +1283,7 @@
   supplyOptimizerCurrentSetup: { DE: "Current Setup", EN: "Current Setup" },
   supplyOptimizerBestSetup: { DE: "Best Setup", EN: "Best Setup" },
   supplyOptimizerScoreLabel: { DE: "Supply_Harvest", EN: "Supply_Harvest" },
+  supplyChronosHarvestLabel: { DE: "Chronos_Harvest", EN: "Chronos_Harvest" },
   supplyOptimizerNoBuildings: { DE: "Keine Gebaeude", EN: "No buildings" },
   supplyOptimizerNoResult: { DE: "Kein Ergebnis", EN: "No result" },
   supplyOptimizerRunning: { DE: "Running...", EN: "Running..." },
